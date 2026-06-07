@@ -6,7 +6,7 @@ let db: DuckDBConnection | null = null;
 
 export const marketDb = {
     async Init(): Promise<void> {
-        const dbPath = "./data/trading.duckdb";
+        const dbPath = "./database/market.duckdb";
         
         // Auto-create the directory if it does not exist
         const dir = path.dirname(dbPath);
