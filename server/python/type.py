@@ -6,7 +6,6 @@ from datetime import datetime
 
 @dataclass(slots=True)
 class Tick:
-    symbol: str
     timestamp: datetime
     bid: int
     ask: int
@@ -15,8 +14,6 @@ class Tick:
 
 @dataclass(slots=True)
 class Ohlc:
-    symbol: str
-    timeframe: int
     openTimestamp: datetime
     open: int
     high: int

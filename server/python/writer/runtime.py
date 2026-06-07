@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import duckdb
 
 from type import Ohlc, SymbolData, Tick
 
-from .config import DB_PATH, logMode
+from .config import DATABASE_DIR, MARKET_DB_PATH, MARKET_DATA_DIR, logMode
 from .logger import error, info, set_mode, warning
+from .storage import ohlc_path, symbol_dir, ticks_path
 from .validation import (
     ValidationError,
     ensure_non_empty_rows,
@@ -37,13 +39,19 @@ class DuckDBWriter:
                 info("DuckDB writer already initialized")
                 return
 
-            if not os.path.exists(DB_PATH):
-                warning(f"database file not found: {DB_PATH}")
-                return
-
             try:
-                self._conn = duckdb.connect(DB_PATH)
-                info(f"DuckDB opened: {DB_PATH}")
+                DATABASE_DIR.mkdir(parents=True, exist_ok=True)
+                MARKET_DATA_DIR.mkdir(parents=True, exist_ok=True)
+                self._conn = duckdb.connect(str(MARKET_DB_PATH))
+                self._conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS SymbolData (
+                        symbol TEXT PRIMARY KEY,
+                        point INTEGER NOT NULL
+                    )
+                    """
+                )
+                info(f"DuckDB opened: {MARKET_DB_PATH}")
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._conn = None
                 error(f"init failed: {exc}")
@@ -59,27 +67,17 @@ class DuckDBWriter:
             finally:
                 self._conn = None
 
-    async def reset_tick(self) -> None:
+    async def reset_tick(self, symbol: str) -> None:
         async with self._lock:
             conn = self._require_conn()
             if conn is None:
                 return
             try:
-                conn.execute("DELETE FROM Tick")
+                self._delete_file(ticks_path(symbol))
             except Exception as exc:
                 warning(f"reset tick failed: {exc}")
 
-    async def reset_ohlc(self) -> None:
-        async with self._lock:
-            conn = self._require_conn()
-            if conn is None:
-                return
-            try:
-                conn.execute("DELETE FROM Ohlc")
-            except Exception as exc:
-                warning(f"reset ohlc failed: {exc}")
-
-    async def append_ticks(self, ticks: list[Any]) -> None:
+    async def append_ticks(self, symbol: str, ticks: list[Any]) -> None:
         async with self._lock:
             conn = self._require_conn()
             if conn is None:
@@ -92,12 +90,12 @@ class DuckDBWriter:
                 warning(f"append ticks rejected: {exc}")
                 return
 
-            if not self._validate_tick_batch(conn, normalized):
+            target = ticks_path(symbol)
+            if not self._validate_tick_batch(conn, target, normalized):
                 return
 
             payload = [
                 (
-                    row.symbol,
                     self._to_duckdb_timestamp(row.timestamp),
                     row.bid,
                     row.ask,
@@ -105,15 +103,40 @@ class DuckDBWriter:
                 )
                 for row in normalized
             ]
+
             try:
-                conn.executemany(
-                    "INSERT INTO Tick (symbol, timestamp, bid, ask, volume) VALUES (?, ?, ?, ?, ?)",
-                    payload,
+                self._append_parquet_rows(
+                    conn=conn,
+                    target=target,
+                    temp_table_name="temp_ticks",
+                    create_table_sql="""
+                        CREATE TEMP TABLE temp_ticks (
+                            timestamp TIMESTAMP,
+                            bid UBIGINT,
+                            ask UBIGINT,
+                            volume UBIGINT
+                        )
+                    """,
+                    insert_sql="INSERT INTO temp_ticks VALUES (?, ?, ?, ?)",
+                    payload=payload,
+                    select_sql="SELECT timestamp, bid, ask, volume FROM temp_ticks",
                 )
             except Exception as exc:
                 warning(f"append ticks failed: {exc}")
+            finally:
+                self._drop_temp_table(conn, "temp_ticks")
 
-    async def append_ohlcs(self, ohlcs: list[Any]) -> None:
+    async def reset_ohlc(self, symbol: str, timeframe: int) -> None:
+        async with self._lock:
+            conn = self._require_conn()
+            if conn is None:
+                return
+            try:
+                self._delete_file(ohlc_path(symbol, timeframe))
+            except Exception as exc:
+                warning(f"reset ohlc failed: {exc}")
+
+    async def append_ohlcs(self, symbol: str, timeframe: int, ohlcs: list[Any]) -> None:
         async with self._lock:
             conn = self._require_conn()
             if conn is None:
@@ -126,13 +149,12 @@ class DuckDBWriter:
                 warning(f"append ohlcs rejected: {exc}")
                 return
 
-            if not self._validate_ohlc_batch(conn, normalized):
+            target = ohlc_path(symbol, timeframe)
+            if not self._validate_ohlc_batch(conn, target, normalized):
                 return
 
             payload = [
                 (
-                    row.symbol,
-                    row.timeframe,
                     self._to_duckdb_timestamp(row.openTimestamp),
                     row.open,
                     row.high,
@@ -142,17 +164,30 @@ class DuckDBWriter:
                 )
                 for row in normalized
             ]
+
             try:
-                conn.executemany(
-                    """
-                    INSERT INTO Ohlc
-                        (symbol, timeframe, openTimestamp, open, high, low, close, volume)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                self._append_parquet_rows(
+                    conn=conn,
+                    target=target,
+                    temp_table_name="temp_ohlc",
+                    create_table_sql="""
+                        CREATE TEMP TABLE temp_ohlc (
+                            openTimestamp TIMESTAMP,
+                            open UBIGINT,
+                            high UBIGINT,
+                            low UBIGINT,
+                            close UBIGINT,
+                            volume UBIGINT
+                        )
                     """,
-                    payload,
+                    insert_sql="INSERT INTO temp_ohlc VALUES (?, ?, ?, ?, ?, ?)",
+                    payload=payload,
+                    select_sql="SELECT openTimestamp, open, high, low, close, volume FROM temp_ohlc",
                 )
             except Exception as exc:
                 warning(f"append ohlcs failed: {exc}")
+            finally:
+                self._drop_temp_table(conn, "temp_ohlc")
 
     async def set_symbol_data(self, row: Any) -> None:
         async with self._lock:
@@ -190,55 +225,96 @@ class DuckDBWriter:
             return value
         return value.astimezone(timezone.utc).replace(tzinfo=None)
 
-    def _last_tick_timestamp(self, conn: duckdb.DuckDBPyConnection, symbol: str) -> datetime | None:
-        row = conn.execute(
-            "SELECT MAX(timestamp) FROM Tick WHERE symbol = ?",
-            [symbol],
-        ).fetchone()
-        return row[0] if row and row[0] is not None else None
+    def _delete_file(self, file_path: Path) -> None:
+        if file_path.exists():
+            file_path.unlink()
 
-    def _last_ohlc_timestamp(
+    def _drop_temp_table(self, conn: duckdb.DuckDBPyConnection, table_name: str) -> None:
+        try:
+            conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+        except Exception:
+            pass
+
+    def _sql_literal(self, value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    def _max_timestamp_from_parquet(
         self,
         conn: duckdb.DuckDBPyConnection,
-        symbol: str,
-        timeframe: int,
+        file_path: Path,
+        timestamp_column: str,
     ) -> datetime | None:
+        if not file_path.exists():
+            return None
         row = conn.execute(
-            "SELECT MAX(openTimestamp) FROM Ohlc WHERE symbol = ? AND timeframe = ?",
-            [symbol, timeframe],
+            f"SELECT MAX({timestamp_column}) FROM read_parquet({self._sql_literal(str(file_path))})"
         ).fetchone()
         return row[0] if row and row[0] is not None else None
 
-    def _validate_tick_batch(self, conn: duckdb.DuckDBPyConnection, rows: list[Tick]) -> bool:
-        last_seen: dict[str, datetime | None] = {}
+    def _validate_tick_batch(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        file_path: Path,
+        rows: list[Tick],
+    ) -> bool:
+        last = self._max_timestamp_from_parquet(conn, file_path, "timestamp")
         for row in rows:
-            if row.symbol not in last_seen:
-                last_seen[row.symbol] = self._last_tick_timestamp(conn, row.symbol)
-            last = last_seen[row.symbol]
             if last is not None and row.timestamp < last:
                 warning(
-                    f"append ticks skipped: symbol={row.symbol}, timestamp={row.timestamp} < lastTimestamp={last}"
+                    f"append ticks skipped: symbol={file_path.parent.name}, timestamp={row.timestamp} < lastTimestamp={last}"
                 )
                 return False
-            last_seen[row.symbol] = row.timestamp
+            last = row.timestamp
         return True
 
-    def _validate_ohlc_batch(self, conn: duckdb.DuckDBPyConnection, rows: list[Ohlc]) -> bool:
-        last_seen: dict[tuple[str, int], datetime | None] = {}
+    def _validate_ohlc_batch(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        file_path: Path,
+        rows: list[Ohlc],
+    ) -> bool:
+        last = self._max_timestamp_from_parquet(conn, file_path, "openTimestamp")
         for row in rows:
-            key = (row.symbol, row.timeframe)
-            if key not in last_seen:
-                last_seen[key] = self._last_ohlc_timestamp(conn, row.symbol, row.timeframe)
-            last = last_seen[key]
             if last is not None and row.openTimestamp < last:
                 warning(
-                    "append ohlcs skipped: "
-                    f"symbol={row.symbol}, timeframe={row.timeframe}, "
-                    f"openTimestamp={row.openTimestamp} < lastTimestamp={last}"
+                    f"append ohlcs skipped: symbol={file_path.parent.name}, openTimestamp={row.openTimestamp} < lastTimestamp={last}"
                 )
                 return False
-            last_seen[key] = row.openTimestamp
+            last = row.openTimestamp
         return True
+
+    def _append_parquet_rows(
+        self,
+        *,
+        conn: duckdb.DuckDBPyConnection,
+        target: Path,
+        temp_table_name: str,
+        create_table_sql: str,
+        insert_sql: str,
+        payload: list[tuple[Any, ...]],
+        select_sql: str,
+    ) -> None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        self._drop_temp_table(conn, temp_table_name)
+        conn.execute(create_table_sql)
+        conn.executemany(insert_sql, payload)
+
+        if not target.exists():
+            conn.execute(
+                f"COPY ({select_sql}) TO {self._sql_literal(str(target))} (FORMAT PARQUET)"
+            )
+            return
+
+        temp_target = target.with_suffix(target.suffix + ".tmp")
+        if temp_target.exists():
+            temp_target.unlink()
+
+        existing_query = f"SELECT * FROM read_parquet({self._sql_literal(str(target))})"
+        merged_query = f"{existing_query} UNION ALL {select_sql}"
+        conn.execute(
+            f"COPY ({merged_query}) TO {self._sql_literal(str(temp_target))} (FORMAT PARQUET)"
+        )
+        os.replace(temp_target, target)
 
 
 writer = DuckDBWriter()

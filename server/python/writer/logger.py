@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-_LOG_MODE = ""
+_LOG_MODE = "debug"
 
 
 def set_mode(mode: str | None) -> None:

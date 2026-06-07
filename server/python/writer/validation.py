@@ -36,7 +36,6 @@ def ensure_non_empty_rows(rows: list[Any], kind: str) -> list[Any]:
 def normalize_tick_row(row: Any) -> Tick:
     row = _require_dataclass(row, Tick, "Tick")
     return Tick(
-        symbol=str(row.symbol),
         timestamp=_require_datetime(row.timestamp, "timestamp", "Tick"),
         bid=int(row.bid),
         ask=int(row.ask),
@@ -47,8 +46,6 @@ def normalize_tick_row(row: Any) -> Tick:
 def normalize_ohlc_row(row: Any) -> Ohlc:
     row = _require_dataclass(row, Ohlc, "Ohlc")
     return Ohlc(
-        symbol=str(row.symbol),
-        timeframe=int(row.timeframe),
         openTimestamp=_require_datetime(row.openTimestamp, "openTimestamp", "Ohlc"),
         open=int(row.open),
         high=int(row.high),
