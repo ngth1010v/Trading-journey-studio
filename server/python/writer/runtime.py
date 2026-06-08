@@ -77,6 +77,21 @@ class DuckDBWriter:
             except Exception as exc:
                 warning(f"reset tick failed: {exc}")
 
+    async def reset_all(self, symbol: str) -> None:
+        async with self._lock:
+            conn = self._require_conn()
+            if conn is None:
+                return
+            try:
+                base_dir = symbol_dir(symbol)
+                self._delete_file(ticks_path(symbol))
+                if base_dir.exists():
+                    for file_path in base_dir.glob("*.parquet"):
+                        if file_path.name != "ticks.parquet":
+                            self._delete_file(file_path)
+            except Exception as exc:
+                warning(f"reset all failed: {exc}")
+
     async def append_ticks(self, symbol: str, ticks: list[Any]) -> None:
         async with self._lock:
             conn = self._require_conn()

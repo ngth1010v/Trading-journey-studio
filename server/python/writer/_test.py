@@ -9,17 +9,16 @@ from writer.writer import writer
 
 async def main() -> None:
     print("=== INIT ===")
-    await writer.Init()
+    await writer.init()
 
     symbol = "EURUSD"
     timeframe = 60
 
-    print("=== RESET SYMBOL FILES ===")
-    await writer.ResetTick(symbol)
-    await writer.ResetOhlc(symbol, timeframe)
+    print("=== RESET ALL SYMBOL FILES ===")
+    await writer.resetAll(symbol)
 
     print("=== SYMBOL DATA ===")
-    await writer.SetSymbolData(SymbolData(symbol=symbol, point=10000))
+    await writer.setSymbolData(SymbolData(symbol=symbol, point=10000))
 
     print("=== APPEND TICKS ===")
     ticks = [
@@ -27,10 +26,10 @@ async def main() -> None:
         Tick(timestamp=datetime(2024, 3, 9, 0, 0, 1, tzinfo=timezone.utc), bid=108766, ask=108776, volume=101),
         Tick(timestamp=datetime(2024, 3, 9, 0, 0, 2, tzinfo=timezone.utc), bid=108767, ask=108777, volume=102),
     ]
-    await writer.AppendTicks(symbol, ticks)
+    await writer.appendTicks(symbol, ticks)
 
     print("=== APPEND OLD TICK (SHOULD FAIL) ===")
-    await writer.AppendTicks(
+    await writer.appendTicks(
         symbol,
         [Tick(timestamp=datetime(2024, 3, 8, 23, 59, 59, tzinfo=timezone.utc), bid=1, ask=1, volume=1)],
     )
@@ -40,17 +39,17 @@ async def main() -> None:
         Ohlc(openTimestamp=datetime(2024, 3, 9, 0, 0, 0, tzinfo=timezone.utc), open=108700, high=108900, low=108600, close=108800, volume=500),
         Ohlc(openTimestamp=datetime(2024, 3, 9, 0, 1, 0, tzinfo=timezone.utc), open=108800, high=108950, low=108700, close=108850, volume=600),
     ]
-    await writer.AppendOhlcs(symbol, timeframe, ohlcs)
+    await writer.appendOhlcs(symbol, timeframe, ohlcs)
 
     print("=== APPEND OLD OHLC (SHOULD FAIL) ===")
-    await writer.AppendOhlcs(
+    await writer.appendOhlcs(
         symbol,
         timeframe,
         [Ohlc(openTimestamp=datetime(2024, 3, 8, 22, 13, 20, tzinfo=timezone.utc), open=1, high=1, low=1, close=1, volume=1)],
     )
 
     print("=== DESTROY ===")
-    await writer.Destroy()
+    await writer.destroy()
 
     print("=== DONE ===")
 
