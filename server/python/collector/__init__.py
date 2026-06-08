@@ -1,9 +1,3 @@
-from .collector import (
-    Init,
-    Destroy,
-    GetSymbolDatas,
-    GetTicksRangeByTimestamp,
-    GetTicksRangeByDatetime,
-    GetTicksByTimestamp,
-    GetTicksByDatetime,
-)
+from .collector import collector
+
+__all__ = ["collector"]

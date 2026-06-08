@@ -6,11 +6,11 @@ from reader import reader
 
 
 async def main() -> None:
-    await reader.Init()
-    print(await reader.GetSymbolData("EURUSD"))
-    print(await reader.GetLastTick("EURUSD"))
-    print(await reader.GetLastOhlc("EURUSD", 60))
-    await reader.Destroy()
+    await reader.init()
+    print(await reader.getSymbolData("EURUSD"))
+    print(await reader.getLastTick("EURUSD"))
+    print(await reader.getLastOhlc("EURUSD", 60))
+    await reader.destroy()
 
 
 if __name__ == "__main__":
