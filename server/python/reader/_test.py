@@ -10,6 +10,12 @@ async def main() -> None:
     print(await reader.getSymbolData("EURUSD"))
     print(await reader.getLastTick("EURUSD"))
     print(await reader.getLastOhlc("EURUSD", 60))
+
+    print(await reader.getFirstTick("EURUSD"))
+    print(await reader.getLastTick("EURUSD"))
+
+    print(await reader.getFirstOhlc("EURUSD", 60))
+    print(await reader.getLastOhlc("EURUSD", 60))
     await reader.destroy()
 
 

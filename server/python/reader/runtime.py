@@ -22,6 +22,8 @@ from .storage import (
     get_symbol_data_row,
     get_tick_row_by_timestamp,
     get_tick_rows_in_range,
+    get_first_tick_row,
+    get_first_ohlc_row,
 )
 from .validation import (
     ValidationError,
@@ -113,6 +115,30 @@ class DuckDBReader:
             row = get_last_tick_row(conn, safe_symbol)
             if row is None:
                 error(f"last tick not found: {safe_symbol}")
+                return None
+
+            return Tick(
+                timestamp=row[0],
+                bid=int(row[1]),
+                ask=int(row[2]),
+                volume=int(row[3]),
+            )
+
+    async def get_first_tick(self, symbol: Any) -> Tick | None:
+        async with self._lock:
+            conn = self._require_conn()
+            if conn is None:
+                return None
+
+            try:
+                safe_symbol = normalize_symbol(symbol)
+            except ValidationError as exc:
+                error(f"get first tick rejected: {exc}")
+                return None
+
+            row = get_first_tick_row(conn, safe_symbol)
+            if row is None:
+                error(f"first tick not found: {safe_symbol}")
                 return None
 
             return Tick(
@@ -228,6 +254,33 @@ class DuckDBReader:
             row = get_last_ohlc_row(conn, safe_symbol, safe_timeframe)
             if row is None:
                 error(f"last ohlc not found: symbol={safe_symbol}, timeframe={safe_timeframe}")
+                return None
+
+            return Ohlc(
+                openTimestamp=row[0],
+                open=int(row[1]),
+                high=int(row[2]),
+                low=int(row[3]),
+                close=int(row[4]),
+                volume=int(row[5]),
+            )
+        
+    async def get_first_ohlc(self, symbol: Any, timeframe: Any) -> Ohlc | None:
+        async with self._lock:
+            conn = self._require_conn()
+            if conn is None:
+                return None
+
+            try:
+                safe_symbol = normalize_symbol(symbol)
+                safe_timeframe = normalize_timeframe(timeframe)
+            except ValidationError as exc:
+                error(f"get first ohlc rejected: {exc}")
+                return None
+
+            row = get_first_ohlc_row(conn, safe_symbol, safe_timeframe)
+            if row is None:
+                error(f"first ohlc not found: symbol={safe_symbol}, timeframe={safe_timeframe}")
                 return None
 
             return Ohlc(

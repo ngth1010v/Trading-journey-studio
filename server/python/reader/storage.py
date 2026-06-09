@@ -70,6 +70,24 @@ def get_last_tick_row(
     )
     return rows[0] if rows else None
 
+def get_first_tick_row(
+    conn: duckdb.DuckDBPyConnection,
+    symbol: str,
+) -> tuple[Any, ...] | None:
+    file_path = tick_file(symbol)
+    if not os.path.exists(file_path):
+        error(f"tick file not found: {file_path}")
+        return None
+
+    rows = _read_parquet_rows(
+        conn,
+        file_path,
+        "timestamp, bid, ask, volume",
+        order_sql="timestamp ASC",
+        limit_sql="LIMIT 1",
+    )
+    return rows[0] if rows else None
+
 
 def get_tick_row_by_timestamp(
     conn: duckdb.DuckDBPyConnection,
@@ -125,6 +143,25 @@ def get_last_ohlc_row(
         file_path,
         "openTimestamp, open, high, low, close, volume",
         order_sql="openTimestamp DESC",
+        limit_sql="LIMIT 1",
+    )
+    return rows[0] if rows else None
+
+def get_first_ohlc_row(
+    conn: duckdb.DuckDBPyConnection,
+    symbol: str,
+    timeframe: int,
+) -> tuple[Any, ...] | None:
+    file_path = ohlc_file(symbol, timeframe)
+    if not os.path.exists(file_path):
+        error(f"ohlc file not found: {file_path}")
+        return None
+
+    rows = _read_parquet_rows(
+        conn,
+        file_path,
+        "openTimestamp, open, high, low, close, volume",
+        order_sql="openTimestamp ASC",
         limit_sql="LIMIT 1",
     )
     return rows[0] if rows else None
