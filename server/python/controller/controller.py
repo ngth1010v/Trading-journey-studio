@@ -26,6 +26,10 @@ writer: Any = _writer
 
 
 class Controller:
+
+    #=================================================================================
+    # GENERAL
+    #=================================================================================
     def __init__(self) -> None:
         self._service = ControllerService(collector, reader, writer)
 
@@ -38,12 +42,20 @@ class Controller:
     def reset(self) -> None:
         self._service.reset()
 
+
+    #=================================================================================
+    # TICK
+    #=================================================================================
     def updateTickByTimestamp(self, fromTs: int) -> None:
         self._service.updateTickByTimestamp(fromTs)
 
     def updateTickByDatetime(self, fromDt: datetime) -> None:
         self._service.updateTickByDatetime(fromDt)
 
+
+    #=================================================================================
+    # OHLC
+    #=================================================================================
     def resetOhlc(self, timeframe: int) -> None:
         self._service.resetOhlc(timeframe)
 
