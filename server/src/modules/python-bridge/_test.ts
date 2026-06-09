@@ -1,11 +1,11 @@
 import { pythonBridge } from "./index";
 
-async function main(): Promise<void> {
+export async function pythonBridgeTest(): Promise<void> {
     pythonBridge.addListenCallback("log", (event, data) => {
         console.log("[python]", event, data);
     });
 
-    await pythonBridge.init();
+    // await pythonBridge.init();
     console.log("python bridge started");
 
     process.on("SIGINT", async () => {
@@ -13,8 +13,3 @@ async function main(): Promise<void> {
         process.exit(0);
     });
 }
-
-main().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});

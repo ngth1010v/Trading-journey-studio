@@ -21,12 +21,12 @@ export class TcpTransport {
             try {
                 await new Promise<void>((resolve, reject) => {
                     const socket = net.createConnection({ host: this.host, port: this.port });
-                    this.socket = socket;
                     let settled = false;
 
+                    const remainingMs = Math.max(0, timeoutMs - (Date.now() - startedAt));
                     const timer = setTimeout(() => {
                         fail(new Error(`python bridge connect timeout after ${timeoutMs}ms`));
-                    }, Math.max(0, timeoutMs - (Date.now() - startedAt)));
+                    }, remainingMs);
 
                     const fail = (err: Error) => {
                         if (settled) return;
@@ -42,6 +42,7 @@ export class TcpTransport {
                         if (settled) return;
                         settled = true;
                         clearTimeout(timer);
+                        this.socket = socket;
                         resolve();
                     });
 
@@ -50,15 +51,18 @@ export class TcpTransport {
                         this.flushBuffer();
                     });
 
-                    socket.on("close", () => {
-                        this.socket = null;
+                    socket.once("close", () => {
+                        if (this.socket === socket) {
+                            this.socket = null;
+                        }
                     });
 
-                    socket.on("error", (err) => {
+                    socket.once("error", (err) => {
                         lastError = err;
                         fail(err);
                     });
                 });
+
                 return;
             } catch {
                 await new Promise((resolve) => setTimeout(resolve, 100));

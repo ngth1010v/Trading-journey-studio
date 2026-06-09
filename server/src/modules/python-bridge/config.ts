@@ -17,6 +17,7 @@ export function readPythonBridgeConfig(): PythonBridgeConfig {
         host: process.env.PYTHON_BRIDGE_HOST ?? "127.0.0.1",
         port: readNumber(
             process.env.PYTHON_BRIDGE_PORT
+            ?? process.env.PYTHON_PORT
             ?? process.env.PYTHON_POST
             ?? process.env.PORT,
             5000,
