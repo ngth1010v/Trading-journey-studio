@@ -6,6 +6,10 @@ from .runtime import writer as _writer
 
 
 class _WriterAPI:
+
+    #=================================================================================
+    # GENERAL
+    #=================================================================================
     async def init(self) -> None:
         """Open or create the DuckDB file and prepare the SymbolData table."""
         await _writer.init()
@@ -14,6 +18,10 @@ class _WriterAPI:
         """Close the DuckDB connection."""
         await _writer.destroy()
 
+
+    #=================================================================================
+    # TICK
+    #=================================================================================
     async def resetTick(self, symbol: str) -> None:
         """Delete the tick parquet file for one symbol."""
         await _writer.reset_tick(symbol)
@@ -26,6 +34,9 @@ class _WriterAPI:
         """Append multiple Tick dataclass rows into one symbol parquet file."""
         await _writer.append_ticks(symbol, ticks)
 
+    #=================================================================================
+    # OHLC
+    #=================================================================================
     async def resetOhlc(self, symbol: str, timeframe: int) -> None:
         """Delete one OHLC parquet file for one symbol and timeframe."""
         await _writer.reset_ohlc(symbol, timeframe)

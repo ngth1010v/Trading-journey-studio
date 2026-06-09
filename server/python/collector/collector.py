@@ -22,6 +22,10 @@ from ._types import Tick, SymbolData
 
 
 class _CollectorAPI:
+
+    #=================================================================================
+    # GENERAL
+    #=================================================================================
     async def init(self) -> None:
         await SERVICE.init()
 
@@ -31,6 +35,9 @@ class _CollectorAPI:
     async def getSymbolDatas(self) -> list[SymbolData]:
         return await SERVICE.get_symbol_datas()
 
+    #=================================================================================
+    # TICK
+    #=================================================================================
     async def getTicksRangeByTimestamp(self, symbol: str, point: int, fromTs: int, toTs: int) -> list[Tick]:
         return await SERVICE.get_ticks_range_by_timestamp(symbol, point, fromTs, toTs)
 
