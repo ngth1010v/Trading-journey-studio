@@ -12,6 +12,11 @@ app.use(express.json());
 import { marketDb } from "./database/market";
 marketDb.Init();
 
+//TEST
+import "./modules/python-bridge/_test";
+
+//TEST
+
 //=============================================================================================
 // OPEN PORT
 //=============================================================================================
