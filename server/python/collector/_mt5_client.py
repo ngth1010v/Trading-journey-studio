@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+import logger
+
 from ._datetime_utils import utc_datetime_to_mt5
 
 
@@ -16,12 +18,20 @@ class MT5Client:
 
     @classmethod
     def load(cls) -> "MT5Client":
+        logger.info("collector.mt5", "loading MetaTrader5 module")
+
         try:
             import MetaTrader5 as mt5  # type: ignore
         except Exception as exc:  # pragma: no cover
+            logger.error(
+                "collector.mt5",
+                f"failed to import MetaTrader5: {exc}",
+            )
             raise MT5ImportError(
                 "MetaTrader5 package is not installed or cannot be imported."
             ) from exc
+
+        logger.info("collector.mt5", "MetaTrader5 module loaded")
         return cls(mt5=mt5)
 
     def copy_ticks_range(self, symbol: str, from_dt, to_dt):

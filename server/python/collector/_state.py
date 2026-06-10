@@ -4,6 +4,8 @@ import asyncio
 from dataclasses import dataclass
 from threading import RLock
 
+import logger
+
 
 @dataclass(slots=True)
 class _SessionState:
@@ -27,17 +29,34 @@ class CollectorState:
         async with self._lock:
             if self._state.initialized:
                 return
+
+            logger.info("collector.state", "initializing MT5")
+
             ok = await asyncio.to_thread(mt5.initialize)
+
             if not ok:
-                raise RuntimeError(f"mt5.initialize() failed: {mt5.last_error()}")
+                error = mt5.last_error()
+                logger.error(
+                    "collector.state",
+                    f"mt5.initialize() failed: {error}",
+                )
+                raise RuntimeError(f"mt5.initialize() failed: {error}")
+
             self._set_initialized(True)
+            logger.info("collector.state", "MT5 initialized")
 
     async def shutdown(self, mt5) -> None:
         async with self._lock:
             if not self._state.initialized:
                 return
+
+            logger.info("collector.state", "shutting down MT5")
+
             await asyncio.to_thread(mt5.shutdown)
+
             self._set_initialized(False)
+
+            logger.info("collector.state", "MT5 shutdown completed")
 
     def sync_lock(self) -> RLock:
         return self._sync_lock
