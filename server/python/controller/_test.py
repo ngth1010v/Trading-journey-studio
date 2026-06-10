@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import controller.controller as controller_module
 from controller.controller import Controller
+import logger
 
 try:
     from type import Ohlc, SymbolData, Tick
@@ -127,6 +128,9 @@ class _FakeWriter:
 
 
 async def main() -> None:
+    logger.reset()
+    logger.info("test", "Executing controller system integration check...")
+    
     symbol = "EURUSD"
     point = 100000
 
@@ -161,6 +165,7 @@ async def main() -> None:
     print("writer.appendTicks calls:", len(fake_writer.appended_ticks))
     print("writer.appendOhlcs calls:", len(fake_writer.appended_ohlcs))
     print("writer.resetAll calls:", fake_writer.reset_all_calls)
+    logger.info("test", "Controller validation complete")
 
 
 if __name__ == "__main__":
