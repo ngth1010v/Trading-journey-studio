@@ -1,31 +1,27 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
-_LOG_FILE = Path("python.log")
-_LOCK = Lock()
+from config import PYTHON_LOG_PATH
 
-#=====================================================================================
-# HELPER
-#=====================================================================================
-def _write(level: str, section: str, message: str) -> None:
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"{timestamp} [{level}][{section}] {message}\n"
-
-    with _LOCK:
-        with _LOG_FILE.open("a", encoding="utf-8") as f:
-            f.write(line)
+_LOG_LOCK = Lock()
 
 
-
-#=====================================================================================
-# PUBLIC API
-#=====================================================================================
 def reset() -> None:
-    with _LOCK:
-        _LOG_FILE.write_text("", encoding="utf-8")
+    PYTHON_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _LOG_LOCK:
+        PYTHON_LOG_PATH.write_text("", encoding="utf-8")
+
+
+def _write(level: str, section: str, message: str) -> None:
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    line = f"{timestamp} [{level.upper()}][{section}] {message}\n"
+    PYTHON_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _LOG_LOCK:
+        with PYTHON_LOG_PATH.open("a", encoding="utf-8") as handle:
+            handle.write(line)
 
 
 def debug(section: str, message: str) -> None:

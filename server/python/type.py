@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 
 
 @dataclass(slots=True)
 class Tick:
-    timestamp: datetime
+    timestamp: int
     bid: int
     ask: int
     volume: int
@@ -14,7 +13,7 @@ class Tick:
 
 @dataclass(slots=True)
 class Ohlc:
-    openTimestamp: datetime
+    openTimestamp: int
     open: int
     high: int
     low: int

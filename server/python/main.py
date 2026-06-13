@@ -1,24 +1,26 @@
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-from types import ModuleType
+import asyncio
+
+from config import IPC_HOST, IPC_PORT
+from controller import MarketController
+from ipc import IpcServer
+from logger import info, reset
 
 
-def loadBridgeEntry() -> ModuleType:
-    bridgePath = Path(__file__).resolve().parent / "nodejs-bridge" / "nodejs-bridge.py"
-    spec = importlib.util.spec_from_file_location("nodejs_bridge_entry", bridgePath)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load bridge entry: {bridgePath}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def main() -> None:
-    bridge = loadBridgeEntry()
-    bridge.main()
+async def main() -> None:
+    reset()
+    info("startup", "python controller starting")
+    controller = MarketController()
+    await controller.start()
+    server = IpcServer(controller, IPC_HOST, IPC_PORT)
+    await server.start()
+    try:
+        await server.serve_forever()
+    finally:
+        await server.close()
+        await controller.stop()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
