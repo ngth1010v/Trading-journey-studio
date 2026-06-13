@@ -1,6 +1,6 @@
 import type { Request } from "express";
 
-import type { Ohlc, SymbolData } from "../../shared/type.js";
+import type { Ohlc, SymbolData } from "@shared/types/markets.js";
 import { PythonClient } from "./python-client.js";
 import { ohlcQuerySchema, symbolParamSchema } from "./markets.validator.js";
 

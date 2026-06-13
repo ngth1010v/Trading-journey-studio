@@ -9,7 +9,10 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@shared/*": ["../shared/*"] 
+    }
   },
   "include": ["src/**/*.ts"]
 }

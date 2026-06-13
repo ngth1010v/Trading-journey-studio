@@ -1,6 +1,6 @@
 import net from "node:net";
 
-import type { Ohlc, SymbolData } from "../../shared/type.js";
+import type { Ohlc, SymbolData } from "@shared/types/markets.js";
 
 export type PythonCommand =
   | "PING"
