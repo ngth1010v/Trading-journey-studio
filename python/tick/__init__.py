@@ -1,1 +1,3 @@
-from .tickController import bp
+from .tick import bp, init
+
+__all__ = ["bp", "init"]

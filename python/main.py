@@ -14,6 +14,7 @@ from tick import bp as tick_bp
 
 import _logger as logger
 import symbols
+import tick
 
 app = Flask(__name__)
 
@@ -70,6 +71,7 @@ def main() -> None:
         logger.info("main.py", "Metatrader5 init successfully.")
 
     symbols.symbols.init()
+    tick.tick.init()
 
     logger.info("main.py", f"Starting server on 'localhost:{PORT}'...")
     _server = make_server(
