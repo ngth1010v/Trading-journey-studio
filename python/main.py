@@ -11,7 +11,7 @@ from config import PORT
 from ohlc import bp as ohlc_bp
 from symbols import bp as symbols_bp
 from tick import bp as tick_bp
-import logger
+import _logger as logger
 
 app = Flask(__name__)
 
