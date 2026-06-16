@@ -69,7 +69,7 @@ def main() -> None:
     else:
         logger.info("main.py", "Metatrader5 init successfully.")
 
-    symbols.symbolsController.init()
+    symbols.symbols.init()
 
     logger.info("main.py", f"Starting server on 'localhost:{PORT}'...")
     _server = make_server(

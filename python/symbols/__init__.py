@@ -1,3 +1,3 @@
-from .symbolsController import bp
+from .symbols import bp
 
 __all__ = ["bp"]

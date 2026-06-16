@@ -16,7 +16,7 @@ bp = Blueprint(
     url_prefix="/symbols",
 )
 
-_SECTION = "symbols/symbolsController.py"
+_SECTION = "symbols/symbols.py"
 
 
 def init() -> None:
