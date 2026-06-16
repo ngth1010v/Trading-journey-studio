@@ -1,0 +1,1 @@
+from .tickController import bp

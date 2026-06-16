@@ -1,0 +1,1 @@
+from .symbolsController import bp
