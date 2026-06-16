@@ -11,7 +11,9 @@ from config import PORT
 from ohlc import bp as ohlc_bp
 from symbols import bp as symbols_bp
 from tick import bp as tick_bp
+
 import _logger as logger
+import symbols
 
 app = Flask(__name__)
 
@@ -66,6 +68,8 @@ def main() -> None:
         return
     else:
         logger.info("main.py", "Metatrader5 init successfully.")
+
+    symbols.symbolsController.init()
 
     logger.info("main.py", f"Starting server on 'localhost:{PORT}'...")
     _server = make_server(
