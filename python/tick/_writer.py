@@ -1,142 +1,131 @@
 from __future__ import annotations
 
-import contextvars
+import sqlite3
 import threading
 from pathlib import Path
-
-import duckdb
+from typing import Iterable
 
 import _logger as logger
 import config
-
 from ._type import Tick
 
 _SECTION = "tick/_writer.py"
-
-_CURRENT_SYMBOL: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "tick_current_symbol",
-    default=None,
-)
-
-_LOCKS: dict[str, threading.Lock] = {}
-_LOCKS_GUARD = threading.Lock()
+_LOCK = threading.Lock()
+_ACTIVE_SYMBOL: str = ""
 
 
-def set_active_symbol(symbol: str | None) -> None:
-    _CURRENT_SYMBOL.set(symbol)
+def set_active_symbol(symbol: str) -> None:
+    global _ACTIVE_SYMBOL
+    _ACTIVE_SYMBOL = (symbol or "").strip()
 
 
-def _get_active_symbol() -> str | None:
-    symbol = _CURRENT_SYMBOL.get()
-    if symbol is None:
-        return None
-    symbol = symbol.strip()
-    return symbol or None
+def _db_path(symbol: str | None = None) -> Path:
+    actual_symbol = (symbol or _ACTIVE_SYMBOL or "").strip()
+    if not actual_symbol:
+        raise ValueError("symbol is empty; call set_active_symbol(symbol) first.")
+    return config.DATABASE_PATH / "markets" / actual_symbol / "ticks.db"
 
 
-def _symbol_lock(symbol: str) -> threading.Lock:
-    with _LOCKS_GUARD:
-        lock = _LOCKS.get(symbol)
-        if lock is None:
-            lock = threading.Lock()
-            _LOCKS[symbol] = lock
-        return lock
-
-
-def _db_path(symbol: str) -> Path:
-    return config.DATABASE_PATH / "markets" / symbol / "ticks.duckdb"
-
-
-def _ensure_parent(symbol: str) -> Path:
-    path = _db_path(symbol)
+def _ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    return path
 
 
-def _open_db(symbol: str) -> duckdb.DuckDBPyConnection:
-    path = _ensure_parent(symbol)
-    return duckdb.connect(str(path))
+def _open(path: Path) -> sqlite3.Connection:
+    conn = sqlite3.connect(path, timeout=30.0, isolation_level=None)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
 
 
-def _ensure_table(con: duckdb.DuckDBPyConnection) -> None:
-    con.execute(
+def _ensure_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
         """
         CREATE TABLE IF NOT EXISTS ticks (
-            timestamp BIGINT NOT NULL,
-            bid       BIGINT NOT NULL,
-            ask       BIGINT NOT NULL,
-            volume    BIGINT NOT NULL
+            timestamp INTEGER NOT NULL,
+            bid INTEGER NOT NULL,
+            ask INTEGER NOT NULL,
+            volume INTEGER NOT NULL
         )
         """
     )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ticks_timestamp ON ticks(timestamp)")
 
 
-def _normalize_ticks(ticks: list[Tick]) -> list[tuple[int, int, int, int]]:
-    result: list[tuple[int, int, int, int]] = []
-    for tick in ticks:
-        if not isinstance(tick, Tick):
-            raise TypeError(f"expected Tick, got {type(tick)!r}")
-        result.append((int(tick.timestamp), int(tick.bid), int(tick.ask), int(tick.volume)))
+def _sorted_ticks(ticks: Iterable[Tick]) -> list[Tick]:
+    cleaned = [
+        Tick(
+            timestamp=int(t.timestamp),
+            bid=int(t.bid),
+            ask=int(t.ask),
+            volume=int(t.volume),
+        )
+        for t in ticks
+    ]
+    cleaned.sort(key=lambda t: t.timestamp)
+    return cleaned
 
-    result.sort(key=lambda row: (row[0], row[1], row[2], row[3]))
-    return result
+
+def _insert_ticks(conn: sqlite3.Connection, ticks: list[Tick]) -> None:
+    if not ticks:
+        return
+    conn.executemany(
+        "INSERT INTO ticks(timestamp, bid, ask, volume) VALUES (?, ?, ?, ?)",
+        [(t.timestamp, t.bid, t.ask, t.volume) for t in ticks],
+    )
 
 
-def _write_ticks(ticks: list[Tick], *, mode: str) -> bool:
-    symbol = _get_active_symbol()
-    if symbol is None:
-        logger.error(_SECTION, f"{mode}Ticks: active symbol is missing. Call set_active_symbol(symbol) first.")
-        return False
+def _get_boundary(conn: sqlite3.Connection) -> tuple[int | None, int | None]:
+    row = conn.execute("SELECT MIN(timestamp), MAX(timestamp) FROM ticks").fetchone()
+    if not row:
+        return None, None
+    return row[0], row[1]
 
-    if ticks is None:
-        logger.warning(_SECTION, f"{mode}Ticks: nothing to write for '{symbol}'.")
-        return True
 
-    if len(ticks) == 0:
+def _write_ticks(ticks: list[Tick], mode: str) -> bool:
+    if not ticks:
         return True
 
     try:
-        rows = _normalize_ticks(ticks)
-    except Exception as exc:
-        logger.error(_SECTION, f"{mode}Ticks: invalid tick payload for '{symbol}': {exc}")
-        return False
+        with _LOCK:
+            path = _db_path()
+            _ensure_parent(path)
 
-    lock = _symbol_lock(symbol)
-    path = _ensure_parent(symbol)
-
-    try:
-        with lock:
-            con = duckdb.connect(str(path))
+            conn = _open(path)
             try:
-                _ensure_table(con)
-                con.executemany(
-                    "INSERT INTO ticks VALUES (?, ?, ?, ?)",
-                    rows,
-                )
-                con.commit()
+                _ensure_table(conn)
+
+                ticks = _sorted_ticks(ticks)
+                first_ts, last_ts = _get_boundary(conn)
+
+                if first_ts is not None and last_ts is not None:
+                    if mode == "append":
+                        ticks = [t for t in ticks if t.timestamp > last_ts]
+                    elif mode == "prepend":
+                        ticks = [t for t in ticks if t.timestamp < first_ts]
+
+                if not ticks:
+                    return True
+
+                conn.execute("BEGIN")
+                _insert_ticks(conn, ticks)
+                conn.execute("COMMIT")
+                return True
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
+                raise
             finally:
-                con.close()
-
-        logger.info(_SECTION, f"{mode}Ticks: wrote {len(rows)} rows into '{path}'.")
-        return True
-
+                conn.close()
     except Exception as exc:
-        logger.error(_SECTION, f"{mode}Ticks failed for '{symbol}': {exc}")
+        logger.error(_SECTION, f"{mode}Ticks failed: {exc}")
         return False
 
 
-def appendTicks(ticks: list[Tick]) -> bool:
-    """
-    Blocking append.
-    """
-    return _write_ticks(ticks, mode="append")
+def appendTicks(list_of_ticks: list[Tick]) -> bool:
+    return _write_ticks(list_of_ticks, "append")
 
 
-def prependTicks(ticks: list[Tick]) -> bool:
-    """
-    Blocking prepend.
-
-    The database is queried in timestamp order, so prepend and append share the
-    same physical insert path while keeping the logical result sorted.
-    """
-    return _write_ticks(ticks, mode="prepend")
+def prependTicks(list_of_ticks: list[Tick]) -> bool:
+    return _write_ticks(list_of_ticks, "prepend")

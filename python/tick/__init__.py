@@ -1,3 +1,6 @@
-from .tick import bp, init
+from __future__ import annotations
 
-__all__ = ["bp", "init"]
+from .tick import bp, init
+from . import tick
+
+__all__ = ["bp", "init", "tick"]

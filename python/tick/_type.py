@@ -13,7 +13,7 @@ class Tick:
 
 @dataclass(slots=True)
 class TickRequest:
-    caller: str
-    symbol: str
-    extendType: str  # "back" or "front"
+    caller: str = ""
+    symbol: str = ""
+    extendType: str = "back"  # "back" | "front"
     fromTs: int = 0
