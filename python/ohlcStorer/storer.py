@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from . import _reader, _writer
-from _type import Ohlc, OhlcRequest
+from _type import Ohlc
 
 #============================================================================================================
 # WRITER
