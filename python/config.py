@@ -5,8 +5,7 @@ PORT = 5000
 
 DATABASE_PATH = Path(__file__).parent.parent.resolve() / "server" / "database"
 
-TICK_DURATION_LIMIT             = 1000000 #ms
-TICK_DEFAULT_DURATION_OFFSET    = 60 * 60 * 1000 # ms
-
-OHLC_BATCH_LIMIT                = 1000 #ohlc            
-OHLC_FILE_LIMIT                 = 2000000 #ohlcs
+OHLC_BASE_BATCH_LIMIT           = 1000              # 1S ohlcs
+OHLC_BASE_DEFAULT_LIMIT         = 60 * 60 * 24      # 1S ohlcs
+OHLC_BATCH_LIMIT                = 1000              # ohlcs         
+OHLC_FILE_LIMIT                 = 2000000           # ohlcs
