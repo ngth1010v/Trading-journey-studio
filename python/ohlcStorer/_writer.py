@@ -266,16 +266,13 @@ def _flush_hot_to_cold(conn: sqlite3.Connection, symbol: str, timeframe: str) ->
     while True:
         count = _count_rows(conn)
         if count < limit:
-            logger.info(_SECTION, f"_flush_hot_to_cold({symbol!r}, {timeframe!r}) no flush needed (count={count})")
             return
 
         chunk = _select_oldest_rows(conn, limit)
         if not chunk:
-            logger.info(_SECTION, f"_flush_hot_to_cold({symbol!r}, {timeframe!r}) no chunk to flush")
             return
 
         final_path = _cold_file_path(symbol, timeframe, chunk[0].t)
-        logger.info(_SECTION, f"Flushing {len(chunk)} OHLC rows to {final_path.name}")
         temp_path = _write_parquet(chunk, final_path)
 
         try:
@@ -325,7 +322,6 @@ def _write_ohlcs(symbol: str, timeframe: str, ohlcs: list[Ohlc], mode: str) -> b
         return True
 
     try:
-        logger.info(_SECTION, f"{mode}Ohlcs({symbol!r}, {timeframe!r}, {len(ohlcs)} rows) started")
         with _LOCK:
             _clean_parquet_temp_files(symbol, timeframe)
 
@@ -341,7 +337,6 @@ def _write_ohlcs(symbol: str, timeframe: str, ohlcs: list[Ohlc], mode: str) -> b
                     ohlcs = [o for o in ohlcs if o.t < boundary]
 
             if not ohlcs:
-                logger.info(_SECTION, f"{mode}Ohlcs({symbol!r}, {timeframe!r}) nothing new to write")
                 return True
 
             path = _hot_db_path(symbol, timeframe, _HOT_DB_LAST if mode == "append" else _HOT_DB_FIRST)
@@ -362,7 +357,6 @@ def _write_ohlcs(symbol: str, timeframe: str, ohlcs: list[Ohlc], mode: str) -> b
                     raise
 
                 _flush_hot_to_cold(conn, symbol, timeframe)
-                logger.info(_SECTION, f"{mode}Ohlcs({symbol!r}, {timeframe!r}) done")
                 return True
             finally:
                 conn.close()

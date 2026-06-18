@@ -220,9 +220,7 @@ def _dedupe_sorted_ohlcs(ohlcs: Iterable[Ohlc]) -> list[Ohlc]:
 
 def getLastOhlc(symbol, timeframe):
     try:
-        logger.info(_SECTION, f"getLastOhlc({symbol!r}, {timeframe!r}) started")
         ohlc = _get_extreme_ohlc(symbol, timeframe, "DESC")
-        logger.info(_SECTION, f"getLastOhlc({symbol!r}, {timeframe!r}) done")
         return ohlc if ohlc is not None else False
     except Exception as exc:
         logger.error(_SECTION, f"getLastOhlc({symbol!r}, {timeframe!r}) failed: {exc}")
@@ -231,9 +229,7 @@ def getLastOhlc(symbol, timeframe):
 
 def getFirstOhlc(symbol, timeframe):
     try:
-        logger.info(_SECTION, f"getFirstOhlc({symbol!r}, {timeframe!r}) started")
         ohlc = _get_extreme_ohlc(symbol, timeframe, "ASC")
-        logger.info(_SECTION, f"getFirstOhlc({symbol!r}, {timeframe!r}) done")
         return ohlc if ohlc is not None else False
     except Exception as exc:
         logger.error(_SECTION, f"getFirstOhlc({symbol!r}, {timeframe!r}) failed: {exc}")
@@ -242,7 +238,6 @@ def getFirstOhlc(symbol, timeframe):
 
 def getOhlcs(symbol, timeframe, fromTs, toTs):
     try:
-        logger.info(_SECTION, f"getOhlcs({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) started")
         from_ts = int(fromTs)
         to_ts = int(toTs)
         if from_ts > to_ts:
@@ -267,9 +262,7 @@ def getOhlcs(symbol, timeframe, fromTs, toTs):
 
 def IsEmpty(symbol, timeframe):
     try:
-        logger.info(_SECTION, f"IsEmpty({symbol!r}, {timeframe!r}) started")
         result = getFirstOhlc(symbol, timeframe) is False
-        logger.info(_SECTION, f"IsEmpty({symbol!r}, {timeframe!r}) done: {result}")
         return result
     except Exception as exc:
         logger.error(_SECTION, f"IsEmpty({symbol!r}, {timeframe!r}) failed: {exc}")
@@ -278,7 +271,6 @@ def IsEmpty(symbol, timeframe):
 
 def getOhlc(symbol, timeframe, fromTs, toTs):
     try:
-        logger.info(_SECTION, f"getOhlc({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) started")
         from_ts = int(fromTs)
         to_ts = int(toTs)
         if from_ts > to_ts:
@@ -347,7 +339,6 @@ def getOhlc(symbol, timeframe, fromTs, toTs):
             "low": None if row[3] is None else int(row[3]),
             "volume": None if row[4] is None else int(row[4]),
         }
-        logger.info(_SECTION, f"getOhlc({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) done")
         return result
     except Exception as exc:
         logger.error(_SECTION, f"getOhlc({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) failed: {exc}")
