@@ -10,20 +10,17 @@ from werkzeug.serving import make_server
 from config import PORT
 from ohlc import bp as ohlc_bp
 from symbols import bp as symbols_bp
-from tick import bp as tick_bp
 from base import bp as base_bp
 
 import base
 
 import _logger as logger
 import symbols
-import tick
 
 app = Flask(__name__)
 
 app.register_blueprint(base_bp)
 app.register_blueprint(ohlc_bp)
-app.register_blueprint(tick_bp)
 app.register_blueprint(symbols_bp)
 
 _server = None
@@ -76,7 +73,6 @@ def main() -> None:
         logger.info("main.py", "Metatrader5 init successfully.")
 
     symbols.symbols.init()
-    tick.tick.init()
     base.base.init()
 
     logger.info("main.py", f"Starting server on 'localhost:{PORT}'...")
