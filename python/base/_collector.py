@@ -59,11 +59,6 @@ def init() -> int:
         server_now_ms = _safe_int(getattr(tick, "time_msc", 0))
         _MT5_SERVER_OFFSET_MS = server_now_ms - utc_now_ms
 
-        logger.info(
-            _SECTION,
-            f"Server offset initialized for {probe_symbol!r}: {_MT5_SERVER_OFFSET_MS} ms "
-            f"(server={server_now_ms}, utc={utc_now_ms})",
-        )
         return _MT5_SERVER_OFFSET_MS
     except Exception as exc:
         _MT5_SERVER_OFFSET_MS = 0
