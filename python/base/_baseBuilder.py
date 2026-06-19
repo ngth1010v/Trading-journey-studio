@@ -107,11 +107,11 @@ def init() -> int:
         server_now_ms = _safe_int(getattr(tick, "time_msc", 0))
         _MT5_SERVER_OFFSET_MS = server_now_ms - utc_now_ms
 
-        logger.info(
-            _SECTION,
-            f"Server offset initialized for {probe_symbol!r}: {_MT5_SERVER_OFFSET_MS} ms "
-            f"(server={server_now_ms}, utc={utc_now_ms})",
-        )
+        # logger.info(
+        #     _SECTION,
+        #     f"Server offset initialized for {probe_symbol!r}: {_MT5_SERVER_OFFSET_MS} ms "
+        #     f"(server={server_now_ms}, utc={utc_now_ms})",
+        # )
         return _MT5_SERVER_OFFSET_MS
     except Exception as exc:
         _MT5_SERVER_OFFSET_MS = 0
@@ -415,142 +415,6 @@ def _notify_done(caller: str, from_ts: int, to_ts: int) -> None:
 
     threading.Thread(target=_notify, daemon=True).start()
 
-
-# def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
-#     point = _symbol_point(symbol)
-#     _collector.init()
-
-#     last = ohlcStorer.getLastOhlc(symbol, "1S")
-#     if last is False:
-#         logger.warning(_SECTION, f"Cannot read last OHLC for {symbol!r}.")
-
-#     if last in (None, False):
-#         current_ts = _floor_sec(_now_ms() - (_default_limit_seconds() * 1000))
-#         seed_close = None
-#     else:
-#         current_ts = _floor_sec(int(last.t) + 1000)
-#         seed_close = int(last.c)
-
-#     now_ms = _floor_sec(_now_ms())
-#     batch_limit_ms = _batch_limit_seconds() * 1000
-
-#     if current_ts >= now_ms:
-#         logger.info(_SECTION, f"No front extension needed for {symbol!r}.")
-#         return _current_storage_bounds(symbol)
-
-#     while current_ts < now_ms:
-#         start_ts = current_ts
-#         end_ts = min(current_ts + batch_limit_ms, now_ms)
-#         ohlc_batch_size = (end_ts - start_ts) // 1000
-
-#         if ohlc_batch_size <= 0:
-#             break
-
-#         batch = fetchTicksFromMt5(symbol, point, start_ts, end_ts)
-
-#         _set_build_context("front", seed_close)
-#         bars = _dedupe_and_sort(_buildOhlcBatchFromTickBatch(batch, start_ts, ohlc_batch_size))
-#         if bars:
-#             seed_close = int(bars[-1].c)
-
-#         writer_ok = True
-#         if bars:
-#             writer_ok = _append_closed_bars(symbol, bars)
-
-#         if not writer_ok:
-#             logger.warning(_SECTION, f"Failed to append OHLC bars for {symbol!r}.")
-#             break
-
-#         if batch:
-#             logger.debug(
-#                 _SECTION,
-#                 "Loaded ticks: "
-#                 + datetime.fromtimestamp(batch[0].t / 1000, timezone.utc).strftime("%d/%m/%Y-%H:%M:%S")
-#                 + " -> "
-#                 + datetime.fromtimestamp(batch[-1].t / 1000, timezone.utc).strftime("%d/%m/%Y-%H:%M:%S")
-#                 + f" ({len(batch)} ticks, {len(bars)} closed 1S bars)",
-#             )
-#             _notify_done(caller, batch[0].t, batch[-1].t)
-
-#         current_ts = end_ts
-
-#         if not batch and current_ts >= now_ms:
-#             break
-
-#     logger.info(_SECTION, f"Done extend 1S OHLC front for {symbol!r}.")
-#     return _current_storage_bounds(symbol)
-
-
-# def _build_back(symbol: str, caller: str, from_ts: int) -> tuple[int, int] | None:
-#     point = _symbol_point(symbol)
-#     _collector.init()
-
-#     first = ohlcStorer.getFirstOhlc(symbol, "1S")
-#     if first is False:
-#         logger.warning(_SECTION, f"Cannot read first OHLC for {symbol!r}.")
-
-#     if first in (None, False):
-#         current_oldest = _floor_sec(_now_ms())
-#     else:
-#         current_oldest = _floor_sec(int(first.t))
-
-#     target_from = _floor_sec(int(from_ts))
-#     if target_from <= 0:
-#         logger.warning(_SECTION, f"Invalid back request fromTs for {symbol!r}: {target_from}")
-#         return _current_storage_bounds(symbol)
-
-#     if current_oldest <= target_from:
-#         logger.info(_SECTION, f"No back extension needed for {symbol!r}.")
-#         return
-
-#     seed_close = None
-#     first_existing = ohlcStorer.getFirstOhlc(symbol, "1S")
-#     if first_existing not in (None, False):
-#         seed_close = int(first_existing.c)
-
-#     batch_limit_ms = _batch_limit_seconds() * 1000
-
-#     while current_oldest > target_from:
-#         end_ts = current_oldest
-#         start_ts = max(0, end_ts - batch_limit_ms)
-#         start_ts = _floor_sec(start_ts)
-#         ohlc_batch_size = (end_ts - start_ts) // 1000
-
-#         if ohlc_batch_size <= 0:
-#             break
-
-#         batch = fetchTicksFromMt5(symbol, point, start_ts, end_ts)
-
-#         _set_build_context("back", seed_close)
-#         bars = _dedupe_and_sort(_buildOhlcBatchFromTickBatch(batch, start_ts, ohlc_batch_size))
-
-#         writer_ok = True
-#         if bars:
-#             writer_ok = _prepend_closed_bars(symbol, bars)
-
-#         if not writer_ok:
-#             logger.warning(_SECTION, f"Failed to prepend OHLC bars for {symbol!r}.")
-#             break
-
-#         if batch:
-#             logger.debug(
-#                 _SECTION,
-#                 "Loaded ticks: "
-#                 + datetime.fromtimestamp(batch[0].t / 1000, timezone.utc).strftime("%d/%m/%Y-%H:%M:%S")
-#                 + " -> "
-#                 + datetime.fromtimestamp(batch[-1].t / 1000, timezone.utc).strftime("%d/%m/%Y-%H:%M:%S")
-#                 + f" ({len(batch)} ticks, {len(bars)} closed 1S bars)",
-#             )
-#             _notify_done(caller, batch[0].t, batch[-1].t)
-
-#         current_oldest = start_ts
-#         if current_oldest <= target_from:
-#             break
-
-#     logger.info(_SECTION, f"Done extend 1S OHLC back for {symbol!r}.")
-#     return _current_storage_bounds(symbol)
-
-
 def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
     point = _symbol_point(symbol)
     _collector.init()
@@ -641,12 +505,13 @@ def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
 
     logger.info(
         _SECTION,
-        "Extended "
-        f"{total_bars:,} S1 bars from "
-        f"{total_ticks:,} ticks: "
+        "Extended: "
         f"{datetime.fromtimestamp(build_start_ts / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
         f"-> "
         f"{datetime.fromtimestamp(build_end_ts / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')}"
+        f" | "
+        f"{total_ticks:,} ticks -> "
+        f"{total_bars:,} S1-bars"
     )
 
     return _current_storage_bounds(symbol)
@@ -761,12 +626,13 @@ def _build_back(
 
     logger.info(
         _SECTION,
-        "Extended "
-        f"{total_bars:,} S1 bars from "
-        f"{total_ticks:,} ticks: "
+        "Extended: "
         f"{datetime.fromtimestamp(build_start_ts / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
         f"-> "
         f"{datetime.fromtimestamp(build_end_ts / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')}"
+        f" | "
+        f"{total_ticks:,} ticks -> "
+        f"{total_bars:,} S1-bars"
     )
 
     return _current_storage_bounds(symbol)
