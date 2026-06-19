@@ -1,112 +1,96 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import express, { Request, Response } from 'express';
 
-import express from "express";
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-import { HTTP_HOST, HTTP_PORT, IPC_HOST, IPC_PORT } from "./shared/config.js";
-import { PythonClient } from "./modules/markets/python-client.js";
-import { MarketsService } from "./modules/markets/markets.service.js";
-import { createMarketsRouter } from "./modules/markets/markets.route.js";
+// Middleware cơ bản
+app.use(express.json());
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const serverRoot = dirname(__dirname);
-const pythonMain = join(serverRoot, "python", "main.py");
-
-function spawnPython(): ChildProcess {
-  const pythonBin = process.env.PYTHON_BIN || process.env.PYTHON || "python";
-  const child = spawn(pythonBin, [pythonMain], {
-    stdio: ["ignore", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      PYTHONUNBUFFERED: "1",
-    },
-  });
-
-  child.stdout.on("data", (chunk) => process.stdout.write(`[python] ${chunk}`));
-  child.stderr.on("data", (chunk) => process.stderr.write(`[python] ${chunk}`));
-
-  return child;
-}
-
-async function waitForPythonReady(client: PythonClient, timeoutMs = 30_000): Promise<void> {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    try {
-      const status = await client.ping();
-      if (status.ready) {
-        return;
-      }
-    } catch {
-      // keep retrying until the controller comes up
-    }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  throw new Error("Python controller did not become ready in time");
-}
-
-async function main(): Promise<void> {
-  const pythonProcess = spawnPython();
-  const pythonClient = new PythonClient(IPC_HOST, IPC_PORT);
-
-  const shutdown = async () => {
-    try {
-      await pythonClient.shutdown();
-    } catch {
-      // best-effort shutdown
-    }
-    if (!pythonProcess.killed) {
-      pythonProcess.kill("SIGTERM");
-    }
-  };
-
-  process.on("SIGINT", async () => {
-    await shutdown();
-    process.exit(0);
-  });
-  process.on("SIGTERM", async () => {
-    await shutdown();
-    process.exit(0);
-  });
-
-  await waitForPythonReady(pythonClient);
-
-  const app = express();
-  app.use(express.json());
-
-  const service = new MarketsService(pythonClient);
-  app.use("/api/markets", createMarketsRouter(service));
-
-  app.get("/health", (_req, res) => {
-    res.json({ ok: true });
-  });
-
-  app.use((_req, res) => {
-    res.status(404).json({ error: "not found" });
-  });
-
-  const server = app.listen(Number(process.env.PORT || HTTP_PORT), HTTP_HOST, () => {
-    console.log(`HTTP server listening on http://${HTTP_HOST}:${Number(process.env.PORT || HTTP_PORT)}`);
-  });
-
-  const close = async () => {
-    await shutdown();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  };
-
-  process.on("uncaughtException", async (error) => {
-    console.error(error);
-    await close();
-    process.exit(1);
-  });
-  process.on("unhandledRejection", async (reason) => {
-    console.error(reason);
-    await close();
-    process.exit(1);
-  });
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
+app.get('/', (req: Request, res: Response) => {
+  res.send('Hello World!');
 });
+
+// =============================================================================================================
+// STARTUP
+// Chỉ chứa logic kết nối / khởi tạo data của bạn
+// =============================================================================================================
+async function startup() {
+  // TODO: Viết code khởi tạo data, kết nối database, đọc config... ở đây
+  console.log('🔗 [startup] Đang khởi tạo kết nối database hoặc tải dữ liệu...');
+  
+  // Giả lập độ trễ kết nối (ví dụ: await myDatabase.connect())
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  console.log('✅ [startup] Khởi tạo data thành công!');
+}
+
+// =============================================================================================================
+// SHUTDOWN
+// Chỉ chứa logic đóng kết nối / giải phóng data của bạn
+// =============================================================================================================
+async function shutdown() {
+  // TODO: Viết code đóng kết nối database, giải phóng tài nguyên... ở đây
+  console.log('🔌 [shutdown] Đang đóng kết nối database hoặc giải phóng data...');
+  
+  // Giả lập độ trễ ngắt kết nối (ví dụ: await myDatabase.disconnect())
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  console.log('✅ [shutdown] Đã giải phóng data hoàn tất.');
+}
+
+// =============================================================================================================
+// RUN - Quản lý vòng đời của Server và Data
+// =============================================================================================================
+async function startServer() {
+  try {
+    // 1. Chạy hàm khởi tạo data trước khi bật server
+    await startup();
+
+    // 2. Bật HTTP Server
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    });
+
+    // 3. Lắng nghe tín hiệu tắt server từ hệ điều hành
+    handleShutdown(server);
+
+  } catch (error) {
+    console.error('❌ Unable to start the server or data layer:', error);
+    process.exit(1);
+  }
+}
+
+function handleShutdown(server: import('http').Server) {
+  const gracefulShutdown = (signal: string) => {
+    console.log(`\n⚠️ Received ${signal}. Starting graceful shutdown...`);
+
+    // Ngừng nhận request mới, xử lý các request đang dở dang
+    server.close(async () => {
+      console.log('⏹️ HTTP server closed.');
+
+      try {
+        // Gọi hàm shutdown xử lý phần data của bạn
+        await shutdown();
+
+        console.log('✅ Process terminated gracefully.');
+        process.exit(0);
+      } catch (err) {
+        console.error('🔥 Error during graceful shutdown data:', err);
+        process.exit(1);
+      }
+    });
+
+    // Dự phòng: Nếu quá 10 giây mà vẫn chưa shutdown xong thì ép thoát
+    setTimeout(() => {
+      console.error('💀 Forcefully shutting down (timeout limit reached)...');
+      process.exit(1);
+    }, 10005);
+  };
+
+  // Lắng nghe các tín hiệu ngắt từ hệ điều hành hoặc Docker
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
+
+// Bắt đầu chạy toàn bộ hệ thống
+startServer();
