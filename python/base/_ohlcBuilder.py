@@ -23,7 +23,7 @@ TIMESTAMP_MAP = {
 }
 
 _VALID_TARGET_TIMEFRAMES = {"1M", "1H", "1D"}
-_SECTION = "_ohlcBuilder"
+_SECTION = "base/_ohlcBuilder"
 
 
 #============================================================================================================
