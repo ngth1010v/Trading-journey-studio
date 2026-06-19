@@ -1,242 +1,634 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import Iterable
+from tqdm import tqdm
 
 import _logger as logger
-import ohlcStorer.storer as ohlcStorer
-from ohlcStorer._type import AggregatePeriod
+import config
+import ohlcStorer
 from _type import Ohlc
+from datetime import datetime, timezone
 
-_SECTION = "base/_ohlcBuilder.py"
+#============================================================================================================
+# CONSTANTS
+#============================================================================================================
 
-_TIMEFRAME_TO_MS = {
-    "1S": 1000,
-    "1M": 60_000,
-    "1H": 3_600_000,
-    "1D": 86_400_000,
+TIMEFRAME_MAP = ["1S", "1M", "1H", "1D"]
+
+TIMESTAMP_MAP = {
+    "1S": 1_000,
+    "1M": 1_000 * 60,
+    "1H": 1_000 * 60 * 60,
+    "1D": 1_000 * 60 * 60 * 24,
 }
 
-_BUILD_CHAIN = ("1M", "1H", "1D")
-_BATCH_TARGET_PERIODS = 1000
+_VALID_TARGET_TIMEFRAMES = {"1M", "1H", "1D"}
+_SECTION = "_ohlcBuilder"
 
 
-@dataclass(slots=True)
-class _BuildState:
-    dest_first_ts: int | None
-    dest_last_ts: int | None
+#============================================================================================================
+# HELPERS
+#============================================================================================================
+
+def _timestamp_floor(timestamp: int, timeframe: str) -> int:
+    return (timestamp // TIMESTAMP_MAP[timeframe]) * TIMESTAMP_MAP[timeframe]
 
 
-@dataclass(slots=True)
-class _BuildResult:
-    wrote_any: bool
-    first_ts: int | None
-    last_ts: int | None
+def _validate_target_timeframe(targetTimeframe: str) -> bool:
+    if targetTimeframe not in _VALID_TARGET_TIMEFRAMES:
+        logger.error(_SECTION, f"Invalid target timeframe: {targetTimeframe!r}.")
+        return False
+    return True
 
 
-def _floor_to_period(ts_ms: int, period_ms: int) -> int:
-    return (int(ts_ms) // int(period_ms)) * int(period_ms)
+def _get_src_timeframe(targetTimeframe: str) -> str:
+    idx = TIMEFRAME_MAP.index(targetTimeframe)
+    if idx <= 0:
+        raise ValueError(f"Target timeframe has no lower source timeframe: {targetTimeframe!r}")
+    return TIMEFRAME_MAP[idx - 1]
 
 
-def _ceil_to_period(ts_ms: int, period_ms: int) -> int:
-    ts_ms = int(ts_ms)
-    period_ms = int(period_ms)
-    return ((ts_ms + period_ms - 1) // period_ms) * period_ms
+def _build_periods(startExtendTs: int, endExtendTs: int, targetTimeframe: str) -> list[tuple[int, int]]:
+    periods: list[tuple[int, int]] = []
+    step = TIMESTAMP_MAP[targetTimeframe]
 
+    currentExtendTs = startExtendTs
+    while currentExtendTs <= endExtendTs:
+        periods.append((currentExtendTs, currentExtendTs + step))
+        currentExtendTs += step
 
-def _safe_ohlc(obj: object) -> Ohlc | None:
-    if obj in (None, False):
-        return None
-    if isinstance(obj, Ohlc):
-        return obj
-    try:
-        return Ohlc(
-            t=int(getattr(obj, "t")),
-            o=int(getattr(obj, "o")),
-            h=int(getattr(obj, "h")),
-            l=int(getattr(obj, "l")),
-            c=int(getattr(obj, "c")),
-            v=int(getattr(obj, "v")),
-        )
-    except Exception:
-        return None
+    # --- Đoạn code log periods ---
+    # for p in periods:
+    #     print(f"{datetime.fromtimestamp(p[0]/1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} -> {datetime.fromtimestamp(p[1]/1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')}")
+    # -----------------------------
 
-
-def _state_for(symbol: str, timeframe: str) -> _BuildState:
-    first = _safe_ohlc(ohlcStorer.getFirstOhlc(symbol, timeframe))
-    last = _safe_ohlc(ohlcStorer.getLastOhlc(symbol, timeframe))
-    return _BuildState(
-        dest_first_ts=int(first.t) if first is not None else None,
-        dest_last_ts=int(last.t) if last is not None else None,
-    )
-
-
-def _source_bounds(symbol: str, timeframe: str, hint: tuple[int, int] | None = None) -> tuple[int | None, int | None]:
-    first = _safe_ohlc(ohlcStorer.getFirstOhlc(symbol, timeframe))
-    last = _safe_ohlc(ohlcStorer.getLastOhlc(symbol, timeframe))
-
-    first_ts = int(first.t) if first is not None else None
-    last_ts = int(last.t) if last is not None else None
-
-    if hint is not None:
-        hint_first, hint_last = hint
-        if hint_first is not None:
-            first_ts = hint_first if first_ts is None else min(first_ts, int(hint_first))
-        if hint_last is not None:
-            last_ts = hint_last if last_ts is None else max(last_ts, int(hint_last))
-
-    return first_ts, last_ts
-
-
-def _source_unit_ms(source_tf: str) -> int:
-    try:
-        return _TIMEFRAME_TO_MS[source_tf]
-    except KeyError:
-        raise ValueError(f"Unsupported source timeframe: {source_tf!r}")
-
-
-def _complete_target_range(source_first_ts: int, source_last_ts: int, source_tf: str, target_tf: str) -> tuple[int, int]:
-    source_unit_ms = _source_unit_ms(source_tf)
-    target_period_ms = _source_unit_ms(target_tf)
-
-    start_ts = _ceil_to_period(source_first_ts, target_period_ms)
-    last_complete_anchor = source_last_ts - (target_period_ms - source_unit_ms)
-    end_ts = _floor_to_period(last_complete_anchor, target_period_ms) + target_period_ms
-    return start_ts, end_ts
-
-
-def _build_periods(start_ts: int, end_ts: int, period_ms: int) -> list[AggregatePeriod]:
-    if start_ts >= end_ts:
-        return []
-
-    periods: list[AggregatePeriod] = []
-    current = start_ts
-    while current < end_ts:
-        batch_end = min(end_ts, current + period_ms * _BATCH_TARGET_PERIODS)
-        t = current
-        while t < batch_end:
-            periods.append(AggregatePeriod(fromTs=t, toTs=t + period_ms))
-            t += period_ms
-        current = batch_end
     return periods
 
 
-def _write_append(symbol: str, timeframe: str, state: _BuildState, bars: list[Ohlc]) -> int:
-    if not bars:
-        return 0
-
-    filtered: list[Ohlc] = []
-    for bar in bars:
-        if state.dest_last_ts is None or int(bar.t) > state.dest_last_ts:
-            filtered.append(bar)
-
-    if not filtered:
-        return 0
-
-    if ohlcStorer.appendOhlcs(symbol, timeframe, filtered):
-        state.dest_last_ts = int(filtered[-1].t)
-        if state.dest_first_ts is None:
-            state.dest_first_ts = int(filtered[0].t)
-        return len(filtered)
-
-    logger.warning(_SECTION, f"Failed to append {timeframe} bars for {symbol!r}.")
-    return 0
-
-
-def _write_prepend(symbol: str, timeframe: str, state: _BuildState, bars: list[Ohlc]) -> int:
-    if not bars:
-        return 0
-
-    filtered: list[Ohlc] = []
-    for bar in bars:
-        if state.dest_first_ts is None or int(bar.t) < state.dest_first_ts:
-            filtered.append(bar)
-
-    if not filtered:
-        return 0
-
-    if ohlcStorer.prependOhlcs(symbol, timeframe, filtered):
-        state.dest_first_ts = int(filtered[0].t)
-        if state.dest_last_ts is None:
-            state.dest_last_ts = int(filtered[-1].t)
-        return len(filtered)
-
-    logger.warning(_SECTION, f"Failed to prepend {timeframe} bars for {symbol!r}.")
-    return 0
-
-
-def _aggregate(symbol: str, source_tf: str, periods: list[AggregatePeriod]) -> list[Ohlc]:
+def _aggregate_periods(
+    symbol: str,
+    srcTimeframe: str,
+    periods: list[tuple[int, int]],
+) -> list[Ohlc] | None:
     if not periods:
         return []
 
-    out = ohlcStorer.aggregateOhlcs(symbol, source_tf, periods)
-    if not out:
-        return []
+    batch = ohlcStorer.aggregateOhlcs(symbol, srcTimeframe, periods)
 
-    bars: list[Ohlc] = []
-    for item in out:
-        bar = _safe_ohlc(item)
-        if bar is not None:
-            bars.append(bar)
-    bars.sort(key=lambda b: b.t)
-    return bars
+    if batch is None:
+        return None
+
+    if not isinstance(batch, list):
+        logger.error(
+            _SECTION,
+            f"aggregateOhlcs returned unexpected type for {symbol}/{srcTimeframe}: {type(batch).__name__}.",
+        )
+        return None
+
+    return batch
 
 
-def _build_one(symbol: str, source_tf: str, target_tf: str, direction: str, source_hint: tuple[int, int] | None = None) -> _BuildResult:
-    if source_tf not in _TIMEFRAME_TO_MS or target_tf not in _TIMEFRAME_TO_MS:
-        logger.warning(_SECTION, f"Unsupported timeframe mapping {source_tf!r}->{target_tf!r} for {symbol!r}.")
-        return _BuildResult(False, None, None)
+def _log_noop(symbol: str, targetTimeframe: str, direction: str) -> None:
+    logger.warning(_SECTION, f"No {direction} extension needed for {symbol}/{targetTimeframe}.")
 
-    source_first, source_last = _source_bounds(symbol, source_tf, source_hint)
-    if source_first is None or source_last is None:
-        logger.warning(_SECTION, f"No source data for {symbol!r} {source_tf} while building {target_tf}.")
-        state = _state_for(symbol, target_tf)
-        return _BuildResult(False, state.dest_first_ts, state.dest_last_ts)
 
-    start_ts, end_ts = _complete_target_range(int(source_first), int(source_last), source_tf, target_tf)
-    if start_ts >= end_ts:
-        state = _state_for(symbol, target_tf)
-        return _BuildResult(False, state.dest_first_ts, state.dest_last_ts)
+def _has_overlap(existing_first_ts: int | None, existing_last_ts: int | None, start_ts: int, end_ts: int) -> bool:
+    if existing_first_ts is None or existing_last_ts is None:
+        return False
+    return not (end_ts < existing_first_ts or start_ts > existing_last_ts)
 
-    target_period_ms = _TIMEFRAME_TO_MS[target_tf]
-    periods = _build_periods(start_ts, end_ts, target_period_ms)
-    if not periods:
-        state = _state_for(symbol, target_tf)
-        return _BuildResult(False, state.dest_first_ts, state.dest_last_ts)
 
-    state = _state_for(symbol, target_tf)
-    wrote_count = 0
+#============================================================================================================
+# PUBLIC API
+#============================================================================================================
 
-    for i in range(0, len(periods), _BATCH_TARGET_PERIODS):
-        batch_periods = periods[i : i + _BATCH_TARGET_PERIODS]
-        bars = _aggregate(symbol, source_tf, batch_periods)
-        if not bars:
-            continue
+# def extendFront(symbol: str, targetTimeframe: str) -> bool:
+#     """
+#     Extend OHLC data toward newer timestamps by aggregating from the lower timeframe.
+#     """
+#     if not _validate_target_timeframe(targetTimeframe):
+#         return False
 
-        if direction == "front":
-            wrote_count += _write_append(symbol, target_tf, state, bars)
-        else:
-            wrote_count += _write_prepend(symbol, target_tf, state, bars)
+#     srcTimeframe = _get_src_timeframe(targetTimeframe)
 
-    if wrote_count > 0:
-        logger.info(_SECTION, f"Done extend {target_tf} from {source_tf} for {symbol!r}. Wrote {wrote_count} bars.")
+#     if ohlcStorer.IsEmpty(symbol, srcTimeframe):
+#         logger.error(_SECTION, f"Source timeframe is empty for {symbol}/{srcTimeframe}.")
+#         return False
+
+#     src_first = ohlcStorer.getFirstOhlc(symbol, srcTimeframe)
+#     src_last = ohlcStorer.getLastOhlc(symbol, srcTimeframe)
+
+#     if src_first is None or src_last is None:
+#         logger.error(_SECTION, f"Failed to read source OHLC bounds for {symbol}/{srcTimeframe}.")
+#         return False
+
+#     step = TIMESTAMP_MAP[targetTimeframe]
+#     endExtendTs = _timestamp_floor(src_last.t, targetTimeframe) - step
+
+#     if ohlcStorer.IsEmpty(symbol, targetTimeframe):
+#         startExtendTs = src_first.t if (src_first.t // step == 0) else _timestamp_floor(src_first.t, targetTimeframe) + step
+#     else:
+#         target_last = ohlcStorer.getLastOhlc(symbol, targetTimeframe)
+#         if target_last is None:
+#             logger.error(_SECTION, f"Failed to read target OHLC bounds for {symbol}/{targetTimeframe}.")
+#             return False
+
+#         startExtendTs = _timestamp_floor(target_last.t, targetTimeframe) + step
+
+#         # Strict overlap guard: if the computed range would touch/overlap existing target data,
+#         # treat it as an error as requested.
+#         if _has_overlap(
+#             _timestamp_floor(ohlcStorer.getFirstOhlc(symbol, targetTimeframe).t, targetTimeframe)
+#             if not ohlcStorer.IsEmpty(symbol, targetTimeframe)
+#             else None,
+#             _timestamp_floor(target_last.t, targetTimeframe),
+#             startExtendTs,
+#             endExtendTs,
+#         ):
+#             logger.error(
+#                 _SECTION,
+#                 f"Overlap detected while extending front for {symbol}/{targetTimeframe}. "
+#                 f"start={startExtendTs}, end={endExtendTs}.",
+#             )
+#             return False
+
+#     if endExtendTs < startExtendTs:
+#         _log_noop(symbol, targetTimeframe, "front")
+#         return True
+
+#     periods = _build_periods(startExtendTs, endExtendTs, targetTimeframe)
+#     if not periods:
+#         _log_noop(symbol, targetTimeframe, "front")
+#         return True
+
+#     total_periods = len(periods)
+#     processed = 0
+
+#     for batchStart in range(0, total_periods, config.OHLC_BATCH_LIMIT):
+#         batch_periods = periods[batchStart:min(total_periods, batchStart + config.OHLC_BATCH_LIMIT)]
+#         batch = _aggregate_periods(symbol, srcTimeframe, batch_periods)
+#         if batch is None:
+#             logger.error(
+#                 _SECTION,
+#                 f"Failed to aggregate front batch for {symbol}/{targetTimeframe} "
+#                 f"from {batch_periods[0][0]} to {batch_periods[-1][1]}.",
+#             )
+#             return False
+
+#         if len(batch) != len(batch_periods):
+#             logger.error(
+#                 _SECTION,
+#                 f"Aggregate size mismatch for {symbol}/{targetTimeframe} front batch: "
+#                 f"expected={len(batch_periods)}, got={len(batch)}.",
+#             )
+#             return False
+
+#         if not ohlcStorer.appendOhlcs(symbol, targetTimeframe, batch):
+#             logger.error(
+#                 _SECTION,
+#                 f"Failed to append front batch for {symbol}/{targetTimeframe} "
+#                 f"from {batch_periods[0][0]} to {batch_periods[-1][1]}.",
+#             )
+#             return False
+
+#         processed += len(batch_periods)
+#         logger.debug(
+#             _SECTION,
+#             f"extendFront {symbol}/{targetTimeframe}: processed {processed}/{total_periods} periods.",
+#         )
+
+#     logger.info(_SECTION, f"Done extend front for {symbol}/{targetTimeframe}.")
+#     return True
+
+
+# def extendBack(symbol: str, targetTimeframe: str) -> bool:
+#     """
+#     Extend OHLC data toward older timestamps by aggregating from the lower timeframe.
+#     """
+#     if not _validate_target_timeframe(targetTimeframe):
+#         return False
+
+#     srcTimeframe = _get_src_timeframe(targetTimeframe)
+
+#     if ohlcStorer.IsEmpty(symbol, srcTimeframe):
+#         logger.error(_SECTION, f"Source timeframe is empty for {symbol}/{srcTimeframe}.")
+#         return False
+
+#     src_first = ohlcStorer.getFirstOhlc(symbol, srcTimeframe)
+#     src_last = ohlcStorer.getLastOhlc(symbol, srcTimeframe)
+
+#     if src_first is None or src_last is None:
+#         logger.error(_SECTION, f"Failed to read source OHLC bounds for {symbol}/{srcTimeframe}.")
+#         return False
+
+#     step = TIMESTAMP_MAP[targetTimeframe]
+#     startExtendTs = src_first.t if (src_first.t // step == 0) else _timestamp_floor(src_first.t, targetTimeframe) + step
+
+#     if ohlcStorer.IsEmpty(symbol, targetTimeframe):
+#         endExtendTs = _timestamp_floor(src_last.t, targetTimeframe) - step
+#     else:
+#         target_first = ohlcStorer.getFirstOhlc(symbol, targetTimeframe)
+#         if target_first is None:
+#             logger.error(_SECTION, f"Failed to read target OHLC bounds for {symbol}/{targetTimeframe}.")
+#             return False
+
+#         endExtendTs = _timestamp_floor(target_first.t, targetTimeframe) - step
+
+#         # Strict overlap guard: if the computed range would touch/overlap existing target data,
+#         # treat it as an error as requested.
+#         if _has_overlap(
+#             _timestamp_floor(target_first.t, targetTimeframe),
+#             _timestamp_floor(ohlcStorer.getLastOhlc(symbol, targetTimeframe).t, targetTimeframe)
+#             if not ohlcStorer.IsEmpty(symbol, targetTimeframe)
+#             else None,
+#             startExtendTs,
+#             endExtendTs,
+#         ):
+#             logger.error(
+#                 _SECTION,
+#                 f"Overlap detected while extending back for {symbol}/{targetTimeframe}. "
+#                 f"start={startExtendTs}, end={endExtendTs}.",
+#             )
+#             return False
+
+#     if endExtendTs < startExtendTs:
+#         _log_noop(symbol, targetTimeframe, "back")
+#         return True
+
+#     periods = _build_periods(startExtendTs, endExtendTs, targetTimeframe)
+#     if not periods:
+#         _log_noop(symbol, targetTimeframe, "back")
+#         return True
+
+#     total_periods = len(periods)
+#     processed = 0
+
+#     for batchEnd in range(total_periods, 0, -config.OHLC_BATCH_LIMIT):
+#         batch_start = max(0, batchEnd - config.OHLC_BATCH_LIMIT)
+#         batch_periods = periods[batch_start:batchEnd]
+#         batch = _aggregate_periods(symbol, srcTimeframe, batch_periods)
+#         if batch is None:
+#             logger.error(
+#                 _SECTION,
+#                 f"Failed to aggregate back batch for {symbol}/{targetTimeframe} "
+#                 f"from {batch_periods[0][0]} to {batch_periods[-1][1]}.",
+#             )
+#             return False
+
+#         if len(batch) != len(batch_periods):
+#             logger.error(
+#                 _SECTION,
+#                 f"Aggregate size mismatch for {symbol}/{targetTimeframe} back batch: "
+#                 f"expected={len(batch_periods)}, got={len(batch)}.",
+#             )
+#             return False
+
+#         if not ohlcStorer.prependOhlcs(symbol, targetTimeframe, batch):
+#             logger.error(
+#                 _SECTION,
+#                 f"Failed to prepend back batch for {symbol}/{targetTimeframe} "
+#                 f"from {batch_periods[0][0]} to {batch_periods[-1][1]}.",
+#             )
+#             return False
+
+#         processed += len(batch_periods)
+#         logger.debug(
+#             _SECTION,
+#             f"extendBack {symbol}/{targetTimeframe}: processed {processed}/{total_periods} periods.",
+#         )
+
+#     logger.info(_SECTION, f"Done extend back for {symbol}/{targetTimeframe}.")
+#     return True
+
+
+def extendFront(symbol: str, targetTimeframe: str) -> bool:
+    """
+    Extend OHLC data toward newer timestamps by aggregating from the lower timeframe.
+    """
+    if not _validate_target_timeframe(targetTimeframe):
+        return False
+
+    srcTimeframe = _get_src_timeframe(targetTimeframe)
+
+    if ohlcStorer.IsEmpty(symbol, srcTimeframe):
+        logger.error(_SECTION, f"Source timeframe is empty for {symbol}/{srcTimeframe}.")
+        return False
+
+    src_first = ohlcStorer.getFirstOhlc(symbol, srcTimeframe)
+    src_last = ohlcStorer.getLastOhlc(symbol, srcTimeframe)
+
+    if src_first is None or src_last is None:
+        logger.error(_SECTION, f"Failed to read source OHLC bounds for {symbol}/{srcTimeframe}.")
+        return False
+
+    step = TIMESTAMP_MAP[targetTimeframe]
+
+    endExtendTs = _timestamp_floor(src_last.t, targetTimeframe) - step
+
+    if ohlcStorer.IsEmpty(symbol, targetTimeframe):
+        startExtendTs = (
+            src_first.t
+            if (src_first.t // step == 0)
+            else _timestamp_floor(src_first.t, targetTimeframe) + step
+        )
     else:
-        logger.warning(_SECTION, f"No complete {target_tf} bars written from {source_tf} for {symbol!r}.")
+        target_last = ohlcStorer.getLastOhlc(symbol, targetTimeframe)
+        if target_last is None:
+            logger.error(
+                _SECTION,
+                f"Failed to read target OHLC bounds for {symbol}/{targetTimeframe}.",
+            )
+            return False
 
-    refreshed = _state_for(symbol, target_tf)
-    return _BuildResult(wrote_count > 0, refreshed.dest_first_ts, refreshed.dest_last_ts)
+        startExtendTs = _timestamp_floor(target_last.t, targetTimeframe) + step
+
+        if _has_overlap(
+            _timestamp_floor(
+                ohlcStorer.getFirstOhlc(symbol, targetTimeframe).t,
+                targetTimeframe,
+            )
+            if not ohlcStorer.IsEmpty(symbol, targetTimeframe)
+            else None,
+            _timestamp_floor(target_last.t, targetTimeframe),
+            startExtendTs,
+            endExtendTs,
+        ):
+            logger.error(
+                _SECTION,
+                f"Overlap detected while extending front for "
+                f"{symbol}/{targetTimeframe}. "
+                f"start={startExtendTs}, end={endExtendTs}.",
+            )
+            return False
+
+    if endExtendTs < startExtendTs:
+        _log_noop(symbol, targetTimeframe, "front")
+        return True
+
+    periods = _build_periods(
+        startExtendTs,
+        endExtendTs,
+        targetTimeframe,
+    )
+
+    if not periods:
+        _log_noop(symbol, targetTimeframe, "front")
+        return True
+
+    total_target_bars = len(periods)
+    src_per_target = (
+        TIMESTAMP_MAP[targetTimeframe]
+        // TIMESTAMP_MAP[srcTimeframe]
+    )
+
+    total_src_bars = 0
+
+    with tqdm(
+        total=total_target_bars,
+        desc=f"{symbol} {targetTimeframe} front",
+        unit="bar",
+        leave=False,
+    ) as pbar:
+
+        for batchStart in range(
+            0,
+            total_target_bars,
+            config.OHLC_BATCH_LIMIT,
+        ):
+            batch_periods = periods[
+                batchStart:
+                min(
+                    total_target_bars,
+                    batchStart + config.OHLC_BATCH_LIMIT,
+                )
+            ]
+
+            batch = _aggregate_periods(
+                symbol,
+                srcTimeframe,
+                batch_periods,
+            )
+
+            if batch is None:
+                logger.error(
+                    _SECTION,
+                    f"Failed to aggregate front batch for "
+                    f"{symbol}/{targetTimeframe} "
+                    f"from {batch_periods[0][0]} "
+                    f"to {batch_periods[-1][1]}.",
+                )
+                return False
+
+            if len(batch) != len(batch_periods):
+                logger.error(
+                    _SECTION,
+                    f"Aggregate size mismatch for "
+                    f"{symbol}/{targetTimeframe} front batch: "
+                    f"expected={len(batch_periods)}, "
+                    f"got={len(batch)}.",
+                )
+                return False
+
+            if not ohlcStorer.appendOhlcs(
+                symbol,
+                targetTimeframe,
+                batch,
+            ):
+                logger.error(
+                    _SECTION,
+                    f"Failed to append front batch for "
+                    f"{symbol}/{targetTimeframe} "
+                    f"from {batch_periods[0][0]} "
+                    f"to {batch_periods[-1][1]}.",
+                )
+                return False
+
+            total_src_bars += len(batch_periods) * src_per_target
+
+            pbar.update(len(batch_periods))
+
+    logger.info(
+        _SECTION,
+        f"Extended {total_target_bars:,} {targetTimeframe} bars "
+        f"from {total_src_bars:,} {srcTimeframe} bars: "
+        f"{datetime.fromtimestamp(startExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
+        f"-> "
+        f"{datetime.fromtimestamp(endExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')}"
+    )
+
+    return True
 
 
-def extend_all(symbol: str, direction: str, source_bounds: tuple[int, int] | None = None) -> None:
-    symbol = (symbol or "").strip()
-    direction = (direction or "").strip().lower()
-    if not symbol:
-        logger.warning(_SECTION, "Rejected empty symbol in ohlc builder.")
-        return
-    if direction not in {"front", "back"}:
-        logger.warning(_SECTION, f"Rejected invalid direction={direction!r} in ohlc builder.")
-        return
+def extendBack(symbol: str, targetTimeframe: str) -> bool:
+    """
+    Extend OHLC data toward older timestamps by aggregating from the lower timeframe.
+    """
+    if not _validate_target_timeframe(targetTimeframe):
+        return False
 
-    # Build chain: 1M from 1S, 1H from 1M, 1D from 1H.
-    result_1m = _build_one(symbol, "1S", "1M", direction, source_hint=source_bounds)
-    result_1h = _build_one(symbol, "1M", "1H", direction, source_hint=(result_1m.first_ts, result_1m.last_ts) if result_1m.first_ts is not None and result_1m.last_ts is not None else None)
-    _build_one(symbol, "1H", "1D", direction, source_hint=(result_1h.first_ts, result_1h.last_ts) if result_1h.first_ts is not None and result_1h.last_ts is not None else None)
+    srcTimeframe = _get_src_timeframe(targetTimeframe)
+
+    if ohlcStorer.IsEmpty(symbol, srcTimeframe):
+        logger.error(_SECTION, f"Source timeframe is empty for {symbol}/{srcTimeframe}.")
+        return False
+
+    src_first = ohlcStorer.getFirstOhlc(symbol, srcTimeframe)
+    src_last = ohlcStorer.getLastOhlc(symbol, srcTimeframe)
+
+    if src_first is None or src_last is None:
+        logger.error(
+            _SECTION,
+            f"Failed to read source OHLC bounds for {symbol}/{srcTimeframe}.",
+        )
+        return False
+
+    step = TIMESTAMP_MAP[targetTimeframe]
+
+    startExtendTs = (
+        src_first.t
+        if (src_first.t // step == 0)
+        else _timestamp_floor(src_first.t, targetTimeframe) + step
+    )
+
+    if ohlcStorer.IsEmpty(symbol, targetTimeframe):
+        endExtendTs = _timestamp_floor(src_last.t, targetTimeframe) - step
+    else:
+        target_first = ohlcStorer.getFirstOhlc(symbol, targetTimeframe)
+
+        if target_first is None:
+            logger.error(
+                _SECTION,
+                f"Failed to read target OHLC bounds for "
+                f"{symbol}/{targetTimeframe}.",
+            )
+            return False
+
+        endExtendTs = (
+            _timestamp_floor(target_first.t, targetTimeframe)
+            - step
+        )
+
+        if _has_overlap(
+            _timestamp_floor(target_first.t, targetTimeframe),
+            _timestamp_floor(
+                ohlcStorer.getLastOhlc(symbol, targetTimeframe).t,
+                targetTimeframe,
+            )
+            if not ohlcStorer.IsEmpty(symbol, targetTimeframe)
+            else None,
+            startExtendTs,
+            endExtendTs,
+        ):
+            logger.error(
+                _SECTION,
+                f"Overlap detected while extending back for "
+                f"{symbol}/{targetTimeframe}. "
+                f"start={startExtendTs}, end={endExtendTs}.",
+            )
+            return False
+
+    if endExtendTs < startExtendTs:
+        _log_noop(symbol, targetTimeframe, "back")
+        return True
+
+    periods = _build_periods(
+        startExtendTs,
+        endExtendTs,
+        targetTimeframe,
+    )
+
+    if not periods:
+        _log_noop(symbol, targetTimeframe, "back")
+        return True
+
+    total_target_bars = len(periods)
+
+    src_per_target = (
+        TIMESTAMP_MAP[targetTimeframe]
+        // TIMESTAMP_MAP[srcTimeframe]
+    )
+
+    total_src_bars = 0
+
+    with tqdm(
+        total=total_target_bars,
+        desc=f"{symbol} {targetTimeframe} back",
+        unit="bar",
+        leave=False,
+    ) as pbar:
+
+        for batchEnd in range(
+            total_target_bars,
+            0,
+            -config.OHLC_BATCH_LIMIT,
+        ):
+            batch_start = max(
+                0,
+                batchEnd - config.OHLC_BATCH_LIMIT,
+            )
+
+            batch_periods = periods[batch_start:batchEnd]
+
+            batch = _aggregate_periods(
+                symbol,
+                srcTimeframe,
+                batch_periods,
+            )
+
+            if batch is None:
+                logger.error(
+                    _SECTION,
+                    f"Failed to aggregate back batch for "
+                    f"{symbol}/{targetTimeframe} "
+                    f"from {batch_periods[0][0]} "
+                    f"to {batch_periods[-1][1]}.",
+                )
+                return False
+
+            if len(batch) != len(batch_periods):
+                logger.error(
+                    _SECTION,
+                    f"Aggregate size mismatch for "
+                    f"{symbol}/{targetTimeframe} back batch: "
+                    f"expected={len(batch_periods)}, "
+                    f"got={len(batch)}.",
+                )
+                return False
+
+            if not ohlcStorer.prependOhlcs(
+                symbol,
+                targetTimeframe,
+                batch,
+            ):
+                logger.error(
+                    _SECTION,
+                    f"Failed to prepend back batch for "
+                    f"{symbol}/{targetTimeframe} "
+                    f"from {batch_periods[0][0]} "
+                    f"to {batch_periods[-1][1]}.",
+                )
+                return False
+
+            total_src_bars += len(batch_periods) * src_per_target
+
+            pbar.update(len(batch_periods))
+
+    logger.info(
+        _SECTION,
+        f"Extended {total_target_bars:,} {targetTimeframe} bars "
+        f"from {total_src_bars:,} {srcTimeframe} bars: "
+        f"{datetime.fromtimestamp(startExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
+        f"-> "
+        f"{datetime.fromtimestamp(endExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')}"
+    )
+
+    return True
+
+
+
+__all__ = [
+    "TIMEFRAME_MAP",
+    "TIMESTAMP_MAP",
+    "extendFront",
+    "extendBack",
+]

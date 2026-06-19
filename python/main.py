@@ -8,7 +8,6 @@ from flask import Flask, jsonify
 from werkzeug.serving import make_server
 
 from config import PORT
-from ohlc import bp as ohlc_bp
 from symbols import bp as symbols_bp
 from base import bp as base_bp
 
@@ -20,7 +19,6 @@ import symbols
 app = Flask(__name__)
 
 app.register_blueprint(base_bp)
-app.register_blueprint(ohlc_bp)
 app.register_blueprint(symbols_bp)
 
 _server = None
@@ -32,7 +30,6 @@ def shutdown():
     base = f"http://127.0.0.1:{PORT}"
 
     for route in (
-        "/ohlc/SHUTDOWN",
         "/symbols/SHUTDOWN",
         "/base/SHUTDOWN",
     ):

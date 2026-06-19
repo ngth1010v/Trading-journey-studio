@@ -45,7 +45,17 @@ def _handle_request(item: Any) -> None:
         return
 
     source_bounds = _baseBuilder.extend(req)
-    _ohlcBuilder.extend_all(req.symbol, req.extendType, source_bounds=source_bounds)
+    if not source_bounds or any(v is None for v in source_bounds):
+        return
+
+    if req.extendType == "back":
+        if (_ohlcBuilder.extendBack(req.symbol, "1M")):
+            if (_ohlcBuilder.extendBack(req.symbol, "1H")):
+                _ohlcBuilder.extendBack(req.symbol, "1D")
+    else:
+        if (_ohlcBuilder.extendFront(req.symbol, "1M")):
+            if (_ohlcBuilder.extendFront(req.symbol, "1H")):
+                _ohlcBuilder.extendFront(req.symbol, "1D")
 
 
 def _worker() -> None:
