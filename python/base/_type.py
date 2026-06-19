@@ -12,9 +12,12 @@ class Tick:
 
 
 @dataclass(slots=True)
-class OhlcRequest:
+class ExtendRequest:
     caller: str = ""
     symbol: str = ""
-    timeframe: str = "1S"
     extendType: str = "back"  # "back" | "front"
     fromTs: int = 0
+
+
+# Backward-compatible alias for older imports.
+OhlcRequest = ExtendRequest

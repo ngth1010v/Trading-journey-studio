@@ -1,10 +1,10 @@
-
 from __future__ import annotations
 
 import os
 import sqlite3
 from pathlib import Path
 from typing import Iterable
+
 from ._type import AggregatePeriod
 
 import duckdb
@@ -294,11 +294,24 @@ def _aggregate_rows_with_duckdb(rows: list[Ohlc], bucket_ms: int) -> list[Ohlc]:
     return result
 
 
+def _aggregate_one_period(rows: list[Ohlc], bucket_ts: int) -> Ohlc | None:
+    if not rows:
+        return None
+
+    rows = sorted(rows, key=lambda o: o.t)
+    return Ohlc(
+        t=int(bucket_ts),
+        o=int(rows[0].o),
+        h=int(max(row.h for row in rows)),
+        l=int(min(row.l for row in rows)),
+        c=int(rows[-1].c),
+        v=int(sum(row.v for row in rows)),
+    )
 
 
-#=====================================================================================================================
+# =====================================================================================================================
 # PUBLIC API
-#=====================================================================================================================
+# =====================================================================================================================
 def getLastOhlc(symbol, timeframe):
     try:
         ohlc = _get_extreme_ohlc(symbol, timeframe, "DESC")
@@ -334,7 +347,6 @@ def getOhlcs(symbol, timeframe, fromTs, toTs):
             logger.warning(_SECTION, f"No ohlcs found for {symbol!r}/{timeframe!r} in range {from_ts}..{to_ts}.")
             return []
 
-        logger.info(_SECTION, f"getOhlcs({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) done: {len(ohlcs)} rows")
         return ohlcs
     except Exception as exc:
         logger.error(_SECTION, f"getOhlcs({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) failed: {exc}")
@@ -349,14 +361,19 @@ def IsEmpty(symbol, timeframe):
         logger.error(_SECTION, f"IsEmpty({symbol!r}, {timeframe!r}) failed: {exc}")
         return True
 
-def aggregateOhlcs(symbol: str, timeframe: str, srcPeriods: list[AggregatePeriod]):
-    try:
-        dst_delta = _timeframe_delta_ms(timeframe)
 
-        last = getLastOhlc(symbol, timeframe)
-        first = getFirstOhlc(symbol, timeframe)
-        if last is False or first is False:
-            return []
+def aggregateOhlcs(symbol: str, timeframe: str, srcPeriods: list[AggregatePeriod]):
+    """
+    Aggregate stored OHLC rows from `timeframe` into the period buckets described by `srcPeriods`.
+
+    Important:
+    - `timeframe` is treated as the SOURCE timeframe.
+    - The target bar size is inferred from each period's [fromTs, toTs).
+    - A period is only aggregated when it is fully covered by source data.
+    - Missing source data inside a period causes that period to be skipped.
+    """
+    try:
+        source_delta_ms = _timeframe_delta_ms(timeframe)
 
         periods = sorted(
             (
@@ -369,43 +386,60 @@ def aggregateOhlcs(symbol: str, timeframe: str, srcPeriods: list[AggregatePeriod
         if not periods:
             return []
 
-        first_ts = int(first.t)
-        last_ts = int(last.t)
-        max_ts = last_ts + dst_delta
-
-        while periods and int(periods[0].toTs) <= last_ts:
-            periods.pop(0)
-
-        while periods and int(periods[-1].fromTs) >= max_ts:
-            periods.pop()
-
-        if not periods:
+        source_first = getFirstOhlc(symbol, timeframe)
+        source_last = getLastOhlc(symbol, timeframe)
+        if source_first is False or source_last is False:
             return []
 
-        normalized_periods = []
+        source_first_ts = int(source_first.t)
+        source_last_end_ts = int(source_last.t) + source_delta_ms
+
+        result: list[Ohlc] = []
+
         for period in periods:
-            from_ts = max(int(period.fromTs), first_ts)
-            to_ts = min(int(period.toTs), max_ts)
-            if to_ts > from_ts:
-                normalized_periods.append((from_ts, to_ts))
+            period_from = int(period.fromTs)
+            period_to = int(period.toTs)
+            span_ms = period_to - period_from
 
-        if not normalized_periods:
-            return []
+            if span_ms <= 0:
+                continue
 
-        source_rows: list[Ohlc] = []
-        for from_ts, to_ts in normalized_periods:
-            chunk = getOhlcs(symbol, timeframe, from_ts, to_ts)
+            # Only build when the whole bucket is covered by source storage.
+            if period_from < source_first_ts:
+                continue
+            if period_to > source_last_end_ts:
+                continue
+
+            # The source timeframe must fit evenly into the requested bucket.
+            if span_ms % source_delta_ms != 0:
+                continue
+
+            chunk = getOhlcs(symbol, timeframe, period_from, period_to)
             if chunk is False:
                 raise RuntimeError(
-                    f"getOhlcs({symbol!r}, {timeframe!r}, {from_ts}, {to_ts}) failed"
+                    f"getOhlcs({symbol!r}, {timeframe!r}, {period_from}, {period_to}) failed"
                 )
-            source_rows.extend(chunk)
+            if not chunk:
+                continue
 
-        source_rows = _dedupe_sorted_ohlcs(source_rows)
-        if not source_rows:
+            expected_count = span_ms // source_delta_ms
+            if expected_count <= 0:
+                continue
+
+            # Require a complete bucket. This keeps 1M/1H/1D strict and avoids partial bars.
+            if len(chunk) != expected_count:
+                continue
+
+            agg = _aggregate_one_period(chunk, period_from)
+            if agg is None:
+                continue
+
+            result.append(agg)
+
+        result = _dedupe_sorted_ohlcs(result)
+        if not result:
             return []
 
-        result = _aggregate_rows_with_duckdb(source_rows, dst_delta)
         logger.info(
             _SECTION,
             f"aggregateOhlcs({symbol!r}, {timeframe!r}, periods={len(srcPeriods)}) done: {len(result)} rows",
