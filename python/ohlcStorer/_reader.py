@@ -445,10 +445,6 @@ def aggregateOhlcs(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int
         if not result:
             return []
 
-        logger.info(
-            _SECTION,
-            f"aggregateOhlcs({symbol!r}, {srcTimeframe!r}, periods={len(periods)}) done: {len(result)} rows",
-        )
         return result
 
     except Exception as exc:
