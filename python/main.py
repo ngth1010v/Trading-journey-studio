@@ -10,6 +10,7 @@ from werkzeug.serving import make_server
 from config import PORT
 from symbols import bp as symbols_bp
 from base import bp as base_bp
+from ohlc import bp as ohlc_bp
 
 import base
 
@@ -18,8 +19,9 @@ import symbols
 
 app = Flask(__name__)
 
-app.register_blueprint(base_bp)
 app.register_blueprint(symbols_bp)
+app.register_blueprint(base_bp)
+app.register_blueprint(ohlc_bp)
 
 _server = None
 
@@ -32,6 +34,7 @@ def shutdown():
     for route in (
         "/symbols/SHUTDOWN",
         "/base/SHUTDOWN",
+        "/ohlc/SHUTDOWN",
     ):
         try:
             requests.get(base + route, timeout=1)
