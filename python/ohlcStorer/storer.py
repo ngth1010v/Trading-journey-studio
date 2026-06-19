@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from . import _reader, _writer
 from _type import Ohlc
+from ._type import AggregatePeriod
 
 #============================================================================================================
 # WRITER
@@ -36,8 +37,8 @@ def getOhlcs(symbol: str, timeframe: str, fromTs, toTs):
 
 
 # Aggregate OHLC fields from stored OHLC bars inside the half-open range [fromTs, toTs).
-def getOhlc(symbol: str, timeframe: str, fromTs, toTs):
-    return _reader.getOhlc(symbol, timeframe, fromTs, toTs)
+def aggregateOhlcs(symbol: str, timeframe: str, srcPeriods: list[AggregatePeriod]):
+    return _reader.aggregateOhlcs(symbol, timeframe, srcPeriods)
 
 
 # Return True when there is no OHLC data for the given symbol/timeframe.

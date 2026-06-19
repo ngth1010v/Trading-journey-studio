@@ -246,20 +246,33 @@ def _write_parquet(rows: list[Ohlc], final_path: Path) -> Path:
     return temp_path
 
 
+# def _delete_rows_by_timestamp(conn: sqlite3.Connection, rows: list[Ohlc]) -> None:
+#     timestamps = [int(o.t) for o in rows]
+#     if not timestamps:
+#         return
+
+#     placeholders = ",".join("?" for _ in timestamps)
+#     conn.execute(
+#         f"DELETE FROM ohlcs WHERE timestamp IN ({placeholders})",
+#         timestamps,
+#     )
 def _delete_rows_by_timestamp(conn: sqlite3.Connection, rows: list[Ohlc]) -> None:
-    timestamps = [int(o.t) for o in rows]
-    if not timestamps:
+    if not rows:
         return
 
-    placeholders = ",".join("?" for _ in timestamps)
+    # Vì dữ liệu đã được _sorted_ohlcs sắp xếp tăng dần:
+    min_ts = int(rows[0].t)
+    max_ts = int(rows[-1].t)
+
+    # Chỉ tốn đúng 2 variables SQL, bất chấp chunk lớn bao nhiêu!
     conn.execute(
-        f"DELETE FROM ohlcs WHERE timestamp IN ({placeholders})",
-        timestamps,
+        "DELETE FROM ohlcs WHERE timestamp BETWEEN ? AND ?",
+        (min_ts, max_ts)
     )
 
 
 def _flush_hot_to_cold(conn: sqlite3.Connection, symbol: str, timeframe: str) -> None:
-    limit = int(getattr(config, "OHLC_FILE_LIMIT", 0))
+    limit = config.OHLC_FILE_LIMIT
     if limit <= 0:
         raise ValueError("config.OHLC_FILE_LIMIT must be greater than zero")
 

@@ -5,6 +5,7 @@ import os
 import sqlite3
 from pathlib import Path
 from typing import Iterable
+from ._type import AggregatePeriod
 
 import duckdb
 import pandas as pd
@@ -218,6 +219,86 @@ def _dedupe_sorted_ohlcs(ohlcs: Iterable[Ohlc]) -> list[Ohlc]:
     return unique
 
 
+def _timeframe_delta_ms(timeframe: str) -> int:
+    tf = str(timeframe).strip().upper()
+    mapping = {
+        "1S": 1000,
+        "1M": 1000 * 60,
+        "1H": 1000 * 60 * 60,
+        "1D": 1000 * 60 * 60 * 24,
+    }
+
+    if tf not in mapping:
+        logger.error(_SECTION, f"aggregateOhlcs() unsupported timeframe: {timeframe!r}")
+        raise RuntimeError(f"Unsupported timeframe: {timeframe!r}")
+
+    return mapping[tf]
+
+
+def _read_ohlcs_for_periods(symbol: str, timeframe: str, periods) -> list[Ohlc]:
+    rows: list[Ohlc] = []
+
+    for period in periods:
+        chunk = getOhlcs(symbol, timeframe, int(period.fromTs), int(period.toTs))
+        if chunk is False:
+            raise RuntimeError(
+                f"getOhlcs({symbol!r}, {timeframe!r}, {period.fromTs}, {period.toTs}) failed"
+            )
+        rows.extend(chunk)
+
+    return _dedupe_sorted_ohlcs(rows)
+
+
+def _aggregate_rows_with_duckdb(rows: list[Ohlc], bucket_ms: int) -> list[Ohlc]:
+    if not rows:
+        return []
+
+    df = pd.DataFrame(
+        [(o.t, o.o, o.h, o.l, o.c, o.v) for o in rows],
+        columns=["timestamp", "open", "high", "low", "close", "volume"],
+    )
+    df["bucket"] = (df["timestamp"] // int(bucket_ms)) * int(bucket_ms)
+
+    conn = duckdb.connect(database=":memory:")
+    try:
+        conn.register("ohlcs_df", df)
+        out_rows = conn.execute(
+            """
+            SELECT
+                bucket AS timestamp,
+                arg_min(open, timestamp) AS open,
+                max(high) AS high,
+                min(low) AS low,
+                arg_max(close, timestamp) AS close,
+                sum(volume) AS volume
+            FROM ohlcs_df
+            GROUP BY bucket
+            ORDER BY bucket ASC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    result: list[Ohlc] = []
+    for row in out_rows:
+        result.append(
+            Ohlc(
+                t=int(row[0]),
+                o=int(row[1]),
+                h=int(row[2]),
+                l=int(row[3]),
+                c=int(row[4]),
+                v=int(row[5]),
+            )
+        )
+    return result
+
+
+
+
+#=====================================================================================================================
+# PUBLIC API
+#=====================================================================================================================
 def getLastOhlc(symbol, timeframe):
     try:
         ohlc = _get_extreme_ohlc(symbol, timeframe, "DESC")
@@ -268,78 +349,69 @@ def IsEmpty(symbol, timeframe):
         logger.error(_SECTION, f"IsEmpty({symbol!r}, {timeframe!r}) failed: {exc}")
         return True
 
-
-def getOhlc(symbol, timeframe, fromTs, toTs):
+def aggregateOhlcs(symbol: str, timeframe: str, srcPeriods: list[AggregatePeriod]):
     try:
-        from_ts = int(fromTs)
-        to_ts = int(toTs)
-        if from_ts > to_ts:
-            from_ts, to_ts = to_ts, from_ts
+        dst_delta = _timeframe_delta_ms(timeframe)
 
-        # Half-open range: fromTs <= timestamp < toTs
-        if to_ts <= from_ts:
-            return {
-                "open": None,
-                "close": None,
-                "high": None,
-                "low": None,
-                "volume": None,
-            }
+        last = getLastOhlc(symbol, timeframe)
+        first = getFirstOhlc(symbol, timeframe)
+        if last is False or first is False:
+            return []
 
-        hot_rows: list[Ohlc] = []
-        hot_rows.extend(_read_hot_range(_hot_db_path(symbol, timeframe, _HOT_DB_FIRST), from_ts, to_ts))
-        hot_rows.extend(_read_hot_range(_hot_db_path(symbol, timeframe, _HOT_DB_LAST), from_ts, to_ts))
-        cold_rows = _read_cold_range(_cold_files(symbol, timeframe), from_ts, to_ts)
-
-        ohlcs = _dedupe_sorted_ohlcs([*hot_rows, *cold_rows])
-        if not ohlcs:
-            return {
-                "open": None,
-                "close": None,
-                "high": None,
-                "low": None,
-                "volume": None,
-            }
-
-        df = pd.DataFrame(
-            [(o.t, o.o, o.h, o.l, o.c, o.v) for o in ohlcs],
-            columns=["timestamp", "open", "high", "low", "close", "volume"],
+        periods = sorted(
+            (
+                p
+                for p in (srcPeriods or [])
+                if int(p.toTs) > int(p.fromTs)
+            ),
+            key=lambda p: (int(p.fromTs), int(p.toTs)),
         )
+        if not periods:
+            return []
 
-        conn = duckdb.connect(database=":memory:")
-        try:
-            conn.register("ohlcs_df", df)
-            row = conn.execute(
-                """
-                SELECT
-                    arg_min(open, timestamp) AS open,
-                    arg_max(close, timestamp) AS close,
-                    max(high) AS high,
-                    min(low) AS low,
-                    sum(volume) AS volume
-                FROM ohlcs_df
-                """
-            ).fetchone()
-        finally:
-            conn.close()
+        first_ts = int(first.t)
+        last_ts = int(last.t)
+        max_ts = last_ts + dst_delta
 
-        if row is None:
-            return {
-                "open": None,
-                "close": None,
-                "high": None,
-                "low": None,
-                "volume": None,
-            }
+        while periods and int(periods[0].toTs) <= last_ts:
+            periods.pop(0)
 
-        result = {
-            "open": None if row[0] is None else int(row[0]),
-            "close": None if row[1] is None else int(row[1]),
-            "high": None if row[2] is None else int(row[2]),
-            "low": None if row[3] is None else int(row[3]),
-            "volume": None if row[4] is None else int(row[4]),
-        }
+        while periods and int(periods[-1].fromTs) >= max_ts:
+            periods.pop()
+
+        if not periods:
+            return []
+
+        normalized_periods = []
+        for period in periods:
+            from_ts = max(int(period.fromTs), first_ts)
+            to_ts = min(int(period.toTs), max_ts)
+            if to_ts > from_ts:
+                normalized_periods.append((from_ts, to_ts))
+
+        if not normalized_periods:
+            return []
+
+        source_rows: list[Ohlc] = []
+        for from_ts, to_ts in normalized_periods:
+            chunk = getOhlcs(symbol, timeframe, from_ts, to_ts)
+            if chunk is False:
+                raise RuntimeError(
+                    f"getOhlcs({symbol!r}, {timeframe!r}, {from_ts}, {to_ts}) failed"
+                )
+            source_rows.extend(chunk)
+
+        source_rows = _dedupe_sorted_ohlcs(source_rows)
+        if not source_rows:
+            return []
+
+        result = _aggregate_rows_with_duckdb(source_rows, dst_delta)
+        logger.info(
+            _SECTION,
+            f"aggregateOhlcs({symbol!r}, {timeframe!r}, periods={len(srcPeriods)}) done: {len(result)} rows",
+        )
         return result
+
     except Exception as exc:
-        logger.error(_SECTION, f"getOhlc({symbol!r}, {timeframe!r}, {fromTs}, {toTs}) failed: {exc}")
+        logger.error(_SECTION, f"aggregateOhlcs({symbol!r}, {timeframe!r}, periods={len(srcPeriods)}) failed: {exc}")
         return False

@@ -4,7 +4,7 @@ from .storer import (
     appendOhlcs,
     getFirstOhlc,
     getLastOhlc,
-    getOhlc,
+    aggregateOhlcs,
     getOhlcs,
     prependOhlcs,
 )
@@ -15,6 +15,6 @@ __all__ = [
     "getFirstOhlc",
     "getLastOhlc",
     "getOhlcs",
-    "getOhlc",
+    "aggregateOhlcs",
     "IsEmpty",
 ]
