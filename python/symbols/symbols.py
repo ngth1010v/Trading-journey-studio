@@ -6,14 +6,13 @@ from flask import Blueprint, jsonify
 
 import _logger as logger
 
-from ._collector import getSymbolsFromMt5
+from ._collector import getSymbolsFromMt5, getSymbolFromMt5
 from ._reader import getSymbol, getSymbols
 from ._writer import writeSymbols
 
 bp = Blueprint(
     "symbols",
     __name__,
-    url_prefix="/symbols",
 )
 
 _SECTION = "symbols/symbols.py"
@@ -57,15 +56,19 @@ def symbols():
 
 
 @bp.route("/<symbol>")
-def symbol(symbol: str):
+def get_symbol(symbol: str):
     try:
-        data = getSymbol(symbol)
+        data = getSymbolFromMt5(symbol)
+
+        if data is None:
+            logger.info(_SECTION, f"MT5 lookup for '{symbol}' failed or not found, falling back to DB.")
+            data = getSymbol(symbol)
 
         if data is None:
             return jsonify({
                 "status": "error",
-                "msg": f"Symbol '{symbol}' not found."
-            }), 500
+                "msg": f"Symbol '{symbol}' not found in both MT5 and database."
+            }), 404
 
         return jsonify(asdict(data)), 200
 
@@ -81,7 +84,7 @@ def symbol(symbol: str):
         }), 500
 
 
-@bp.route("/SHUTDOWN")
+@bp.route("/symbols/SHUTDOWN")
 def shutdown():
     logger.info(_SECTION, "Symbols shutdown requested.")
 
