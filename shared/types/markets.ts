@@ -1,17 +1,17 @@
 export interface Tick {
-  timestamp: number;
-  bid: number;
-  ask: number;
-  volume: number;
+  t: number;
+  b: number;
+  a: number;
+  v: number;
 }
 
 export interface Ohlc {
-  openTimestamp: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
 }
 
 export interface SymbolData {
