@@ -19,7 +19,7 @@ def init() -> None:
     logger.info(_SECTION, "Base module initialized.")
 
 
-@bp.route("/1S/SHUTDOWN", methods=["GET"])
+@bp.route("/base/SHUTDOWN", methods=["GET"])
 def shutdown():
     controller.stop()
     logger.info(_SECTION, "1S shutdown requested.")

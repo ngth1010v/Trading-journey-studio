@@ -33,9 +33,8 @@ def shutdown():
 
     for route in (
         "/ohlc/SHUTDOWN",
-        "/tick/SHUTDOWN",
         "/symbols/SHUTDOWN",
-        "/1S/SHUTDOWN",
+        "/base/SHUTDOWN",
     ):
         try:
             requests.get(base + route, timeout=1)
