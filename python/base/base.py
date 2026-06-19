@@ -5,6 +5,7 @@ from dataclasses import asdict
 from flask import Blueprint, jsonify, request
 
 import _logger as logger
+from symbols._reader import getSymbols
 
 from . import _controller as controller
 from ._type import OhlcRequest
@@ -26,18 +27,18 @@ def shutdown():
     return jsonify({"status": "ok", "msg": "1S shutdown"}), 200
 
 
-@bp.route("/1S/extend/", methods=["GET"])
-def extend():
+@bp.route("/<symbol>/1S/extend/", methods=["GET"])
+def extend(symbol: str):
     extend_type = (request.args.get("type", "") or "").strip().lower()
     caller = (request.args.get("caller", "") or "").strip()
-    symbol = (request.args.get("symbol", "") or "").strip()
+    symbol = (symbol or "").strip()
     from_ts = request.args.get("fromTs", default=0, type=int)
     timeframe = "1S"
 
     if extend_type not in {"back", "front"}:
         return jsonify({"status": "error", "msg": "type must be 'back' or 'front'"}), 400
-    if not symbol:
-        return jsonify({"status": "error", "msg": "symbol is required"}), 400
+    if not symbol or symbol not in [ item.symbol for item in getSymbols() ]:
+        return jsonify({"status": "error", "msg": "Invalid or missing symbol"}), 400
     if extend_type == "back" and from_ts <= 0:
         return jsonify({"status": "error", "msg": "fromTs is required for back extend"}), 400
 
@@ -53,14 +54,14 @@ def extend():
     return jsonify({"status": "ok", "type": "queued", "timeframe": timeframe}), 200
 
 
-@bp.route("/1S/", methods=["GET"])
-def query_ohlcs():
-    symbol = (request.args.get("symbol", "") or "").strip()
+@bp.route("/<symbol>/1S/", methods=["GET"])
+def query_ohlcs(symbol: str):
+    symbol = (symbol or "").strip()
     from_ts = request.args.get("fromTs", default=None, type=int)
     to_ts = request.args.get("toTs", default=None, type=int)
 
-    if not symbol:
-        return jsonify({"status": "error", "msg": "symbol is required"}), 400
+    if not symbol or symbol not in [ item.symbol for item in getSymbols() ]:
+        return jsonify({"status": "error", "msg": "Invalid or missing symbol"}), 400
     if from_ts is None or to_ts is None:
         return jsonify({"status": "error", "msg": "fromTs and toTs are required"}), 400
     if from_ts > to_ts:
