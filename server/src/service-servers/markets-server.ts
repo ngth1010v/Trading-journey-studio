@@ -24,7 +24,7 @@ function init(): void {
 async function shutdown(): Promise<void> {
     const url = 'http://localhost:5000/SHUTDOWN';
 
-    logger.info(_SECTION, `Sending shutdown request to Markets-database-server: ${url}...`);
+    logger.info(_SECTION, `Shutting down Market-server...`);
     
     try {
         const response = await fetch(url, { method: 'GET' });
@@ -34,7 +34,7 @@ async function shutdown(): Promise<void> {
         } else {
             logger.error(_SECTION, `Server rejected the shutdown command. Status code: ${response.status}`);
         }
-    } catch (error: any) {
+    } catch (error: any) { 
         // Kiểm tra nếu lỗi do không kết nối được (server chưa mở)
         const errorMessage = error instanceof Error ? error.message : String(error);
         const isNetworkError = error?.code === 'ECONNREFUSED' || errorMessage.includes('fetch failed') || errorMessage.includes('undici');

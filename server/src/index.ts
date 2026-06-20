@@ -1,7 +1,9 @@
 import express, { Request, Response } from 'express';
+
 import { Server } from 'node:http';
 import { logger } from './logger.js';
-import { marketServer } from './service-servers/markets-database-server.js';
+import { marketServer } from './service-servers/markets-server.js';
+import { clientServer } from './service-servers/client-server.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,11 +24,13 @@ app.get('/', (_req: Request, res: Response) => {
 // =============================================================================================================
 function startup(): void {
     marketServer.init();
+    clientServer.init();
     logger.info(_SECTION, 'Start up done!');
 }
 
 async function shutdown(): Promise<void> {
     await marketServer.shutdown();
+    await clientServer.shutdown();
     logger.info(_SECTION, 'Shutdown done!');
 }
 
