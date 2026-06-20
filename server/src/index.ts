@@ -14,6 +14,7 @@ let isShuttingDown = false;
 
 // Middleware & Routes
 app.use(express.json());
+app.use(marketServer.router);
 
 app.get('/', (_req: Request, res: Response) => {
     res.send('Hello World!');
