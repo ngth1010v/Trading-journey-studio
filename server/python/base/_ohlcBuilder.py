@@ -164,7 +164,7 @@ def extendFront(symbol: str, targetTimeframe: str) -> bool:
 
     if endExtendTs < startExtendTs:
         _log_noop(symbol, targetTimeframe, "front")
-        return True
+        return False
 
     periods = _build_periods(
         startExtendTs,
@@ -174,7 +174,7 @@ def extendFront(symbol: str, targetTimeframe: str) -> bool:
 
     if not periods:
         _log_noop(symbol, targetTimeframe, "front")
-        return True
+        return False
 
     total_target_bars = len(periods)
     src_per_target = (
@@ -248,7 +248,7 @@ def extendFront(symbol: str, targetTimeframe: str) -> bool:
 
             pbar.update(len(batch_periods))
 
-    logger.info(
+    logger.debug(
         _SECTION,
         f"Extended: "
         f"{datetime.fromtimestamp(startExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
@@ -332,7 +332,7 @@ def extendBack(symbol: str, targetTimeframe: str) -> bool:
 
     if endExtendTs < startExtendTs:
         _log_noop(symbol, targetTimeframe, "back")
-        return True
+        return False
 
     periods = _build_periods(
         startExtendTs,
@@ -342,7 +342,7 @@ def extendBack(symbol: str, targetTimeframe: str) -> bool:
 
     if not periods:
         _log_noop(symbol, targetTimeframe, "back")
-        return True
+        return False
 
     total_target_bars = len(periods)
 
@@ -416,14 +416,14 @@ def extendBack(symbol: str, targetTimeframe: str) -> bool:
 
             pbar.update(len(batch_periods))
 
-    logger.info(
+    logger.debug(
         _SECTION,
         f"Extended: "
         f"{datetime.fromtimestamp(startExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
         f"-> "
         f"{datetime.fromtimestamp(endExtendTs / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')}"
         f" | "
-        f"from {total_src_bars:,} {srcTimeframe}-bars -> "
+        f"{total_src_bars:,} {srcTimeframe}-bars -> "
         f"{total_target_bars:,} {targetTimeframe} bars"
     )
 

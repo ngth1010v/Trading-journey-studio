@@ -415,13 +415,26 @@ def _notify_done(caller: str, from_ts: int, to_ts: int) -> None:
 
     threading.Thread(target=_notify, daemon=True).start()
 
-def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
+
+
+#==========================================================================================================
+# PUBLIC API
+#==========================================================================================================
+def extendFront(symbol: str) -> bool:
+    symbol = (symbol or "").strip()
+
+    if not symbol:
+        logger.error(_SECTION, "Rejected empty symbol in extendFront().")
+        return False
+
+
     point = _symbol_point(symbol)
     _collector.init()
 
     last = ohlcStorer.getLastOhlc(symbol, "1S")
     if last is False:
-        logger.warning(_SECTION, f"Cannot read last OHLC for {symbol!r}.")
+        logger.error(_SECTION, f"Cannot read last OHLC for {symbol}/1S.")
+        return False
 
     if last in (None, False):
         current_ts = _floor_sec(_now_ms() - (_default_limit_seconds() * 1000))
@@ -434,13 +447,19 @@ def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
     batch_limit_ms = _batch_limit_seconds() * 1000
 
     if current_ts >= now_ms:
-        logger.info(_SECTION, f"No front extension needed for {symbol!r}.")
-        return _current_storage_bounds(symbol)
+        logger.warning(
+            _SECTION,
+            f"No front extension needed for {symbol}/1S.",
+        )
+        return False
 
     build_start_ts = current_ts
     build_end_ts = now_ms
 
-    total_expected_bars = max(1, (build_end_ts - build_start_ts) // 1000)
+    total_expected_bars = max(
+        1,
+        (build_end_ts - build_start_ts) // 1000,
+    )
 
     total_ticks = 0
     total_bars = 0
@@ -454,15 +473,26 @@ def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
 
         while current_ts < now_ms:
             start_ts = current_ts
-            end_ts = min(current_ts + batch_limit_ms, now_ms)
+            end_ts = min(
+                current_ts + batch_limit_ms,
+                now_ms,
+            )
 
             ohlc_batch_size = (end_ts - start_ts) // 1000
             if ohlc_batch_size <= 0:
                 break
 
-            batch = fetchTicksFromMt5(symbol, point, start_ts, end_ts)
+            batch = fetchTicksFromMt5(
+                symbol,
+                point,
+                start_ts,
+                end_ts,
+            )
 
-            _set_build_context("front", seed_close)
+            _set_build_context(
+                "front",
+                seed_close,
+            )
 
             bars = _dedupe_and_sort(
                 _buildOhlcBatchFromTickBatch(
@@ -475,35 +505,21 @@ def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
             if bars:
                 seed_close = int(bars[-1].c)
 
-            writer_ok = True
-            if bars:
-                writer_ok = _append_closed_bars(symbol, bars)
-
-            if not writer_ok:
-                logger.warning(
+            if bars and not _append_closed_bars(symbol, bars):
+                logger.error(
                     _SECTION,
-                    f"Failed to append OHLC bars for {symbol!r}.",
+                    f"Failed to append OHLC bars for {symbol}/1S.",
                 )
-                break
+                return False
 
             total_ticks += len(batch)
             total_bars += len(bars)
-
-            if batch:
-                _notify_done(
-                    caller,
-                    batch[0].t,
-                    batch[-1].t,
-                )
 
             pbar.update(ohlc_batch_size)
 
             current_ts = end_ts
 
-            if not batch and current_ts >= now_ms:
-                break
-
-    logger.info(
+    logger.debug(
         _SECTION,
         "Extended: "
         f"{datetime.fromtimestamp(build_start_ts / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
@@ -514,37 +530,47 @@ def _build_front(symbol: str, caller: str) -> tuple[int, int] | None:
         f"{total_bars:,} S1-bars"
     )
 
-    return _current_storage_bounds(symbol)
+    return True
 
-def _build_back(
+
+def extendBack(
     symbol: str,
-    caller: str,
-    from_ts: int,
-) -> tuple[int, int] | None:
+    fromTs: int,
+) -> bool:
+    symbol = (symbol or "").strip()
+
+    if not symbol:
+        logger.error(_SECTION, "Rejected empty symbol in extendBack().")
+        return False
+
+    target_from = _floor_sec(int(fromTs))
+
+    if target_from <= 0:
+        logger.error(
+            _SECTION,
+            f"Invalid back request fromTs for {symbol}/1S: {target_from}",
+        )
+        return False
+
     point = _symbol_point(symbol)
     _collector.init()
 
     first = ohlcStorer.getFirstOhlc(symbol, "1S")
     if first is False:
-        logger.warning(_SECTION, f"Cannot read first OHLC for {symbol!r}.")
+        logger.error(_SECTION, f"Cannot read first OHLC for {symbol}/1S.")
+        return False
 
     if first in (None, False):
         current_oldest = _floor_sec(_now_ms())
     else:
         current_oldest = _floor_sec(int(first.t))
 
-    target_from = _floor_sec(int(from_ts))
-
-    if target_from <= 0:
+    if current_oldest <= target_from:
         logger.warning(
             _SECTION,
-            f"Invalid back request fromTs for {symbol!r}: {target_from}",
+            f"No back extension needed for {symbol}/1S.",
         )
-        return _current_storage_bounds(symbol)
-
-    if current_oldest <= target_from:
-        logger.info(_SECTION, f"No back extension needed for {symbol!r}.")
-        return
+        return False
 
     seed_close = None
 
@@ -557,7 +583,10 @@ def _build_back(
     build_start_ts = target_from
     build_end_ts = current_oldest
 
-    total_expected_bars = max(1, (build_end_ts - build_start_ts) // 1000)
+    total_expected_bars = max(
+        1,
+        (build_end_ts - build_start_ts) // 1000,
+    )
 
     total_ticks = 0
     total_bars = 0
@@ -572,7 +601,10 @@ def _build_back(
         while current_oldest > target_from:
             end_ts = current_oldest
 
-            start_ts = max(0, end_ts - batch_limit_ms)
+            start_ts = max(
+                target_from,
+                end_ts - batch_limit_ms,
+            )
             start_ts = _floor_sec(start_ts)
 
             ohlc_batch_size = (end_ts - start_ts) // 1000
@@ -586,7 +618,10 @@ def _build_back(
                 end_ts,
             )
 
-            _set_build_context("back", seed_close)
+            _set_build_context(
+                "back",
+                seed_close,
+            )
 
             bars = _dedupe_and_sort(
                 _buildOhlcBatchFromTickBatch(
@@ -596,35 +631,21 @@ def _build_back(
                 )
             )
 
-            writer_ok = True
-            if bars:
-                writer_ok = _prepend_closed_bars(symbol, bars)
-
-            if not writer_ok:
-                logger.warning(
+            if bars and not _prepend_closed_bars(symbol, bars):
+                logger.error(
                     _SECTION,
-                    f"Failed to prepend OHLC bars for {symbol!r}.",
+                    f"Failed to prepend OHLC bars for {symbol}/1S.",
                 )
-                break
+                return False
 
             total_ticks += len(batch)
             total_bars += len(bars)
-
-            if batch:
-                _notify_done(
-                    caller,
-                    batch[0].t,
-                    batch[-1].t,
-                )
 
             pbar.update(ohlc_batch_size)
 
             current_oldest = start_ts
 
-            if current_oldest <= target_from:
-                break
-
-    logger.info(
+    logger.debug(
         _SECTION,
         "Extended: "
         f"{datetime.fromtimestamp(build_start_ts / 1000, timezone.utc).strftime('%d/%m/%Y-%H:%M:%S')} "
@@ -635,21 +656,4 @@ def _build_back(
         f"{total_bars:,} S1-bars"
     )
 
-    return _current_storage_bounds(symbol)
-
-
-
-def extend(req: ExtendRequest) -> tuple[int, int] | None:
-    symbol = (req.symbol or "").strip()
-    if not symbol:
-        logger.warning(_SECTION, "Rejected empty symbol in base builder.")
-        return
-
-    extend_type = (req.extendType or "").strip().lower()
-    if extend_type == "front":
-        return _build_front(symbol, req.caller)
-    elif extend_type == "back":
-        return _build_back(symbol, req.caller, req.fromTs)
-    else:
-        logger.warning(_SECTION, f"Rejected request with invalid extendType={extend_type!r}.")
-        return None
+    return True
