@@ -1,96 +1,98 @@
 import express, { Request, Response } from 'express';
+import { Server } from 'node:http';
+import { logger } from './logger.js';
+import { marketServer } from './service-servers/markets-database-server.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const _SECTION = 'index.ts';
 
-// Middleware cơ bản
+let server: Server | null = null;
+let isShuttingDown = false;
+
+// Middleware & Routes
 app.use(express.json());
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('Hello World!');
+app.get('/', (_req: Request, res: Response) => {
+    res.send('Hello World!');
 });
 
 // =============================================================================================================
-// STARTUP
-// Chỉ chứa logic kết nối / khởi tạo data của bạn
+// LOGIC STARTUP & SHUTDOWN 
 // =============================================================================================================
-async function startup() {
-  // TODO: Viết code khởi tạo data, kết nối database, đọc config... ở đây
-  console.log('🔗 [startup] Đang khởi tạo kết nối database hoặc tải dữ liệu...');
-  
-  // Giả lập độ trễ kết nối (ví dụ: await myDatabase.connect())
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  console.log('✅ [startup] Khởi tạo data thành công!');
+function startup(): void {
+    marketServer.init();
+    logger.info(_SECTION, 'Start up done!');
 }
 
-// =============================================================================================================
-// SHUTDOWN
-// Chỉ chứa logic đóng kết nối / giải phóng data của bạn
-// =============================================================================================================
-async function shutdown() {
-  // TODO: Viết code đóng kết nối database, giải phóng tài nguyên... ở đây
-  console.log('🔌 [shutdown] Đang đóng kết nối database hoặc giải phóng data...');
-  
-  // Giả lập độ trễ ngắt kết nối (ví dụ: await myDatabase.disconnect())
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  console.log('✅ [shutdown] Đã giải phóng data hoàn tất.');
+async function shutdown(): Promise<void> {
+    await marketServer.shutdown();
+    logger.info(_SECTION, 'Shutdown done!');
 }
 
+
+
+
 // =============================================================================================================
-// RUN - Quản lý vòng đời của Server và Data
+// WORKFLOW SHUTDOWN
 // =============================================================================================================
-async function startServer() {
-  try {
-    // 1. Chạy hàm khởi tạo data trước khi bật server
-    await startup();
+async function executeShutdown(res?: Response): Promise<void> {
+    if (isShuttingDown) {
+        res?.status(409).send('Shutdown already in progress.');
+        return;
+    }
+    isShuttingDown = true;
 
-    // 2. Bật HTTP Server
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Server is running on http://localhost:${PORT}`);
-    });
+    // 1. Phản hồi API trước (nếu gọi từ route SHUTDOWN) để ngắt kết nối ngay lập tức
+    if (res) {
+        res.status(200).json({ status: "ok", msg: "server shutdown" });
+    }
 
-    // 3. Lắng nghe tín hiệu tắt server từ hệ điều hành
-    handleShutdown(server);
-
-  } catch (error) {
-    console.error('❌ Unable to start the server or data layer:', error);
-    process.exit(1);
-  }
-}
-
-function handleShutdown(server: import('http').Server) {
-  const gracefulShutdown = (signal: string) => {
-    console.log(`\n⚠️ Received ${signal}. Starting graceful shutdown...`);
-
-    // Ngừng nhận request mới, xử lý các request đang dở dang
-    server.close(async () => {
-      console.log('⏹️ HTTP server closed.');
-
-      try {
-        // Gọi hàm shutdown xử lý phần data của bạn
+    try {
+        // 2. Chạy logic shutdown bên ngoài
         await shutdown();
 
-        console.log('✅ Process terminated gracefully.');
+        // 3. Đóng server / port (Đợi đóng xong hoàn toàn mới đi tiếp)
+        // if (server) {
+        //     await new Promise<void>((resolve) => server!.close(() => resolve()));
+        //     logger.info(_SECTION, 'HTTP server closed.');
+        // }
+
+        logger.info(_SECTION, 'Process terminated gracefully.');
         process.exit(0);
-      } catch (err) {
-        console.error('🔥 Error during graceful shutdown data:', err);
+    } catch (err) {
+        logger.error(_SECTION, `Error during shutdown: ${err instanceof Error ? err.message : String(err)}`);
         process.exit(1);
-      }
-    });
-
-    // Dự phòng: Nếu quá 10 giây mà vẫn chưa shutdown xong thì ép thoát
-    setTimeout(() => {
-      console.error('💀 Forcefully shutting down (timeout limit reached)...');
-      process.exit(1);
-    }, 10005);
-  };
-
-  // Lắng nghe các tín hiệu ngắt từ hệ điều hành hoặc Docker
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    }
 }
 
-// Bắt đầu chạy toàn bộ hệ thống
+// Route SHUTDOWN
+app.get('/SHUTDOWN', (_req: Request, res: Response) => {
+    logger.warn(_SECTION, 'HTTP /SHUTDOWN endpoint called');
+    void executeShutdown(res);
+});
+
+// Hệ thống lắng nghe tín hiệu OS
+process.on('SIGINT', () => void executeShutdown());
+process.on('SIGTERM', () => void executeShutdown());
+
+// =============================================================================================================
+// WORKFLOW STARTUP
+// =============================================================================================================
+function startServer(): void {
+    try {
+        // 1. Chạy startup 100% trước
+        startup();
+
+        // 2. Mở server / port
+        server = app.listen(PORT, () => {
+            logger.info(_SECTION, `Server is running on http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        logger.error(_SECTION, `Unable to start the server: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+    }
+}
+
+// Khởi chạy ứng dụng
 startServer();
