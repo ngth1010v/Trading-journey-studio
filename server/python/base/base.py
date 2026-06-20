@@ -54,7 +54,10 @@ def unregister_auto(symbol: str):
         return jsonify({"status": "error", "msg": "Invalid or missing symbol"}), 400
     if not key:
         return jsonify({"status": "error", "msg": "key is required"}), 400
+    if not key.isdigit():
+        return jsonify({"status": "error", "msg": "key must be int"}), 400
 
+    key = int(key)
     ok = controller.unregister_auto(symbol, key)
     if not ok:
         return jsonify({"status": "error", "msg": "auto register key not found"}), 400
@@ -74,7 +77,7 @@ def extend(symbol: str):
     if not symbol or symbol not in [item.symbol for item in getSymbols()]:
         return jsonify({"status": "error", "msg": "Invalid or missing symbol"}), 400
 
-    if controller.has_pending_request(symbol) or controller.has_auto_registered(symbol):
+    if controller.has_pending_request(symbol, extend_type) or (controller.has_auto_registered(symbol) and extend_type == "front"):
         return jsonify({"status": "ok", "msg": "request already queued or auto extend active"}), 200
 
     if extend_type == "back" and from_ts <= 0:

@@ -2,6 +2,7 @@ from pathlib import Path
 
 PORT = 5000
 
+DEBUG_MODE = True
 
 DATABASE_PATH = Path(__file__).parent.parent.resolve() / "database"
 

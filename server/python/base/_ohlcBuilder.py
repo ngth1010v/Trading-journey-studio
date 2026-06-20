@@ -89,7 +89,7 @@ def _aggregate_periods(
 
 
 def _log_noop(symbol: str, targetTimeframe: str, direction: str) -> None:
-    logger.warning(_SECTION, f"No {direction} extension needed for {symbol}/{targetTimeframe}.")
+    logger.debug(_SECTION, f"No {direction} extension needed for {symbol}/{targetTimeframe}.")
 
 
 def _has_overlap(existing_first_ts: int | None, existing_last_ts: int | None, start_ts: int, end_ts: int) -> bool:

@@ -433,8 +433,7 @@ def extendFront(symbol: str) -> bool:
 
     last = ohlcStorer.getLastOhlc(symbol, "1S")
     if last is False:
-        logger.error(_SECTION, f"Cannot read last OHLC for {symbol}/1S.")
-        return False
+        logger.warning(_SECTION, f"Cannot read last OHLC for {symbol}/1S.")
 
     if last in (None, False):
         current_ts = _floor_sec(_now_ms() - (_default_limit_seconds() * 1000))
@@ -447,7 +446,7 @@ def extendFront(symbol: str) -> bool:
     batch_limit_ms = _batch_limit_seconds() * 1000
 
     if current_ts >= now_ms:
-        logger.warning(
+        logger.debug(
             _SECTION,
             f"No front extension needed for {symbol}/1S.",
         )
@@ -557,8 +556,7 @@ def extendBack(
 
     first = ohlcStorer.getFirstOhlc(symbol, "1S")
     if first is False:
-        logger.error(_SECTION, f"Cannot read first OHLC for {symbol}/1S.")
-        return False
+        logger.warning(_SECTION, f"Cannot read first OHLC for {symbol}/1S.")
 
     if first in (None, False):
         current_oldest = _floor_sec(_now_ms())
@@ -566,7 +564,7 @@ def extendBack(
         current_oldest = _floor_sec(int(first.t))
 
     if current_oldest <= target_from:
-        logger.warning(
+        logger.debug(
             _SECTION,
             f"No back extension needed for {symbol}/1S.",
         )

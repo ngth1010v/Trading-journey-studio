@@ -37,10 +37,10 @@ def _pending_key(symbol: str, extend_type: str) -> tuple[str, str]:
     return (_normalize_symbol(symbol), _normalize_extend_type(extend_type))
 
 
-def has_pending_request(symbol: str) -> bool:
+def has_pending_request(symbol: str, extendType: str) -> bool:
     symbol = _normalize_symbol(symbol)
     with _state_lock:
-        return any(item_symbol == symbol for item_symbol, _ in _pending_requests)
+        return any((item_symbol == symbol and item_extend_type == extendType) for item_symbol, item_extend_type in _pending_requests)
 
 
 def has_auto_registered(symbol: str) -> bool:
@@ -62,9 +62,8 @@ def register_auto(symbol: str) -> int:
                 return key
             key += 1
 
-def unregister_auto(symbol: str, key: str) -> bool:
+def unregister_auto(symbol: str, key: int) -> bool:
     symbol = _normalize_symbol(symbol)
-    key = (key or "").strip()
 
     with _state_lock:
         ids = autoRegisted.get(symbol)

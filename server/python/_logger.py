@@ -3,6 +3,8 @@ from __future__ import annotations
 import threading
 from datetime import datetime, timezone
 
+import config
+
 _LOCK = threading.Lock()
 
 _RESET = "\033[0m"
@@ -34,7 +36,8 @@ def _write(level: str, section: str, message: str) -> None:
 
 
 def debug(section: str, message: str) -> None:
-    _write("DEBUG", section, message)
+    if (config.DEBUG_MODE):
+        _write("DEBUG", section, message)
 
 
 def info(section: str, message: str) -> None:
