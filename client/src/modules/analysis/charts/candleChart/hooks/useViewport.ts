@@ -514,7 +514,7 @@ function useViewport(candleData: CandleData): Viewport {
     
     // 2. Cập nhật scaleTs
     if (cumulative) {
-      transform.scaleTs += scaleX;
+      transform.scaleTs *= scaleX;
     } else {
       transform.scaleTs = scaleX;
     }
@@ -544,7 +544,7 @@ function useViewport(candleData: CandleData): Viewport {
 
     // 2. Cập nhật scalePrice
     if (cumulative) {
-      transform.scalePrice += scaleY;
+      transform.scalePrice *= scaleY;
     } else {
       transform.scalePrice = scaleY;
     }
