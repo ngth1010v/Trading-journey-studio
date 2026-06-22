@@ -8,21 +8,29 @@ import type { CandleData } from "./useCandleData";
 // PUBLIC
 //======================================================================================================
 export type Viewport = {
-  clean                     ()                               : Result<null>;
-  setCanvasSize             (args: ViewportSetCanvasSizeArgs): Result<null>;
-  setView                   (args: ViewportSetViewArgs)      : Result<null>;
-  getView                   ()                               : Result<View>;
-  getTransformedView        ()                               : Result<View>;
-  setScale                  (args: ViewportSetScaleArgs)     : Result<null>;
-  setOffset                 (args: ViewportSetOffsetArgs)    : Result<null>;
-  flush                     ()                               : Result<null>;
-  setAutoPrice              ()                               : Result<null>;
-  timestampToPixel          (timestamp: number)              : Result<number>;
-  pixelToTimestamp          (pixel: number)                  : Result<number>;
-  priceToPixel              (price: number)                  : Result<number>;
-  pixelToPrice              (pixel: number)                  : Result<number>;
-  getTimestampToPixelWeights()                               : Result<ShaderWeights>
-  getPriceToPixelWeights    ()                               : Result<ShaderWeights>
+  clean                     ()                                                            : Result<null>;
+  setCanvasSize             (args: ViewportSetCanvasSizeArgs)                             : Result<null>;
+
+  // View
+  setView                   (args: ViewportSetViewArgs)                                   : Result<null>;
+  getView                   ()                                                            : Result<View>;
+  getTransformedView        ()                                                            : Result<View>;
+
+  // Transform
+  setAutoPrice              ()                                                            : Result<null>;
+  setOffsetTimestamp        (offsetPixelX: number, cumulative?: boolean)                  : Result<null>;
+  setScaleTimestamp         (scaleX: number, scaleAtPixelX: number, cumulative?: boolean) : Result<null>;
+  setOffsetPrice            (offsetPixelY: number, cumulative?: boolean)                  : Result<null>;
+  setScalePrice             (scaleY: number, scaleAtPixelY: number, cumulative?: boolean) : Result<null>;
+  flush                     ()                                                            : Result<null>;
+  
+  // Converter
+  timestampToPixel          (timestamp: number)                                           : Result<number>;
+  pixelToTimestamp          (pixel: number)                                               : Result<number>;
+  priceToPixel              (price: number)                                               : Result<number>;
+  pixelToPrice              (pixel: number)                                               : Result<number>;
+  getTimestampToPixelWeights()                                                            : Result<ShaderWeights>;
+  getPriceToPixelWeights    ()                                                            : Result<ShaderWeights>;
 };
 
 
@@ -65,16 +73,6 @@ type ViewportSetViewArgs = {
   toTs: number;
   fromPrice: number;
   toPrice: number;
-};
-
-type ViewportSetScaleArgs = {
-  scaleTs?: number;
-  scalePrice?: number;
-};
-
-type ViewportSetOffsetArgs = {
-  offsetTsPixel?: number;
-  offsetPricePixel?: number;
 };
 
 
@@ -204,54 +202,6 @@ function useViewport(candleData: CandleData): Viewport {
     }
 
     return ok(res);
-  };
-
-  const setScale = (args: ViewportSetScaleArgs): Result<null> => {
-    if (args?.scaleTs !== undefined && args.scaleTs !== null) {
-      if (!isValidNumber(args.scaleTs) || args.scaleTs <= 0) {
-        return err("INVALID_SCALE", "scaleTs must be a valid positive number");
-      }
-      transformRef.current.scaleTs = args.scaleTs;
-    }
-
-    if (args?.scalePrice !== undefined && args.scalePrice !== null) {
-      if (!isValidNumber(args.scalePrice) || args.scalePrice <= 0) {
-        return err("INVALID_SCALE", "scalePrice must be a valid positive number");
-      }
-      transformRef.current.scalePrice = args.scalePrice;
-    }
-
-    return ok(null);
-  };
-
-  const setOffset = (args: ViewportSetOffsetArgs): Result<null> => {
-    const { w, h } = canvasSizeRef.current;
-    const { fromTs, toTs, fromPrice, toPrice } = viewRef.current;
-    const { scaleTs, scalePrice } = transformRef.current;
-
-    if (w <= 0 || h <= 0) {
-      return err("INVALID_CANVAS_SIZE", "canvas size must be set before setOffset()");
-    }
-
-    if (args?.offsetTsPixel !== undefined && args.offsetTsPixel !== null) {
-      if (!isValidNumber(args.offsetTsPixel)) {
-        return err("INVALID_OFFSET", "offsetTsPixel must be a valid number");
-      }
-
-      const fullDeltaTs = (toTs - fromTs) * scaleTs;
-      transformRef.current.offsetTs = (args.offsetTsPixel / w) * fullDeltaTs;
-    }
-
-    if (args?.offsetPricePixel !== undefined && args.offsetPricePixel !== null) {
-      if (!isValidNumber(args.offsetPricePixel)) {
-        return err("INVALID_OFFSET", "offsetPricePixel must be a valid number");
-      }
-
-      const fullDeltaPrice = (toPrice - fromPrice) * scalePrice;
-      transformRef.current.offsetPrice = (args.offsetPricePixel / h) * fullDeltaPrice;
-    }
-
-    return ok(null);
   };
 
   const flush = (): Result<null> => {
@@ -408,52 +358,6 @@ function useViewport(candleData: CandleData): Viewport {
     return ok(realFromPrice + ((h - pixel) / h) * fullDeltaPrice);
   };
 
-  // const getTimestampToPixelWeights = (): Result<ShaderWeights> => {
-
-  //   function ok (data: ShaderWeights): Result<ShaderWeights> {
-  //     return {
-  //       success: true,
-  //       data,
-  //       error: null,
-  //     };
-  //   }
-  //   function err(code: string, msg: string): Result<ShaderWeights> {
-  //     return {
-  //       success: false,
-  //       data: null,
-  //       error: {
-  //         code,
-  //         msg,
-  //       },
-  //     };
-  //   }
-
-  //   const ohlcResult = candleData.getFirst();
-  //   const offset = ohlcResult.success ? ohlcResult.data.t : 1764547200000
-
-  //   const { w } = canvasSizeRef.current;
-  //   const view = viewRef.current;
-  //   const transform = transformRef.current;
-
-  //   if (w <= 0) {
-  //     return err("INVALID_CANVAS_SIZE", "canvas width must be set before timestampToPixel()");
-  //   }
-
-  //   const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
-  //   if (fullDeltaTs === 0) {
-  //     return err("INVALID_VIEW", "timestamp range must not be zero");
-  //   }
-
-  //   const multiplication = w / fullDeltaTs
-  //   const addition = - (view.fromTs * transform.scaleTs + transform.offsetTs) * multiplication
-  //   const res: ShaderWeights = {
-  //     offset,
-  //     addition,
-  //     multiplication
-  //   }
-
-  //   return ok(res);
-  // }
   const getTimestampToPixelWeights = (): Result<ShaderWeights> => {
     function ok (data: ShaderWeights): Result<ShaderWeights> {
       return {
@@ -504,52 +408,6 @@ function useViewport(candleData: CandleData): Viewport {
 
     return ok(res);
   };
-
-  // const getPriceToPixelWeights = (): Result<ShaderWeights> => {
-  //   function ok(data: ShaderWeights): Result<ShaderWeights> {
-  //     return {
-  //       success: true,
-  //       data,
-  //       error: null,
-  //     };
-  //   }
-  //   function err(code: string, msg: string): Result<ShaderWeights> {
-  //     return {
-  //       success: false,
-  //       data: null,
-  //       error: {
-  //         code,
-  //         msg,
-  //       },
-  //     };
-  //   }
-
-  //   const { h } = canvasSizeRef.current;
-  //   const view = viewRef.current;
-  //   const transform = transformRef.current;
-
-  //   if (h <= 0) {
-  //     return err("INVALID_CANVAS_SIZE", "canvas height must be set before priceToPixel()");
-  //   }
-
-  //   const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
-  //   if (fullDeltaPrice === 0) {
-  //     return err("INVALID_VIEW", "price range must not be zero");
-  //   }
-
-  //   const constantPart = view.fromPrice * transform.scalePrice + transform.offsetPrice;
-    
-  //   const multiplication = -h / fullDeltaPrice;
-  //   const addition = h + (h * constantPart) / fullDeltaPrice;
-
-  //   const res: ShaderWeights = {
-  //     offset: 0,
-  //     addition,
-  //     multiplication,
-  //   };
-    
-  //   return ok(res);
-  // };
 
   const getPriceToPixelWeights = (): Result<ShaderWeights> => {
     function ok(data: ShaderWeights): Result<ShaderWeights> {
@@ -603,6 +461,107 @@ function useViewport(candleData: CandleData): Viewport {
     return ok(res);
   };
 
+  const setOffsetTimestamp = (offsetPixelX: number, cumulative: boolean = false): Result<null> => {
+    const { w } = canvasSizeRef.current;
+    const view = viewRef.current;
+    const transform = transformRef.current;
+
+    if (w <= 0) return err("INVALID_CANVAS_SIZE", "canvas width must be set");
+    if (!isValidNumber(offsetPixelX)) return err("INVALID_OFFSET", "offsetPixelX must be a number");
+
+    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
+    const offsetTs = (offsetPixelX / w) * fullDeltaTs;
+
+    if (cumulative) {
+      transform.offsetTs += offsetTs;
+    } else {
+      transform.offsetTs = offsetTs;
+    }
+
+    return ok(null);
+  };
+
+  const setOffsetPrice = (offsetPixelY: number, cumulative: boolean = false): Result<null> => {
+    const { h } = canvasSizeRef.current;
+    const view = viewRef.current;
+    const transform = transformRef.current;
+
+    if (h <= 0) return err("INVALID_CANVAS_SIZE", "canvas height must be set");
+    if (!isValidNumber(offsetPixelY)) return err("INVALID_OFFSET", "offsetPixelY must be a number");
+
+    // Đồ thị Y chạy ngược từ trên xuống dưới pixel (h - ...)
+    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
+    const offsetPrice = (-offsetPixelY / h) * fullDeltaPrice;
+
+    if (cumulative) {
+      transform.offsetPrice += offsetPrice;
+    } else {
+      transform.offsetPrice = offsetPrice;
+    }
+
+    return ok(null);
+  };
+
+  const setScaleTimestamp = (scaleX: number, scaleAtPixelX: number, cumulative: boolean = false): Result<null> => {
+    if (!isValidNumber(scaleX) || scaleX <= 0) return err("INVALID_SCALE", "scaleX must be positive");
+    
+    // 1. Đổi scaleAtPixelX -> scaleAtTimestamp trước khi đổi scaleTs
+    const tsResult = pixelToTimestamp(scaleAtPixelX);
+    if (!tsResult.success) return err("INVALID_PIXEL", "cannot convert pixel to timestamp");
+    const scaleAtTimestamp = tsResult.data;
+
+    const transform = transformRef.current;
+    
+    // 2. Cập nhật scaleTs
+    if (cumulative) {
+      transform.scaleTs += scaleX;
+    } else {
+      transform.scaleTs = scaleX;
+    }
+    if (transform.scaleTs <= 0) return err("INVALID_SCALE", "resulting scaleTs must be positive");
+
+    // 3. Điều chỉnh transform.offsetTs để cố định điểm pivot tại scaleAtPixelX
+    // Công thức gốc: pixelX = ((ts - (fromTs * scaleTs + offsetTs)) / fullDeltaTs) * w
+    // Giải phương trình tìm offsetTs theo pixelX mong muốn:
+    const view = viewRef.current;
+    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
+    const { w } = canvasSizeRef.current;
+
+    transform.offsetTs = scaleAtTimestamp - (view.fromTs * transform.scaleTs) - (scaleAtPixelX / w) * fullDeltaTs;
+
+    return ok(null);
+  };
+
+  const setScalePrice = (scaleY: number, scaleAtPixelY: number, cumulative: boolean = false): Result<null> => {
+    if (!isValidNumber(scaleY) || scaleY <= 0) return err("INVALID_SCALE", "scaleY must be positive");
+
+    // 1. Đổi scaleAtPixelY -> scaleAtPrice trước khi đổi scalePrice
+    const priceResult = pixelToPrice(scaleAtPixelY);
+    if (!priceResult.success) return err("INVALID_PIXEL", "cannot convert pixel to price");
+    const scaleAtPrice = priceResult.data;
+
+    const transform = transformRef.current;
+
+    // 2. Cập nhật scalePrice
+    if (cumulative) {
+      transform.scalePrice += scaleY;
+    } else {
+      transform.scalePrice = scaleY;
+    }
+    if (transform.scalePrice <= 0) return err("INVALID_SCALE", "resulting scalePrice must be positive");
+
+    // 3. Điều chỉnh transform.offsetPrice để cố định điểm pivot tại scaleAtPixelY
+    // Công thức gốc: pixelY = h - ((price - (fromPrice * scalePrice + offsetPrice)) / fullDeltaPrice) * h
+    // Giải phương trình tìm offsetPrice theo pixelY mong muốn:
+    const view = viewRef.current;
+    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
+    const { h } = canvasSizeRef.current;
+
+    transform.offsetPrice = scaleAtPrice - (view.fromPrice * transform.scalePrice) - ((h - scaleAtPixelY) / h) * fullDeltaPrice;
+
+    return ok(null);
+  };
+
   const apiRef = useRef<Viewport | null>(null);
 
   if (!apiRef.current) {
@@ -612,8 +571,6 @@ function useViewport(candleData: CandleData): Viewport {
       setView,
       getView,
       getTransformedView,
-      setScale,
-      setOffset,
       flush,
       setAutoPrice,
       timestampToPixel,
@@ -621,7 +578,11 @@ function useViewport(candleData: CandleData): Viewport {
       priceToPixel,
       pixelToPrice,
       getTimestampToPixelWeights,
-      getPriceToPixelWeights
+      getPriceToPixelWeights,
+      setOffsetTimestamp,
+      setOffsetPrice,
+      setScaleTimestamp,
+      setScalePrice
     };
   }
 
