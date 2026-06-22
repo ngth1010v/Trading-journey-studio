@@ -18,19 +18,19 @@ export type CandleData = {
   cleanup ()                            : Promise<Result<null>>;
 };
 
-
+export type SetArgs = {
+  symbol    ?: string;
+  timeframe ?: string;
+  realtime  ?: boolean;
+  fromTs    ?: number;
+  toTs      ?: number;
+};
 
 
 //======================================================================================================
 // TYPE
 //======================================================================================================
-export type SetArgs = {
-  symbol    : string;
-  timeframe : string;
-  realtime  : boolean;
-  fromTs    : number;
-  toTs      : number;
-};
+
 
 type AutoExtendRegisterResult = Result<{ key: number }>;
 
@@ -110,6 +110,9 @@ function sliceOhlcRange(
 export default function useCandleData(): CandleData {
   const symbolRef = useRef("");
   const timeframeRef = useRef("");
+  const realtimeRef = useRef<boolean | null>(null);
+  const fromTsRef = useRef<number | null>(null);
+  const toTsRef = useRef<number | null>(null);
 
   const ohlcsRef = useRef<Ohlc[]>([]);
   const realtimeOhlcsRef = useRef<Ohlc[]>([]);
@@ -191,82 +194,83 @@ export default function useCandleData(): CandleData {
   const set = async (
     args: SetArgs,
   ): Promise<Result<null>> => {
-    const symbol = String(args.symbol ?? "").trim();
-    const timeframe = String(args.timeframe ?? "").trim();
-    const realtime = Boolean(args.realtime);
-
+    // 1. Xử lý fallback cho symbol
+    let symbol = args.symbol !== undefined ? String(args.symbol ?? "").trim() : symbolRef.current;
     if (!symbol) {
       return {
         success: false,
         data: null,
-        error: {
-          code: "INVALID_SYMBOL",
-          msg: "symbol is required",
-        },
+        error: { code: "INVALID_SYMBOL", msg: "symbol is required" },
       };
     }
 
+    // 2. Xử lý fallback cho timeframe
+    let timeframe = args.timeframe !== undefined ? String(args.timeframe ?? "").trim() : timeframeRef.current;
     if (!timeframe) {
       return {
         success: false,
         data: null,
-        error: {
-          code: "INVALID_TIMEFRAME",
-          msg: "timeframe is required",
-        },
+        error: { code: "INVALID_TIMEFRAME", msg: "timeframe is required" },
       };
     }
 
-    if (
-      !isValidNumber(args.fromTs) ||
-      !isValidNumber(args.toTs)
-    ) {
+    // 3. Xử lý fallback cho realtime
+    let realtime = args.realtime !== undefined ? Boolean(args.realtime) : realtimeRef.current;
+    if (realtime === null) {
       return {
         success: false,
         data: null,
-        error: {
-          code: "INVALID_RANGE",
-          msg: "fromTs and toTs must be valid numbers",
-        },
+        error: { code: "INVALID_REALTIME", msg: "realtime is required" },
       };
     }
 
-    if (args.toTs < args.fromTs) {
+    // 4. Xử lý fallback cho fromTs và toTs
+    let fromTs = args.fromTs !== undefined ? args.fromTs : fromTsRef.current;
+    let toTs = args.toTs !== undefined ? args.toTs : toTsRef.current;
+
+    if (fromTs === null || toTs === null || !isValidNumber(fromTs) || !isValidNumber(toTs)) {
       return {
         success: false,
         data: null,
-        error: {
-          code: "INVALID_RANGE",
-          msg: "toTs must be greater than or equal to fromTs",
-        },
+        error: { code: "INVALID_RANGE", msg: "fromTs and toTs must be valid numbers" },
+      };
+    }
+
+    if (toTs < fromTs) {
+      return {
+        success: false,
+        data: null,
+        error: { code: "INVALID_RANGE", msg: "toTs must be greater than or equal to fromTs" },
       };
     }
 
     await cleanup();
 
-    const tsDelta = args.toTs - args.fromTs;
+    // Tính toán dựa trên giá trị cuối cùng (đã gộp cũ/mới)
+    const tsDelta = toTs - fromTs;
     const cacheRatio = CONFIG.CANDLE_DATA.CACHE_RATIO;
 
-    const fromTs =
-      args.fromTs - tsDelta * cacheRatio;
-
-    const toTs =
-      args.toTs + tsDelta * cacheRatio;
+    const finalFromTs = fromTs - tsDelta * cacheRatio;
+    const finalToTs = toTs + tsDelta * cacheRatio;
 
     const ohlcResult = await marketApi.getOhlcs(
       symbol,
       timeframe,
-      fromTs,
-      toTs,
+      finalFromTs,
+      finalToTs,
     );
 
     if (!ohlcResult.success) {
       return ohlcResult;
     }
     
+    // Lưu lại giá trị thành công vào các Ref cho lần gọi sau
     ohlcsRef.current = [...ohlcResult.data];
     symbolRef.current = symbol;
     timeframeRef.current = timeframe;
+    realtimeRef.current = realtime;
+    fromTsRef.current = fromTs;
+    toTsRef.current = toTs;
 
     if (realtime) {
       const registerResult =
