@@ -33,6 +33,29 @@ export type Viewport = {
   getPriceToPixelWeights    ()                                                            : Result<ShaderWeights>;
 };
 
+export type CanvasSize = {
+  w: number;
+  h: number;
+};
+
+export type ViewportSetCanvasSizeArgs = {
+  width: number;
+  height: number;
+};
+
+export type ShaderWeights = {
+  offset        : number;
+  multiplication: number;
+  addition      : number;
+};
+
+export type ViewportSetViewArgs = {
+  fromTs: number;
+  toTs: number;
+  fromPrice: number;
+  toPrice: number;
+};
+
 
 
 //======================================================================================================
@@ -45,34 +68,11 @@ type View = {
   toPrice: number;
 };
 
-type CanvasSize = {
-  w: number;
-  h: number;
-};
-
 type Transform = {
   offsetTs: number;
   offsetPrice: number;
   scaleTs: number;
   scalePrice: number;
-};
-
-type ViewportSetCanvasSizeArgs = {
-  width: number;
-  height: number;
-};
-
-export type ShaderWeights = {
-  offset        : number;
-  multiplication: number;
-  addition      : number;
-};
-
-type ViewportSetViewArgs = {
-  fromTs: number;
-  toTs: number;
-  fromPrice: number;
-  toPrice: number;
 };
 
 
