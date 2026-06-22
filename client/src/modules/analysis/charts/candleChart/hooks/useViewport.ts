@@ -218,6 +218,8 @@ function useViewport(candleData: CandleData): Viewport {
     transform.scaleTs = 1;
     transform.scalePrice = 1;
 
+    candleData.set({fromTs: view.fromTs, toTs: view.toTs})
+
     return ok(null);
   };
 
