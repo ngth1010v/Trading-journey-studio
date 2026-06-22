@@ -196,6 +196,7 @@ void main(void) {
   gl_Position = vec4(projected.xy, 0.0, 1.0);
 }
 `;
+
 const fragmentSrc = `
 precision mediump float;
 
@@ -279,6 +280,7 @@ void main(void) {
 }
 `;
 
+
   return Shader.from({
     gl: {
       vertex: vertexSrc,
@@ -291,7 +293,7 @@ void main(void) {
 }
 
 function buildGeometryFromRange(
-  flatOhlcs: Float32Array,
+  flatOhlcs: Float32Array, 
   startIndex: number,
   endExclusive: number
 ): Geometry {
