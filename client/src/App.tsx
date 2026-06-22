@@ -1,8 +1,10 @@
+import CandleChart from "./modules/analysis/charts/candleChart/CandleChart"
+
 
 function App() {
 
   return (
-    <h1>This is a test</h1>
+    <CandleChart/>
   )
 }
 

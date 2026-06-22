@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "denque": "^2.1.0",
+    "pixi.js": "^8.19.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
