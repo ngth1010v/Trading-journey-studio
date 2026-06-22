@@ -10,19 +10,19 @@ import type { Ohlc } from "../shared/types";
 // PUBLIC
 //======================================================================================================
 export type CandleStyles = {
-  outlineThickness: number;
-  upOutlineColor: [number, number, number]; // color: rgb
-  upBodyColor: [number, number, number]; // color: rgb
-  downOutlineColor: [number, number, number]; // color: rgb
-  downBodyColor: [number, number, number]; // color: rgb
+  outlineThickness  : number;
+  upOutlineColor    : [number, number, number]; // color: rgb
+  upBodyColor       : [number, number, number]; // color: rgb
+  downOutlineColor  : [number, number, number]; // color: rgb
+  downBodyColor     : [number, number, number]; // color: rgb
 };
 
 export type CandleLayer = {
-  init(app: Application, candleData: CandleData, viewport: Viewport): Promise<Result<null>>;
-  updateData(): Result<null>;
-  setStyles(candleStyles: CandleStyles): Result<null>;
-  draw(): Promise<Result<null>>;
-  cleanup(): Promise<Result<null>>;
+  init        (app: Application, candleData: CandleData, viewport: Viewport)  : Promise<Result<null>>;
+  updateData  ()                                                              : Result<null>;
+  setStyles   (candleStyles: CandleStyles)                                    : Result<null>;
+  draw        ()                                                              : Promise<Result<null>>;
+  cleanup     ()                                                              : Promise<Result<null>>;
 };
 
 

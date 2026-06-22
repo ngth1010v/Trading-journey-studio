@@ -10,12 +10,19 @@ import type { Ohlc } from "../shared/types";
 // PUBLIC
 //======================================================================================================
 export type CandleData = {
+  // Set
   set     (args: SetArgs)               : Promise<Result<null>>;
+  cleanup ()                            : Promise<Result<null>>;
+
+  // Get
   get     (fromTs: number, toTs: number): Result<Ohlc[]>;
   getAll  ()                            : Result<Ohlc[]>;
   getFirst()                            : Result<Ohlc>;
   getLast ()                            : Result<Ohlc>;
-  cleanup ()                            : Promise<Result<null>>;
+
+  // Event
+  addOnDataChange(id: string, callback: (data: Ohlc[]) => void): Result<null>;
+  removeOnDataChange(id: string): Result<null>;
 };
 
 export type SetArgs = {
@@ -121,6 +128,22 @@ export default function useCandleData(): CandleData {
   const loopTokenRef = useRef(0);
   const keySeedRef = useRef(1);
 
+  const listenersRef = useRef<Map<string, (data: Ohlc[]) => void>>(new Map());
+
+  const triggerDataChange = (): void => {
+    const allData = [
+      ...ohlcsRef.current,
+      ...realtimeOhlcsRef.current,
+    ];
+    listenersRef.current.forEach((callback) => {
+      try {
+        callback(allData);
+      } catch (err) {
+        console.error("Error in onDataChange callback:", err);
+      }
+    });
+  };
+
   const stopRealtimeLoop = (): void => {
     loopTokenRef.current += 1;
   };
@@ -150,6 +173,8 @@ export default function useCandleData(): CandleData {
     if (!unregisterResult.success) {
       return unregisterResult;
     }
+
+    triggerDataChange();
 
     return {
       success: true,
@@ -295,6 +320,8 @@ export default function useCandleData(): CandleData {
       }
     }
 
+    triggerDataChange();
+
     return {
       success: true,
       data: null,
@@ -397,6 +424,30 @@ const getFirst = (): Result<Ohlc> => {
     };
   };
 
+  const addOnDataChange = (id: string, callback: (data: Ohlc[]) => void): Result<null> => {
+    if (listenersRef.current.has(id)) {
+      return {
+        success: false,
+        data: null,
+        error: { code: "DUPLICATE_ID", msg: `Listener with id "${id}" already exists.` },
+      };
+    }
+    listenersRef.current.set(id, callback);
+    return { success: true, data: null, error: null };
+  };
+
+  const removeOnDataChange = (id: string): Result<null> => {
+    if (!listenersRef.current.has(id)) {
+      return {
+        success: false,
+        data: null,
+        error: { code: "NOT_FOUND", msg: `Listener with id "${id}" does not exist.` },
+      };
+    }
+    listenersRef.current.delete(id);
+    return { success: true, data: null, error: null };
+  };
+
   const apiRef = useRef<CandleData | null>(null);
 
   if (!apiRef.current) {
@@ -407,6 +458,8 @@ const getFirst = (): Result<Ohlc> => {
       getFirst,
       getLast,
       cleanup,
+      addOnDataChange,
+      removeOnDataChange,
     };
   }
 

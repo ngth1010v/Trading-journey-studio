@@ -31,6 +31,10 @@ export type Viewport = {
   pixelToPrice              (pixel: number)                                               : Result<number>;
   getTimestampToPixelWeights()                                                            : Result<ShaderWeights>;
   getPriceToPixelWeights    ()                                                            : Result<ShaderWeights>;
+
+  // Event
+  addOnViewportChange       (id: string, callback: (view: View) => void)                  : Result<null>;
+  removeOnViewportChange    (id: string)                                                  : Result<null>;
 };
 
 export type CanvasSize = {
@@ -140,6 +144,28 @@ function useViewport(candleData: CandleData): Viewport {
     scalePrice: 1,
   });
 
+  const listenersRef = useRef<Map<string, (view: View) => void>>(new Map());
+
+  const triggerViewportChange = (): void => {
+    const view = viewRef.current;
+    const transform = transformRef.current;
+
+    const currentView: View = {
+      fromTs   : view.fromTs * transform.scaleTs + transform.offsetTs,
+      toTs     : view.toTs * transform.scaleTs + transform.offsetTs,
+      fromPrice: view.fromPrice * transform.scalePrice + transform.offsetPrice,
+      toPrice  : view.toPrice * transform.scalePrice + transform.offsetPrice,
+    };
+
+    listenersRef.current.forEach((callback) => {
+      try {
+        callback(currentView);
+      } catch (err) {
+        console.error("Error in onViewportChange callback:", err);
+      }
+    });
+  };
+
   const clean = (): Result<null> => {
     transformRef.current.offsetTs = 0;
     transformRef.current.offsetPrice = 0;
@@ -156,6 +182,8 @@ function useViewport(candleData: CandleData): Viewport {
 
     canvasSizeRef.current.w = args.width;
     canvasSizeRef.current.h = args.height;
+
+    triggerViewportChange()
 
     return ok(null);
   };
@@ -182,6 +210,7 @@ function useViewport(candleData: CandleData): Viewport {
     };
 
     clean();
+    triggerViewportChange()
 
     return ok(null);
   };
@@ -219,6 +248,8 @@ function useViewport(candleData: CandleData): Viewport {
     transform.scalePrice = 1;
 
     candleData.set({fromTs: view.fromTs, toTs: view.toTs})
+
+    triggerViewportChange()
 
     return ok(null);
   };
@@ -268,6 +299,8 @@ function useViewport(candleData: CandleData): Viewport {
 
     transform.scalePrice = targetDeltaPrice / currentDeltaPrice;
     transform.offsetPrice = targetFromPrice - view.fromPrice * transform.scalePrice;
+
+    triggerViewportChange()
 
     return ok(null);
   };
@@ -480,6 +513,8 @@ function useViewport(candleData: CandleData): Viewport {
       transform.offsetTs = offsetTs;
     }
 
+    triggerViewportChange()
+
     return ok(null);
   };
 
@@ -500,6 +535,8 @@ function useViewport(candleData: CandleData): Viewport {
     } else {
       transform.offsetPrice = offsetPrice;
     }
+
+    triggerViewportChange()
 
     return ok(null);
   };
@@ -531,6 +568,8 @@ function useViewport(candleData: CandleData): Viewport {
 
     transform.offsetTs = scaleAtTimestamp - (view.fromTs * transform.scaleTs) - (scaleAtPixelX / w) * fullDeltaTs;
 
+    triggerViewportChange()
+
     return ok(null);
   };
 
@@ -561,6 +600,24 @@ function useViewport(candleData: CandleData): Viewport {
 
     transform.offsetPrice = scaleAtPrice - (view.fromPrice * transform.scalePrice) - ((h - scaleAtPixelY) / h) * fullDeltaPrice;
 
+    triggerViewportChange()
+
+    return ok(null);
+  };
+
+  const addOnViewportChange = (id: string, callback: (view: View) => void): Result<null> => {
+    if (listenersRef.current.has(id)) {
+      return err("DUPLICATE_ID", `Listener with id "${id}" already exists.`);
+    }
+    listenersRef.current.set(id, callback);
+    return ok(null);
+  };
+
+  const removeOnViewportChange = (id: string): Result<null> => {
+    if (!listenersRef.current.has(id)) {
+      return err("NOT_FOUND", `Listener with id "${id}" does not exist.`);
+    }
+    listenersRef.current.delete(id);
     return ok(null);
   };
 
@@ -584,7 +641,9 @@ function useViewport(candleData: CandleData): Viewport {
       setOffsetTimestamp,
       setOffsetPrice,
       setScaleTimestamp,
-      setScalePrice
+      setScalePrice,
+      addOnViewportChange,
+      removeOnViewportChange
     };
   }
 
