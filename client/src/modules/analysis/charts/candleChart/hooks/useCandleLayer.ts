@@ -163,6 +163,11 @@ void main(void) {
 
   float halfWidth = uCandleWidth * 0.5;
 
+  float minHeight = 1.0;
+  if (abs(highY - lowY) < minHeight) {
+    highY = highY + minHeight;
+  }
+
   vec2 pos = vec2(
     x + aPosition.x * halfWidth,
     mix(highY, lowY, (aPosition.y + 1.0) * 0.5)
@@ -211,9 +216,19 @@ void main(void) {
 
   float bodyHeight = max(abs(vOpenY - vCloseY), uOutlineThickness);
 
-  float bodyCenter = (rawBodyTop + rawBodyBottom) * 0.5;
-  float bodyTop = bodyCenter - bodyHeight * 0.5;
-  float bodyBottom = bodyCenter + bodyHeight * 0.5;
+  float bodyTop;
+  float bodyBottom;
+
+  // FIX: o=h=l=c hoặc open==close
+  // ép body nằm hoàn toàn trong vùng geometry thay vì bị chia đôi ra ngoài
+  if (abs(vOpenY - vCloseY) < 0.0001) {
+    bodyTop = rawBodyTop;
+    bodyBottom = rawBodyTop + bodyHeight;
+  } else {
+    float bodyCenter = (rawBodyTop + rawBodyBottom) * 0.5;
+    bodyTop = bodyCenter - bodyHeight * 0.5;
+    bodyBottom = bodyCenter + bodyHeight * 0.5;
+  }
 
   bool canDrawOutline = uCandleWidth >= uOutlineThickness && bodyHeight >= uOutlineThickness;
   bool canDrawBodyInner =
@@ -410,6 +425,12 @@ export default function useCandleLayer(): CandleLayer {
   const geometryRef = useRef<Geometry | null>(null);
   const shaderRef = useRef<Shader | null>(null);
 
+  //DEBUG
+  {
+
+  }
+  //DEBUG
+
   const buildOrUpdatePipeline = (
     app: Application,
     candleWidth: number,
@@ -508,6 +529,7 @@ export default function useCandleLayer(): CandleLayer {
     await draw();
 
     candleDataRef.current.addOnDataChange("candleLayer/init", updateData)
+    candleDataRef.current.addOnLastDataChange("candleLayer/init", draw)
     viewportRef.current.addOnViewportChange("candleLayer/init", draw)
   };
 
@@ -608,7 +630,87 @@ export default function useCandleLayer(): CandleLayer {
       },
     };
 
-    const geometry = buildGeometryFromRange(flatOhlcs, visible.start, visible.endExclusive);
+    // ==========================================
+    // ĐOẠN CODE FIX CHÍNH XÁC
+    // ==========================================
+    let finalFlatOhlcs = flatOhlcs;
+    let finalStart = visible.start;
+    let finalEndExclusive = visible.endExclusive;
+
+    const lastOhlc = candleDataRef.current?.getLast();
+
+    if (lastOhlc) {
+      const timestampWeights = viewport.getTimestampToPixelWeights();
+      const priceWeights = viewport.getPriceToPixelWeights();
+
+      const tOffset = timestampWeights.offset;
+      const pOffset = priceWeights.offset;
+
+      const totalCandles = Math.floor(flatOhlcs.length / FLOATS_PER_OHLC);
+
+      if (totalCandles > 0) {
+        const lastFlatIndex = totalCandles - 1;
+        const lastFlatT = flatOhlcs[lastFlatIndex * FLOATS_PER_OHLC + 0] + tOffset;
+
+        const sameTimestamp = lastOhlc.t === lastFlatT;
+
+        // THAY ĐỔI Ở CUỐI: ghi đè candle cuối thay vì bỏ qua
+        if (sameTimestamp) {
+          const currentVisibleLength = (visible.endExclusive - visible.start) * FLOATS_PER_OHLC;
+          const injectedBuffer = new Float32Array(currentVisibleLength);
+
+          const srcOffset = visible.start * FLOATS_PER_OHLC;
+          injectedBuffer.set(
+            flatOhlcs.subarray(srcOffset, srcOffset + currentVisibleLength),
+            0
+          );
+
+          // ghi đè candle cuối cùng trong buffer visible
+          const dst = currentVisibleLength - FLOATS_PER_OHLC;
+          injectedBuffer[dst + 0] = lastOhlc.t - tOffset;
+          injectedBuffer[dst + 1] = lastOhlc.o - pOffset;
+          injectedBuffer[dst + 2] = lastOhlc.h - pOffset;
+          injectedBuffer[dst + 3] = lastOhlc.l - pOffset;
+          injectedBuffer[dst + 4] = lastOhlc.c - pOffset;
+
+          finalFlatOhlcs = injectedBuffer;
+          finalStart = 0;
+          finalEndExclusive = currentVisibleLength / FLOATS_PER_OHLC;
+        }
+        // THÊM BAR MỚI Ở CUỐI
+        else if (lastOhlc.t > lastFlatT) {
+          const currentVisibleLength = (visible.endExclusive - visible.start) * FLOATS_PER_OHLC;
+          const injectedBuffer = new Float32Array(currentVisibleLength + FLOATS_PER_OHLC);
+
+          const srcOffset = visible.start * FLOATS_PER_OHLC;
+          injectedBuffer.set(
+            flatOhlcs.subarray(srcOffset, srcOffset + currentVisibleLength),
+            0
+          );
+
+          injectedBuffer[currentVisibleLength + 0] = lastOhlc.t - tOffset;
+          injectedBuffer[currentVisibleLength + 1] = lastOhlc.o - pOffset;
+          injectedBuffer[currentVisibleLength + 2] = lastOhlc.h - pOffset;
+          injectedBuffer[currentVisibleLength + 3] = lastOhlc.l - pOffset;
+          injectedBuffer[currentVisibleLength + 4] = lastOhlc.c - pOffset;
+
+          finalFlatOhlcs = injectedBuffer;
+          finalStart = 0;
+          finalEndExclusive = (currentVisibleLength / FLOATS_PER_OHLC) + 1;
+        }
+      }
+    }
+    const geometry = buildGeometryFromRange(finalFlatOhlcs, finalStart, finalEndExclusive);
+
+    // FIX TẠI ĐÂY: Gọi update() trên mảng buffers nội bộ của Geometry (Chuẩn PixiJS v8)
+    if (finalFlatOhlcs !== flatOhlcs) {
+      if (geometry.buffers) {
+        geometry.buffers.forEach((buffer: any) => {
+          buffer.update?.();
+        });
+      }
+    }
+    // ==========================================
 
     buildOrUpdatePipeline(app, candleWidth, adjustedWeights);
 
@@ -638,7 +740,9 @@ export default function useCandleLayer(): CandleLayer {
       }
     }
 
+
     candleDataRef.current?.removeOnDataChange("candleLayer/init")
+    candleDataRef.current?.removeOnLastDataChange("candleLayer/init")
     viewportRef.current?.removeOnViewportChange("candleLayer/init")
 
     appRef.current = null;

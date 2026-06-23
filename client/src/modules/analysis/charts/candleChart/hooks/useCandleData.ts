@@ -369,13 +369,15 @@ export default function useCandleData(): CandleData {
   };
 
   const getLast = (): Ohlc => {
-    const allData = getAll();
+    if (lastOhlcRef.current) return lastOhlcRef.current
 
+    const allData = getAll();
     if (allData.length === 0) {
       throwAppError("NO_DATA", "No ohlc data available");
     }
-
     return allData[allData.length - 1];
+
+    
   };
 
   const addOnDataChange = (id: string, callback: (data: Ohlc[]) => void): void => {
