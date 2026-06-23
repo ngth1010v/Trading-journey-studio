@@ -6,12 +6,12 @@ import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
 
 
-const DEFAULT_FROMTS = 1781480000000
-const DEFAULT_TOTS   = 1781484000000
+const DEFAULT_FROMTS = 1782205200000
+const DEFAULT_TOTS   = 1782208800000
 
 const DEFAULT_DATA: SetCandleDataArgs = {
   symbol: "NAS100",
-  timeframe: "1M",
+  timeframe: "1S",
   realtime: true,
   fromTs: DEFAULT_FROMTS,
   toTs:   DEFAULT_TOTS

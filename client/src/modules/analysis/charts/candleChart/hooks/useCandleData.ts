@@ -165,12 +165,10 @@ export default function useCandleData(): CandleData {
     lastOhlcRef.current = null;
 
     if (currentKey == null || !currentSymbol) {
-      triggerDataChange();
       return;
     }
 
     await marketApi.unregisterAutoExtend(currentSymbol, currentKey);
-    triggerDataChange();
   };
 
   const startLastLoop = (
@@ -263,10 +261,7 @@ export default function useCandleData(): CandleData {
       throwAppError("INVALID_RANGE", "toTs must be greater than or equal to fromTs");
     }
 
-    // firstOhlcRef.current = await marketApi.getFirstOhlc(nextSymbol, nextTimeframe)
-    // if (firstOhlcRef.current) nextFromTs = Math.max(nextFromTs, firstOhlcRef.current.t)
-    // lastOhlcRef.current = await marketApi.getLastOhlc(nextSymbol, nextTimeframe)
-    // if (lastOhlcRef.current) nextToTs = Math.min(nextToTs, lastOhlcRef.current.t)
+    cleanup()
 
     const tsDelta = nextToTs - nextFromTs;
     const cacheRatio = CONFIG.CANDLE_DATA.CACHE_RATIO;
