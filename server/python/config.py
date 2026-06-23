@@ -3,6 +3,7 @@ from pathlib import Path
 PORT = 5000
 
 DEBUG_MODE = True
+MT5_INIT_RETRY = 3
 
 DATABASE_PATH = Path(__file__).parent.parent.resolve() / "database"
 
