@@ -112,17 +112,16 @@ function normalizeListenerId(id: string): string {
 // HOOK
 //======================================================================================================
 export default function useCandleData(): CandleData {
-  const symbolRef = useRef("");
-  const timeframeRef = useRef("");
-  const lastRef = useRef<boolean | null>(null);
-  const fromTsRef = useRef<number | null>(null);
-  const toTsRef = useRef<number | null>(null);
+  const symbolRef     = useRef("");
+  const timeframeRef  = useRef("");
+  const lastRef       = useRef<boolean | null>(null);
+  const fromTsRef     = useRef<number | null>(null);
+  const toTsRef         = useRef<number | null>(null);
 
   const reloadFromTsRef = useRef<number>(0);
-  const reloadToTsRef = useRef<number>(0);
+  const reloadToTsRef   = useRef<number>(0);
 
   const ohlcsRef        = useRef<Ohlc[]>([]);
-  const firstOhlcRef    = useRef<Ohlc | null>(null)
   const lastOhlcRef     = useRef<Ohlc | null>(null);
   const realtimeKeyRef  = useRef<number | null>(null);
 
@@ -197,7 +196,11 @@ export default function useCandleData(): CandleData {
         const currentLast = lastOhlcRef.current;
 
         if (currentLast && currentLast.t < lastOhlc.t) {
-          await set({ fromTs: currentLast.t, toTs: lastOhlc.t });
+
+          if (currentLast.t <= reloadToTsRef.current)
+            if (fromTsRef.current && toTsRef.current)
+              await set({ fromTs: fromTsRef.current, toTs: toTsRef.current });
+
           lastOhlcRef.current = lastOhlc;
           triggerLastDataChange(lastOhlc);
         } else {
@@ -260,10 +263,10 @@ export default function useCandleData(): CandleData {
       throwAppError("INVALID_RANGE", "toTs must be greater than or equal to fromTs");
     }
 
-    firstOhlcRef.current = await marketApi.getFirstOhlc(nextSymbol, nextTimeframe)
-    if (firstOhlcRef.current) nextFromTs = Math.max(nextFromTs, firstOhlcRef.current.t)
-    lastOhlcRef.current = await marketApi.getLastOhlc(nextSymbol, nextTimeframe)
-    if (lastOhlcRef.current) nextToTs = Math.min(nextToTs, lastOhlcRef.current.t)
+    // firstOhlcRef.current = await marketApi.getFirstOhlc(nextSymbol, nextTimeframe)
+    // if (firstOhlcRef.current) nextFromTs = Math.max(nextFromTs, firstOhlcRef.current.t)
+    // lastOhlcRef.current = await marketApi.getLastOhlc(nextSymbol, nextTimeframe)
+    // if (lastOhlcRef.current) nextToTs = Math.min(nextToTs, lastOhlcRef.current.t)
 
     const tsDelta = nextToTs - nextFromTs;
     const cacheRatio = CONFIG.CANDLE_DATA.CACHE_RATIO;
@@ -313,13 +316,18 @@ export default function useCandleData(): CandleData {
     triggerDataChange();
   };
 
+
+
   const update = async (fromTs: number, toTs: number): Promise<void> => {
-    if (firstOhlcRef.current) fromTs = Math.max(fromTs, firstOhlcRef.current.t)
-    if (lastOhlcRef.current) toTs = Math.min(toTs, lastOhlcRef.current.t)
+    // if (firstOhlcRef.current) fromTs = Math.max(fromTs, firstOhlcRef.current.t)
+    // if (lastOhlcRef.current) toTs = Math.min(toTs, lastOhlcRef.current.t)
+
     if (fromTs < reloadFromTsRef.current || reloadToTsRef.current < toTs) {
       await set({ fromTs, toTs });
     }
   };
+
+
 
   const get = (fromTs: number, toTs: number): Ohlc[] => {
     if (
