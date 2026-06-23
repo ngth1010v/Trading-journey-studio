@@ -109,9 +109,10 @@ export default function useViewController(viewport: Viewport): ViewController {
       const magnitude = Math.max(1, Math.abs(delta) / 120);
       const scaleFactor = Math.pow(baseStep, magnitude);
       const step = direction > 0 ? scaleFactor : 1 / scaleFactor;
-
-      viewport.setScaleTimestamp(step, x, true);
       
+      if (!pressingKey.current.has("Alt")) {
+        viewport.setScaleTimestamp(step, x, true);
+      }
       if (!pressingKey.current.has("Control")) {
         viewport.setScalePrice(step, y, true);
       }
