@@ -274,6 +274,9 @@ def extendBack(symbol: str, targetTimeframe: str) -> bool:
     if ohlcStorer.IsEmpty(symbol, srcTimeframe):
         logger.error(_SECTION, f"Source timeframe is empty for {symbol}/{srcTimeframe}.")
         return False
+    if ohlcStorer.IsEmpty(symbol, targetTimeframe):
+        logger.warning(_SECTION, f"No {symbol}/{srcTimeframe} found, route to extend front.")
+        return extendFront(symbol, targetTimeframe)
 
     src_first = ohlcStorer.getFirstOhlc(symbol, srcTimeframe)
     src_last = ohlcStorer.getLastOhlc(symbol, srcTimeframe)

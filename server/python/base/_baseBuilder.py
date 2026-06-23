@@ -420,7 +420,7 @@ def _notify_done(caller: str, from_ts: int, to_ts: int) -> None:
 #==========================================================================================================
 # PUBLIC API
 #==========================================================================================================
-def extendFront(symbol: str) -> bool:
+def extendFront(symbol: str, fromTs: int = None) -> bool:
     symbol = (symbol or "").strip()
 
     if not symbol:
@@ -436,7 +436,10 @@ def extendFront(symbol: str) -> bool:
         logger.warning(_SECTION, f"Cannot read last OHLC for {symbol}/1S.")
 
     if last in (None, False):
-        current_ts = _floor_sec(_now_ms() - (_default_limit_seconds() * 1000))
+        if (fromTs is None):
+            current_ts = _floor_sec(_now_ms() - (_default_limit_seconds() * 1000))
+        else:
+            current_ts = fromTs
         seed_close = None
     else:
         current_ts = _floor_sec(int(last.t) + 1000)
@@ -550,6 +553,10 @@ def extendBack(
             f"Invalid back request fromTs for {symbol}/1S: {target_from}",
         )
         return False
+    
+    if ohlcStorer.IsEmpty(symbol, "1S"):
+        logger.warning(_SECTION, f"No {symbol}/1S found, route to extend front.")
+        return extendFront(symbol, fromTs)
 
     point = _symbol_point(symbol)
     _collector.init()
