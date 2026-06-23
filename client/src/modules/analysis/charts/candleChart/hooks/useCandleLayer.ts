@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Application, Container, Geometry, Mesh, Shader } from "pixi.js";
-import type { Result } from "../../../../../shared/result";
+import { throwAppError } from "../../../../../shared/appError";
 import type { CandleData } from "./useCandleData";
 import type { Viewport, ShaderWeights } from "./useViewport";
 import { CONFIG } from "../shared/config";
@@ -10,25 +10,20 @@ import type { Ohlc } from "../shared/types";
 // PUBLIC
 //======================================================================================================
 export type CandleStyles = {
-  outlineThickness  : number;
-  upOutlineColor    : [number, number, number]; // color: rgb
-  upBodyColor       : [number, number, number]; // color: rgb
-  downOutlineColor  : [number, number, number]; // color: rgb
-  downBodyColor     : [number, number, number]; // color: rgb
+  outlineThickness: number;
+  upOutlineColor: [number, number, number]; // color: rgb
+  upBodyColor: [number, number, number]; // color: rgb
+  downOutlineColor: [number, number, number]; // color: rgb
+  downBodyColor: [number, number, number]; // color: rgb
 };
 
 export type CandleLayer = {
-  init        (app: Application, candleData: CandleData, viewport: Viewport)  : Promise<Result<null>>;
-  updateData  ()                                                              : Result<null>;
-  setStyles   (candleStyles: CandleStyles)                                    : Result<null>;
-  draw        ()                                                              : Promise<Result<null>>;
-  cleanup     ()                                                              : Promise<Result<null>>;
+  init(app: Application, candleData: CandleData, viewport: Viewport): Promise<void>;
+  updateData(): void;
+  setStyles(candleStyles: CandleStyles): void;
+  draw(): Promise<void>;
+  cleanup(): Promise<void>;
 };
-
-
-
-
-
 
 //======================================================================================================
 // TYPE
@@ -45,11 +40,11 @@ type ContainerLike = Container & {
 // CONSTANT
 //======================================================================================================
 const DEFAULT_STYLES: CandleStyles = {
-  outlineThickness: 1,
-  upOutlineColor: [40, 40, 40],
-  upBodyColor: [0, 170, 0],
-  downOutlineColor: [40, 40, 40],
-  downBodyColor: [220, 40, 40],
+  outlineThickness  : 1,
+  upOutlineColor    : [0, 170, 0],
+  upBodyColor       : [0, 170, 0],
+  downOutlineColor  : [220, 40, 40],
+  downBodyColor     : [220, 40, 40],
 };
 
 const CANDLE_VERTEX_CORNERS: Float32Array = new Float32Array([
@@ -68,25 +63,6 @@ const FLOATS_PER_CANDLE_CORNERS = VERTICES_PER_CANDLE * 2;
 //======================================================================================================
 // HELPER
 //======================================================================================================
-function ok<T>(data: T): Result<T> {
-  return {
-    success: true,
-    data,
-    error: null,
-  };
-}
-
-function err<T = null>(code: string, msg: string): Result<T> {
-  return {
-    success: false,
-    data: null,
-    error: {
-      code,
-      msg,
-    },
-  } as Result<T>;
-}
-
 function isValidNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -130,27 +106,29 @@ function createMesh(geometry: Geometry, shader: Shader): Mesh {
   return new Mesh({ geometry, shader } as any);
 }
 
-
-function buildShader(styles: CandleStyles, candleWidth: number, weights: {
-  timestampShaderWeights: ShaderWeights;
-  priceShaderWeights: ShaderWeights;
-}): Shader {
-  
+function buildShader(
+  styles: CandleStyles,
+  candleWidth: number,
+  weights: {
+    timestampShaderWeights: ShaderWeights;
+    priceShaderWeights: ShaderWeights;
+  },
+): Shader {
   const uCandleUniforms = {
-    uProjectionMatrix: { value: new Float32Array([1,0,0, 0,1,0, 0,0,1]), type: 'mat3x3<f32>' },
-    uOutlineThickness: { value: Math.max(0, styles.outlineThickness), type: 'f32' },
-    uCandleWidth: { value: Math.max(0, candleWidth), type: 'f32' },
-    uUpOutlineColor: { value: rgbToVec3(styles.upOutlineColor), type: 'vec3<f32>' },
-    uUpBodyColor: { value: rgbToVec3(styles.upBodyColor), type: 'vec3<f32>' },
-    uDownOutlineColor: { value: rgbToVec3(styles.downOutlineColor), type: 'vec3<f32>' },
-    uDownBodyColor: { value: rgbToVec3(styles.downBodyColor), type: 'vec3<f32>' },
-    uTimestampShaderWeights: { 
-      value: [weights.timestampShaderWeights.multiplication, weights.timestampShaderWeights.addition], 
-      type: 'vec2<f32>' 
+    uProjectionMatrix: { value: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), type: "mat3x3<f32>" },
+    uOutlineThickness: { value: Math.max(0, styles.outlineThickness), type: "f32" },
+    uCandleWidth: { value: Math.max(0, candleWidth), type: "f32" },
+    uUpOutlineColor: { value: rgbToVec3(styles.upOutlineColor), type: "vec3<f32>" },
+    uUpBodyColor: { value: rgbToVec3(styles.upBodyColor), type: "vec3<f32>" },
+    uDownOutlineColor: { value: rgbToVec3(styles.downOutlineColor), type: "vec3<f32>" },
+    uDownBodyColor: { value: rgbToVec3(styles.downBodyColor), type: "vec3<f32>" },
+    uTimestampShaderWeights: {
+      value: [weights.timestampShaderWeights.multiplication, weights.timestampShaderWeights.addition],
+      type: "vec2<f32>",
     },
-    uPriceShaderWeights: { 
-      value: [weights.priceShaderWeights.multiplication, weights.priceShaderWeights.addition], 
-      type: 'vec2<f32>' 
+    uPriceShaderWeights: {
+      value: [weights.priceShaderWeights.multiplication, weights.priceShaderWeights.addition],
+      type: "vec2<f32>",
     },
   };
 
@@ -202,7 +180,7 @@ void main(void) {
 }
 `;
 
-const fragmentSrc = `
+  const fragmentSrc = `
 precision mediump float;
 
 uniform float uOutlineThickness;
@@ -231,33 +209,21 @@ void main(void) {
   float rawBodyTop = min(vOpenY, vCloseY);
   float rawBodyBottom = max(vOpenY, vCloseY);
 
-  // Chiều cao tối thiểu của phần outline nến Doji bằng uOutlineThickness
-  float bodyHeight = max(
-    abs(vOpenY - vCloseY),
-    uOutlineThickness
-  );
+  float bodyHeight = max(abs(vOpenY - vCloseY), uOutlineThickness);
 
   float bodyCenter = (rawBodyTop + rawBodyBottom) * 0.5;
-
   float bodyTop = bodyCenter - bodyHeight * 0.5;
   float bodyBottom = bodyCenter + bodyHeight * 0.5;
 
-  // Điều kiện vẽ Outline: Chỉ cần nến có kích thước tối thiểu bằng outlineThickness
   bool canDrawOutline = uCandleWidth >= uOutlineThickness && bodyHeight >= uOutlineThickness;
-
-  // Điều kiện vẽ Ruột (Body): Kích thước nến phải lớn hơn 2 lần độ dày outline (như bạn yêu cầu)
-  bool canDrawBodyInner = 
+  bool canDrawBodyInner =
     uCandleWidth > (uOutlineThickness * 2.0) &&
     bodyHeight > (uOutlineThickness * 2.0);
 
   float dx = abs(vPixelPos.x - vCenterX);
 
   bool inWick = dx <= halfOutline && vPixelPos.y >= vHighY && vPixelPos.y <= vLowY;
-  
-  // Áp dụng điều kiện vẽ outline riêng biệt
   bool inBodyOuter = canDrawOutline && dx <= halfWidth && vPixelPos.y >= bodyTop && vPixelPos.y <= bodyBottom;
-  
-  // Áp dụng điều kiện vẽ ruột riêng biệt
   bool inBodyInner = canDrawBodyInner
     && dx <= (halfWidth - uOutlineThickness)
     && vPixelPos.y >= (bodyTop + uOutlineThickness)
@@ -285,22 +251,21 @@ void main(void) {
 }
 `;
 
-
   return Shader.from({
     gl: {
       vertex: vertexSrc,
       fragment: fragmentSrc,
     },
     resources: {
-      uCandleUniforms: uCandleUniforms
+      uCandleUniforms,
     },
   });
 }
 
 function buildGeometryFromRange(
-  flatOhlcs: Float32Array, 
+  flatOhlcs: Float32Array,
   startIndex: number,
-  endExclusive: number
+  endExclusive: number,
 ): Geometry {
   const candleCount = Math.max(0, endExclusive - startIndex);
 
@@ -337,7 +302,6 @@ function buildGeometryFromRange(
   }
 
   const geometry = new Geometry();
-
   geometry.addAttribute("aPosition", { buffer: corners, size: 2 });
   geometry.addAttribute("aTimestamp", { buffer: timestamps, size: 1 });
   geometry.addAttribute("aOpen", { buffer: opens, size: 1 });
@@ -365,16 +329,15 @@ function flattenOhlcs(ohlcs: Ohlc[], timestampOffset: number, priceOffset: numbe
   return flat;
 }
 
-
-function toPixelTimestamp(viewport: Viewport, timestamp: number): number | null {
-  const result = viewport.timestampToPixel(timestamp);
-  return result.success ? result.data : null;
+function toPixelTimestamp(viewport: Viewport, timestamp: number): number {
+  return viewport.timestampToPixel(timestamp);
 }
+
 function toPixelFlatTimestamp(
   viewport: Viewport,
   flatTimestamp: number,
   timestampOffset: number,
-): number | null {
+): number {
   return toPixelTimestamp(viewport, flatTimestamp + timestampOffset);
 }
 
@@ -399,9 +362,6 @@ function findVisibleRange(
   while (left < right) {
     const mid = (left + right) >> 1;
     const x = toPixelFlatTimestamp(viewport, flatOhlcs[mid * FLOATS_PER_OHLC], timestampOffset);
-    if (x == null) {
-      return { start: 0, endExclusive: 0 };
-    }
 
     if ((x + halfWidth) < 0) {
       left = mid + 1;
@@ -418,9 +378,6 @@ function findVisibleRange(
   while (left < right) {
     const mid = (left + right) >> 1;
     const x = toPixelFlatTimestamp(viewport, flatOhlcs[mid * FLOATS_PER_OHLC], timestampOffset);
-    if (x == null) {
-      return { start: 0, endExclusive: 0 };
-    }
 
     if ((x - halfWidth) <= canvasWidth) {
       left = mid + 1;
@@ -460,44 +417,49 @@ export default function useCandleLayer(): CandleLayer {
       timestampShaderWeights: ShaderWeights;
       priceShaderWeights: ShaderWeights;
     },
-  ): Result<null> => {
+  ): void => {
     const styles = stylesRef.current;
     const globalUniforms = (app.renderer as any).globalUniforms?.uniforms?.uProjectionMatrix;
 
     if (!shaderRef.current) {
       shaderRef.current = buildShader(styles, candleWidth, weights);
       if (globalUniforms) {
-        (shaderRef.current as any).resources.uCandleUniforms.uProjectionMatrix.value = globalUniforms;
+        (shaderRef.current as any).resources.uCandleUniforms.uniforms.uProjectionMatrix = globalUniforms;
       }
-      return ok(null);
+      return;
     }
 
     const shaderAny = shaderRef.current as any;
     if (globalUniforms) {
-      shaderAny.resources.uCandleUniforms.uProjectionMatrix.value = globalUniforms;
+      shaderAny.resources.uCandleUniforms.uniforms.uProjectionMatrix = globalUniforms;
     }
-    shaderAny.uniforms.uOutlineThickness = Math.max(0, styles.outlineThickness);
-    shaderAny.uniforms.uCandleWidth = Math.max(0, candleWidth);
-    shaderAny.uniforms.uUpOutlineColor = rgbToVec3(styles.upOutlineColor);
-    shaderAny.uniforms.uUpBodyColor = rgbToVec3(styles.upBodyColor);
-    shaderAny.uniforms.uDownOutlineColor = rgbToVec3(styles.downOutlineColor);
-    shaderAny.uniforms.uDownBodyColor = rgbToVec3(styles.downBodyColor);
-    
-    shaderAny.uniforms.uTimestampShaderWeights = [
-      weights.timestampShaderWeights.multiplication,
-      weights.timestampShaderWeights.addition,
-    ];
-    shaderAny.uniforms.uPriceShaderWeights = [
-      weights.priceShaderWeights.multiplication,
-      weights.priceShaderWeights.addition,
-    ];
 
-    return ok(null);
+    // Gán thông qua group uCandleUniforms.uniforms (Dành cho PixiJS v8)
+    const candleUniforms = shaderAny.resources?.uCandleUniforms?.uniforms;
+    
+    if (candleUniforms) {
+      candleUniforms.uOutlineThickness = Math.max(0, styles.outlineThickness);
+      candleUniforms.uCandleWidth = Math.max(0, candleWidth);
+      candleUniforms.uUpOutlineColor = rgbToVec3(styles.upOutlineColor);
+      candleUniforms.uUpBodyColor = rgbToVec3(styles.upBodyColor);
+      candleUniforms.uDownOutlineColor = rgbToVec3(styles.downOutlineColor);
+      candleUniforms.uDownBodyColor = rgbToVec3(styles.downBodyColor);
+      candleUniforms.uTimestampShaderWeights = [
+        weights.timestampShaderWeights.multiplication,
+        weights.timestampShaderWeights.addition,
+      ];
+      candleUniforms.uPriceShaderWeights = [
+        weights.priceShaderWeights.multiplication,
+        weights.priceShaderWeights.addition,
+      ];
+    }
   };
 
   const setMesh = (geometry: Geometry, shader: Shader): void => {
     const layer = layerRef.current;
-    if (!layer) return;
+    if (!layer) {
+      return;
+    }
 
     if (meshRef.current) {
       layer.removeChildren();
@@ -512,7 +474,9 @@ export default function useCandleLayer(): CandleLayer {
 
   const cleanupMeshOnly = (): void => {
     const layer = layerRef.current;
-    if (layer) layer.removeChildren();
+    if (layer) {
+      layer.removeChildren();
+    }
 
     safeDestroy(meshRef.current);
     meshRef.current = null;
@@ -526,7 +490,7 @@ export default function useCandleLayer(): CandleLayer {
     app: Application,
     candleData: CandleData,
     viewport: Viewport,
-  ): Promise<Result<null>> => {
+  ): Promise<void> => {
     appRef.current = app;
     candleDataRef.current = candleData;
     viewportRef.current = viewport;
@@ -540,85 +504,76 @@ export default function useCandleLayer(): CandleLayer {
       stage.addChild(layerRef.current);
     }
 
-    const updateResult = updateData();
-    if (!updateResult.success) return updateResult;
-
-    const drawResult = await draw();
-    if (!drawResult.success) return drawResult;
-
-    return ok(null);
+    updateData();
+    await draw();
   };
 
-  const updateData = (): Result<null> => {
+  const updateData = (): void => {
     const candleData = candleDataRef.current;
-    if (!candleData) return err("NOT_INITIALIZED", "candleData is not initialized");
+    if (!candleData) {
+      throwAppError("NOT_INITIALIZED", "candleData is not initialized");
+    }
 
-    const allResult = candleData.getAll();
-    if (!allResult.success) return allResult;
-    
-    // đoạn này tôi giữ để đảm bảo luôn dồng bộ với getTimestampToPixelWeights, trảnh bug ẩn
+    const allOhlcs = candleData.getAll();
+
     const timestampWeightsResult = viewportRef.current?.getTimestampToPixelWeights();
-    const timestampOffset = timestampWeightsResult?.success ? timestampWeightsResult?.data.offset : 0;
+    const timestampOffset = timestampWeightsResult ? timestampWeightsResult.offset : 0;
 
     const priceWeightsResult = viewportRef.current?.getPriceToPixelWeights();
-    const priceOffset = priceWeightsResult?.success ? priceWeightsResult?.data.offset : 0;
+    const priceOffset = priceWeightsResult ? priceWeightsResult.offset : 0;
 
-    flatOhlcsRef.current = flattenOhlcs(allResult.data, timestampOffset, priceOffset);
-    return ok(null);
+    flatOhlcsRef.current = flattenOhlcs(allOhlcs, timestampOffset, priceOffset);
   };
 
-  const setStyles = (candleStyles: CandleStyles): Result<null> => {
+  const setStyles = (candleStyles: CandleStyles): void => {
     stylesRef.current = cloneStyles(candleStyles);
 
     if (shaderRef.current) {
       const shaderAny = shaderRef.current as any;
-      shaderAny.uniforms.uOutlineThickness = Math.max(0, candleStyles.outlineThickness);
-      shaderAny.uniforms.uUpOutlineColor = rgbToVec3(candleStyles.upOutlineColor);
-      shaderAny.uniforms.uUpBodyColor = rgbToVec3(candleStyles.upBodyColor);
-      shaderAny.uniforms.uDownOutlineColor = rgbToVec3(candleStyles.downOutlineColor);
-      shaderAny.uniforms.uDownBodyColor = rgbToVec3(candleStyles.downBodyColor);
+      const candleUniforms = shaderAny.resources?.uCandleUniforms?.uniforms;
+      
+      if (candleUniforms) {
+        candleUniforms.uOutlineThickness = Math.max(0, candleStyles.outlineThickness);
+        candleUniforms.uUpOutlineColor = rgbToVec3(candleStyles.upOutlineColor);
+        candleUniforms.uUpBodyColor = rgbToVec3(candleStyles.upBodyColor);
+        candleUniforms.uDownOutlineColor = rgbToVec3(candleStyles.downOutlineColor);
+        candleUniforms.uDownBodyColor = rgbToVec3(candleStyles.downBodyColor);
+      }
     }
-
-    return ok(null);
   };
 
-  const draw = async (): Promise<Result<null>> => {
+  const draw = async (): Promise<void> => {
     const app = appRef.current;
     const viewport = viewportRef.current;
 
-    if (!app || !viewport) return err("NOT_INITIALIZED", "candle layer is not initialized");
+    if (!app || !viewport) {
+      throwAppError("NOT_INITIALIZED", "candle layer is not initialized");
+    }
 
     const screen = getScreenSize(app);
     if (!isValidNumber(screen.width) || !isValidNumber(screen.height) || screen.width <= 0 || screen.height <= 0) {
-      return err("INVALID_CANVAS_SIZE", "canvas size must be set before draw()");
+      throwAppError("INVALID_CANVAS_SIZE", "canvas size must be set before draw()");
     }
 
-    const transformedView = viewport.getTransformedView();
-    if (!transformedView.success) return transformedView;
+    viewport.getTransformedView();
 
     const timestampWeights = viewport.getTimestampToPixelWeights();
-    if (!timestampWeights.success) return timestampWeights as Result<null>;
-
     const priceWeights = viewport.getPriceToPixelWeights();
-    if (!priceWeights.success) return priceWeights as Result<null>;
 
     const flatOhlcs = flatOhlcsRef.current;
     const candleCount = Math.floor(flatOhlcs.length / FLOATS_PER_OHLC);
 
     if (candleCount <= 0) {
       cleanupMeshOnly();
-      return ok(null);
+      return;
     }
 
-    const timestampOffset = timestampWeights.data.offset;
+    const timestampOffset = timestampWeights.offset;
 
     let candleWidth = 1;
     if (candleCount >= 2) {
       const x0 = toPixelFlatTimestamp(viewport, flatOhlcs[0], timestampOffset);
       const x1 = toPixelFlatTimestamp(viewport, flatOhlcs[FLOATS_PER_OHLC], timestampOffset);
-      if (x0 == null || x1 == null) {
-        return err("INVALID_VIEWPORT", "failed to convert candle timestamps to pixels");
-      }
       candleWidth = Math.max(1, Math.abs(x1 - x0) - CONFIG.CANDLE_LAYER.CANDLE_SPACING);
     }
 
@@ -633,52 +588,56 @@ export default function useCandleLayer(): CandleLayer {
 
     if (visibleCount <= 0) {
       cleanupMeshOnly();
-      return ok(null);
+      return;
     }
 
     const adjustedWeights = {
       timestampShaderWeights: {
         offset: 0,
-        multiplication: timestampWeights.data.multiplication,
-        addition: timestampWeights.data.addition,
+        multiplication: timestampWeights.multiplication,
+        addition: timestampWeights.addition,
       },
       priceShaderWeights: {
         offset: 0,
-        multiplication: priceWeights.data.multiplication,
-        addition: priceWeights.data.addition,
+        multiplication: priceWeights.multiplication,
+        addition: priceWeights.addition,
       },
     };
 
     const geometry = buildGeometryFromRange(flatOhlcs, visible.start, visible.endExclusive);
 
-    const pipelineResult = buildOrUpdatePipeline(app, candleWidth, adjustedWeights);
-    if (!pipelineResult.success) return pipelineResult;
+    buildOrUpdatePipeline(app, candleWidth, adjustedWeights);
 
-    if (!shaderRef.current) return err("SHADER_BUILD_FAILED", "failed to build candle shader");
+    if (!shaderRef.current) {
+      throwAppError("SHADER_BUILD_FAILED", "failed to build candle shader");
+    }
 
-    if (geometryRef.current) safeDestroy(geometryRef.current);
+    if (geometryRef.current) {
+      safeDestroy(geometryRef.current);
+    }
     geometryRef.current = geometry;
 
     setMesh(geometry, shaderRef.current);
-    return ok(null);
   };
 
-  const cleanup = async (): Promise<Result<null>> => {
+  const cleanup = async (): Promise<void> => {
     cleanupMeshOnly();
 
     const layer = layerRef.current;
     const stage = (appRef.current as any)?.stage;
 
     if (layer && stage && stage.children?.includes?.(layer)) {
-      try { stage.removeChild(layer); } catch { /* ignore */ }
+      try {
+        stage.removeChild(layer);
+      } catch {
+        // ignore
+      }
     }
 
     appRef.current = null;
     candleDataRef.current = null;
     viewportRef.current = null;
     flatOhlcsRef.current = new Float32Array();
-
-    return ok(null);
   };
 
   const apiRef = useRef<CandleLayer | null>(null);

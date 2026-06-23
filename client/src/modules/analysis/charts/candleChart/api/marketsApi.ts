@@ -1,63 +1,58 @@
-// client/src/shared/apis/marketsApi.ts
-
-import type { Result } from "../../../../../shared/result";
+import { throwAppError } from "../../../../../shared/appError";
 import type {
   Ohlc,
   SymbolData,
-} from '../shared/types';
+} from "../shared/types";
 
-const API_BASE = '/api/markets';
+const API_BASE = "/api/markets";
 
-async function request<T>(url: string): Promise<Result<T>> {
+async function request<T>(url: string): Promise<T> {
   try {
     const response = await fetch(url);
 
     if (!response.ok) {
-      return {
-        success: false,
-        data: null,
-        error: {
-          code: String(response.status),
-          msg: response.statusText || 'Request failed',
-        },
-      };
+      throwAppError(
+        String(response.status),
+        response.statusText || "Request failed",
+      );
     }
 
     const rawData = await response.json();
 
-    // Kiểm tra xem dữ liệu trả về đã có sẵn định dạng Result { success, ... } hay chưa
-    if (rawData && typeof rawData === 'object' && ('success' in rawData)) {
-      return rawData as Result<T>;
+    if (rawData && typeof rawData === "object" && "success" in rawData) {
+      const result = rawData as {
+        success: boolean;
+        data?: T;
+        error?: { code?: string; msg?: string };
+      };
+
+      if (!result.success) {
+        throwAppError(
+          result.error?.code ?? "REQUEST_FAILED",
+          result.error?.msg ?? "Request failed",
+        );
+      }
+
+      return result.data as T;
     }
 
-    // Nếu backend trả về trực tiếp mảng hoặc dữ liệu thô, ta bọc nó vào Result thành công
-    return {
-      success: true,
-      data: rawData as T,
-      error: null,
-    };
-    
+    return rawData as T;
   } catch (err) {
-    return {
-      success: false,
-      data: null,
-      error: {
-        code: 'NETWORK_ERROR',
-        msg: err instanceof Error ? err.message : 'Unknown error',
-      },
-    };
+    if (err instanceof Error && err.name === "AppError") {
+      throw err;
+    }
+
+    throwAppError(
+      "NETWORK_ERROR",
+      err instanceof Error ? err.message : "Unknown error",
+    );
   }
 }
 
-//======================================================================================================
-// PUBLIC API
-//======================================================================================================
 /**
  * GET /api/markets/:symbol
  */
-async function getSymbolData(
-  symbol: string,
-): Promise<Result<SymbolData>> {
+async function getSymbolData(symbol: string): Promise<SymbolData> {
   return request<SymbolData>(
     `${API_BASE}/${encodeURIComponent(symbol)}`,
   );
@@ -71,7 +66,7 @@ async function getOhlcs(
   timeframe: string,
   fromTs: number,
   toTs: number,
-): Promise<Result<Ohlc[]>> {
+): Promise<Ohlc[]> {
   const params = new URLSearchParams({
     fromTs: String(fromTs),
     toTs: String(toTs),
@@ -85,9 +80,7 @@ async function getOhlcs(
 /**
  * GET /api/markets/:symbol/last
  */
-async function getLastOhlc(
-  symbol: string,
-): Promise<Result<Ohlc>> {
+async function getLastOhlc(symbol: string): Promise<Ohlc> {
   return request<Ohlc>(
     `${API_BASE}/${encodeURIComponent(symbol)}/last`,
   );
@@ -99,13 +92,13 @@ async function getLastOhlc(
 async function callExtendBack(
   symbol: string,
   fromTs: number,
-): Promise<Result<null>> {
+): Promise<void> {
   const params = new URLSearchParams({
     fromTs: String(fromTs),
-    type: 'back',
+    type: "back",
   });
 
-  return request<null>(
+  await request<unknown>(
     `${API_BASE}/${encodeURIComponent(symbol)}/extend?${params.toString()}`,
   );
 }
@@ -115,8 +108,8 @@ async function callExtendBack(
  */
 async function registerAutoExtend(
   symbol: string,
-): Promise<Result<null>> {
-  return request<null>(
+): Promise<{ key?: number } | null> {
+  return request<{ key?: number } | null>(
     `${API_BASE}/${encodeURIComponent(symbol)}/extend/registerAuto`,
   );
 }
@@ -127,21 +120,21 @@ async function registerAutoExtend(
 async function unregisterAutoExtend(
   symbol: string,
   key: number,
-): Promise<Result<null>> {
+): Promise<void> {
   const params = new URLSearchParams({
     key: String(key),
   });
 
-  return request<null>(
+  await request<unknown>(
     `${API_BASE}/${encodeURIComponent(symbol)}/extend/unregisterAuto?${params.toString()}`,
   );
 }
 
 export const marketApi = {
-    getSymbolData,
-    getOhlcs,
-    getLastOhlc,
-    callExtendBack,
-    registerAutoExtend,
-    unregisterAutoExtend
-}
+  getSymbolData,
+  getOhlcs,
+  getLastOhlc,
+  callExtendBack,
+  registerAutoExtend,
+  unregisterAutoExtend,
+};

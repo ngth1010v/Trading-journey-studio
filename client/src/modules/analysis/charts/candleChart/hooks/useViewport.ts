@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { Result } from "../../../../../shared/result";
+import { throwAppError } from "../../../../../shared/appError";
 import { CONFIG } from "../shared/config";
 import type { CandleData } from "./useCandleData";
 
@@ -8,33 +8,33 @@ import type { CandleData } from "./useCandleData";
 // PUBLIC
 //======================================================================================================
 export type Viewport = {
-  clean                     ()                                                            : Result<null>;
-  setCanvasSize             (args: ViewportSetCanvasSizeArgs)                             : Result<null>;
+  clean(): void;
+  setCanvasSize(args: ViewportSetCanvasSizeArgs): void;
 
   // View
-  setView                   (args: ViewportSetViewArgs)                                   : Result<null>;
-  getView                   ()                                                            : Result<View>;
-  getTransformedView        ()                                                            : Result<View>;
+  setView(args: ViewportSetViewArgs): void;
+  getView(): View;
+  getTransformedView(): View;
 
   // Transform
-  setAutoPrice              ()                                                            : Result<null>;
-  setOffsetTimestamp        (offsetPixelX: number, cumulative?: boolean)                  : Result<null>;
-  setScaleTimestamp         (scaleX: number, scaleAtPixelX: number, cumulative?: boolean) : Result<null>;
-  setOffsetPrice            (offsetPixelY: number, cumulative?: boolean)                  : Result<null>;
-  setScalePrice             (scaleY: number, scaleAtPixelY: number, cumulative?: boolean) : Result<null>;
-  flush                     ()                                                            : Result<null>;
-  
+  setAutoPrice(): void;
+  setOffsetTimestamp(offsetPixelX: number, cumulative?: boolean): void;
+  setScaleTimestamp(scaleX: number, scaleAtPixelX: number, cumulative?: boolean): void;
+  setOffsetPrice(offsetPixelY: number, cumulative?: boolean): void;
+  setScalePrice(scaleY: number, scaleAtPixelY: number, cumulative?: boolean): void;
+  flush(): Promise<void>;
+
   // Converter
-  timestampToPixel          (timestamp: number)                                           : Result<number>;
-  pixelToTimestamp          (pixel: number)                                               : Result<number>;
-  priceToPixel              (price: number)                                               : Result<number>;
-  pixelToPrice              (pixel: number)                                               : Result<number>;
-  getTimestampToPixelWeights()                                                            : Result<ShaderWeights>;
-  getPriceToPixelWeights    ()                                                            : Result<ShaderWeights>;
+  timestampToPixel(timestamp: number): number;
+  pixelToTimestamp(pixel: number): number;
+  priceToPixel(price: number): number;
+  pixelToPrice(pixel: number): number;
+  getTimestampToPixelWeights(): ShaderWeights;
+  getPriceToPixelWeights(): ShaderWeights;
 
   // Event
-  addOnViewportChange       (id: string, callback: (view: View) => void)                  : Result<null>;
-  removeOnViewportChange    (id: string)                                                  : Result<null>;
+  addOnViewportChange(id: string, callback: (view: View) => void): void;
+  removeOnViewportChange(id: string): void;
 };
 
 export type CanvasSize = {
@@ -48,9 +48,9 @@ export type ViewportSetCanvasSizeArgs = {
 };
 
 export type ShaderWeights = {
-  offset        : number;
+  offset: number;
   multiplication: number;
-  addition      : number;
+  addition: number;
 };
 
 export type ViewportSetViewArgs = {
@@ -59,8 +59,6 @@ export type ViewportSetViewArgs = {
   fromPrice: number;
   toPrice: number;
 };
-
-
 
 //======================================================================================================
 // TYPE
@@ -79,39 +77,9 @@ type Transform = {
   scalePrice: number;
 };
 
-
 //======================================================================================================
 // HELPER
 //======================================================================================================
-function ok<T>(data: T): Result<T> {
-  return {
-    success: true,
-    data,
-    error: null,
-  };
-}
-
-function err(code: string, msg: string): Result<null> {
-  return {
-    success: false,
-    data: null,
-    error: {
-      code,
-      msg,
-    },
-  };
-}
-function errn(code: string, msg: string): Result<number> {
-  return {
-    success: false,
-    data: null,
-    error: {
-      code,
-      msg,
-    },
-  };
-}
-
 function isValidNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -119,7 +87,6 @@ function isValidNumber(value: unknown): value is number {
 function isPositiveNumber(value: unknown): value is number {
   return isValidNumber(value) && value > 0;
 }
-
 
 //======================================================================================================
 // LOGIC
@@ -151,13 +118,13 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     const currentView: View = {
-      fromTs   : view.fromTs * transform.scaleTs + transform.offsetTs,
-      toTs     : view.toTs * transform.scaleTs + transform.offsetTs,
+      fromTs: view.fromTs * transform.scaleTs + transform.offsetTs,
+      toTs: view.toTs * transform.scaleTs + transform.offsetTs,
       fromPrice: view.fromPrice * transform.scalePrice + transform.offsetPrice,
-      toPrice  : view.toPrice * transform.scalePrice + transform.offsetPrice,
+      toPrice: view.toPrice * transform.scalePrice + transform.offsetPrice,
     };
 
-    listenersRef.current.forEach((callback) => {
+    listenersRef.current.forEach((callback: (view: View) => void) => {
       try {
         callback(currentView);
       } catch (err) {
@@ -166,40 +133,36 @@ function useViewport(candleData: CandleData): Viewport {
     });
   };
 
-  const clean = (): Result<null> => {
+  const clean = (): void => {
     transformRef.current.offsetTs = 0;
     transformRef.current.offsetPrice = 0;
     transformRef.current.scaleTs = 1;
     transformRef.current.scalePrice = 1;
-
-    return ok(null);
   };
 
-  const setCanvasSize = (args: ViewportSetCanvasSizeArgs): Result<null> => {
+  const setCanvasSize = (args: ViewportSetCanvasSizeArgs): void => {
     if (!isPositiveNumber(args?.width) || !isPositiveNumber(args?.height)) {
-      return err("INVALID_CANVAS_SIZE", "width and height must be valid positive numbers");
+      throwAppError("INVALID_CANVAS_SIZE", "width and height must be valid positive numbers");
     }
 
     canvasSizeRef.current.w = args.width;
     canvasSizeRef.current.h = args.height;
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const setView = (args: ViewportSetViewArgs): Result<null> => {
+  const setView = (args: ViewportSetViewArgs): void => {
     if (
       !isValidNumber(args?.fromTs) ||
       !isValidNumber(args?.toTs) ||
       !isValidNumber(args?.fromPrice) ||
       !isValidNumber(args?.toPrice)
     ) {
-      return err("INVALID_VIEW", "fromTs, toTs, fromPrice and toPrice must be valid numbers");
+      throwAppError("INVALID_VIEW", "fromTs, toTs, fromPrice and toPrice must be valid numbers");
     }
 
     if (args.toTs <= args.fromTs || args.toPrice <= args.fromPrice) {
-      return err("INVALID_VIEW", "fromTs < toTs and fromPrice < toPrice are required");
+      throwAppError("INVALID_VIEW", "fromTs < toTs and fromPrice < toPrice are required");
     }
 
     viewRef.current = {
@@ -210,30 +173,26 @@ function useViewport(candleData: CandleData): Viewport {
     };
 
     clean();
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const getView = (): Result<View> => {
-    return ok({ ...viewRef.current });
+  const getView = (): View => {
+    return { ...viewRef.current };
   };
 
-  const getTransformedView = (): Result<View> => {
+  const getTransformedView = (): View => {
     const view = viewRef.current;
     const transform = transformRef.current;
 
-    const res : View = {
-      fromTs   : view.fromTs * transform.scaleTs + transform.offsetTs,
-      toTs     : view.toTs * transform.scaleTs + transform.offsetTs,
+    return {
+      fromTs: view.fromTs * transform.scaleTs + transform.offsetTs,
+      toTs: view.toTs * transform.scaleTs + transform.offsetTs,
       fromPrice: view.fromPrice * transform.scalePrice + transform.offsetPrice,
-      toPrice  : view.toPrice * transform.scalePrice + transform.offsetPrice,
-    }
-
-    return ok(res);
+      toPrice: view.toPrice * transform.scalePrice + transform.offsetPrice,
+    };
   };
 
-  const flush = (): Result<null> => {
+  const flush = async (): Promise<void> => {
     const view = viewRef.current;
     const transform = transformRef.current;
 
@@ -247,28 +206,24 @@ function useViewport(candleData: CandleData): Viewport {
     transform.scaleTs = 1;
     transform.scalePrice = 1;
 
-    candleData.set({fromTs: view.fromTs, toTs: view.toTs})
+    await candleData.set({
+      fromTs: Math.round(view.fromTs),
+      toTs: Math.round(view.toTs),
+    });
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const setAutoPrice = (): Result<null> => {
+  const setAutoPrice = (): void => {
     const view = viewRef.current;
     const transform = transformRef.current;
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
     const realToTs = view.toTs * transform.scaleTs + transform.offsetTs;
 
-    const ohlcResult = candleData.get(realFromTs, realToTs);
-    if (!ohlcResult.success) {
-      return ohlcResult;
-    }
-
-    const ohlcs = ohlcResult.data;
-    if (!ohlcs.length) {
-      return err("NO_OHLC_DATA", "no OHLC data found in the target range");
+    const ohlcs = candleData.get(realFromTs, realToTs);
+    if (ohlcs.length === 0) {
+      throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
     }
 
     let maxPrice = ohlcs[0].h;
@@ -282,32 +237,28 @@ function useViewport(candleData: CandleData): Viewport {
 
     const priceRange = maxPrice - minPrice;
     if (priceRange <= 0) {
-      return err("INVALID_AUTO_PRICE", "price range from OHLC data must be greater than zero");
+      throwAppError("INVALID_AUTO_PRICE", "price range from OHLC data must be greater than zero");
     }
 
     const currentDeltaPrice = view.toPrice - view.fromPrice;
     if (currentDeltaPrice === 0) {
-      return err("INVALID_VIEW", "current price range must not be zero");
+      throwAppError("INVALID_VIEW", "current price range must not be zero");
     }
 
-    const ratio = CONFIG.VIEWPORT.AUTO_TRANSFORM_PRICE_RATIO; // Giả sử ratio < 1 (vd: 0.8)
-    
+    const ratio = CONFIG.VIEWPORT.AUTO_TRANSFORM_PRICE_RATIO;
     const targetDeltaPrice = priceRange / ratio;
-
     const padding = (targetDeltaPrice - priceRange) / 2;
     const targetFromPrice = minPrice - padding;
 
     transform.scalePrice = targetDeltaPrice / currentDeltaPrice;
     transform.offsetPrice = targetFromPrice - view.fromPrice * transform.scalePrice;
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const timestampToPixel = (timestamp: number): Result<number> => {
+  const timestampToPixel = (timestamp: number): number => {
     if (!isValidNumber(timestamp)) {
-      return errn("INVALID_TIMESTAMP", "timestamp must be a valid number");
+      throwAppError("INVALID_TIMESTAMP", "timestamp must be a valid number");
     }
 
     const { w } = canvasSizeRef.current;
@@ -315,21 +266,21 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     if (w <= 0) {
-      return errn("INVALID_CANVAS_SIZE", "canvas width must be set before timestampToPixel()");
+      throwAppError("INVALID_CANVAS_SIZE", "canvas width must be set before timestampToPixel()");
     }
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     if (fullDeltaTs === 0) {
-      return errn("INVALID_VIEW", "timestamp range must not be zero");
+      throwAppError("INVALID_VIEW", "timestamp range must not be zero");
     }
 
     const halfDeltaTs = timestamp - (view.fromTs * transform.scaleTs + transform.offsetTs);
-    return ok((halfDeltaTs / fullDeltaTs) * w);
+    return (halfDeltaTs / fullDeltaTs) * w;
   };
 
-  const pixelToTimestamp = (pixel: number): Result<number> => {
+  const pixelToTimestamp = (pixel: number): number => {
     if (!isValidNumber(pixel)) {
-      return errn("INVALID_PIXEL", "pixel must be a valid number");
+      throwAppError("INVALID_PIXEL", "pixel must be a valid number");
     }
 
     const { w } = canvasSizeRef.current;
@@ -337,21 +288,21 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     if (w <= 0) {
-      return errn("INVALID_CANVAS_SIZE", "canvas width must be set before pixelToTimestamp()");
+      throwAppError("INVALID_CANVAS_SIZE", "canvas width must be set before pixelToTimestamp()");
     }
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     if (fullDeltaTs === 0) {
-      return errn("INVALID_VIEW", "timestamp range must not be zero");
+      throwAppError("INVALID_VIEW", "timestamp range must not be zero");
     }
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
-    return ok(realFromTs + (pixel / w) * fullDeltaTs);
+    return realFromTs + (pixel / w) * fullDeltaTs;
   };
 
-  const priceToPixel = (price: number): Result<number> => {
+  const priceToPixel = (price: number): number => {
     if (!isValidNumber(price)) {
-      return errn("INVALID_PRICE", "price must be a valid number");
+      throwAppError("INVALID_PRICE", "price must be a valid number");
     }
 
     const { h } = canvasSizeRef.current;
@@ -359,21 +310,21 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     if (h <= 0) {
-      return errn("INVALID_CANVAS_SIZE", "canvas height must be set before priceToPixel()");
+      throwAppError("INVALID_CANVAS_SIZE", "canvas height must be set before priceToPixel()");
     }
 
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     if (fullDeltaPrice === 0) {
-      return errn("INVALID_VIEW", "price range must not be zero");
+      throwAppError("INVALID_VIEW", "price range must not be zero");
     }
 
     const halfDeltaPrice = price - (view.fromPrice * transform.scalePrice + transform.offsetPrice);
-    return ok(h - (halfDeltaPrice / fullDeltaPrice) * h);
+    return h - (halfDeltaPrice / fullDeltaPrice) * h;
   };
 
-  const pixelToPrice = (pixel: number): Result<number> => {
+  const pixelToPrice = (pixel: number): number => {
     if (!isValidNumber(pixel)) {
-      return errn("INVALID_PIXEL", "pixel must be a valid number");
+      throwAppError("INVALID_PIXEL", "pixel must be a valid number");
     }
 
     const { h } = canvasSizeRef.current;
@@ -381,128 +332,85 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     if (h <= 0) {
-      return errn("INVALID_CANVAS_SIZE", "canvas height must be set before pixelToPrice()");
+      throwAppError("INVALID_CANVAS_SIZE", "canvas height must be set before pixelToPrice()");
     }
 
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     if (fullDeltaPrice === 0) {
-      return errn("INVALID_VIEW", "price range must not be zero");
+      throwAppError("INVALID_VIEW", "price range must not be zero");
     }
 
     const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
-    return ok(realFromPrice + ((h - pixel) / h) * fullDeltaPrice);
+    return realFromPrice + ((h - pixel) / h) * fullDeltaPrice;
   };
 
-  const getTimestampToPixelWeights = (): Result<ShaderWeights> => {
-    function ok (data: ShaderWeights): Result<ShaderWeights> {
-      return {
-        success: true,
-        data,
-        error: null,
-      };
-    }
-    function err(code: string, msg: string): Result<ShaderWeights> {
-      return {
-        success: false,
-        data: null,
-        error: {
-          code,
-          msg,
-        },
-      };
-    }
-
-    const ohlcResult = candleData.getFirst();
-    const offset = ohlcResult.success ? ohlcResult.data.t : 1764547200000;
+  const getTimestampToPixelWeights = (): ShaderWeights => {
+    const ohlc = candleData.getFirst();
+    const offset = ohlc.t;
 
     const { w } = canvasSizeRef.current;
     const view = viewRef.current;
     const transform = transformRef.current;
 
     if (w <= 0) {
-      return err("INVALID_CANVAS_SIZE", "canvas width must be set before timestampToPixel()");
+      throwAppError("INVALID_CANVAS_SIZE", "canvas width must be set before timestampToPixel()");
     }
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     if (fullDeltaTs === 0) {
-      return err("INVALID_VIEW", "timestamp range must not be zero");
+      throwAppError("INVALID_VIEW", "timestamp range must not be zero");
     }
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
-
-    // flatTimestamp = rawTimestamp - offset
-    // pixel = flatTimestamp * (w / fullDeltaTs) + ((offset - realFromTs) * w / fullDeltaTs)
     const multiplication = w / fullDeltaTs;
     const addition = (offset - realFromTs) * multiplication;
 
-    const res: ShaderWeights = {
-      offset,
-      addition,
-      multiplication
-    };
-
-    return ok(res);
-  };
-
-  const getPriceToPixelWeights = (): Result<ShaderWeights> => {
-    function ok(data: ShaderWeights): Result<ShaderWeights> {
-      return {
-        success: true,
-        data,
-        error: null,
-      };
-    }
-    function err(code: string, msg: string): Result<ShaderWeights> {
-      return {
-        success: false,
-        data: null,
-        error: {
-          code,
-          msg,
-        },
-      };
-    }
-
-    const { h } = canvasSizeRef.current;
-    const view = viewRef.current;
-    const transform = transformRef.current;
-
-    if (h <= 0) {
-      return err("INVALID_CANVAS_SIZE", "canvas height must be set before priceToPixel()");
-    }
-
-    // Lấy giá trị thấp nhất hoặc giá trị đầu tiên làm gốc offset cho Price (tương tự timestamp)
-    const ohlcResult = candleData.getFirst();
-    const offset = ohlcResult.success ? ohlcResult.data.l : 0; 
-
-    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
-    if (fullDeltaPrice === 0) {
-      return err("INVALID_VIEW", "price range must not be zero");
-    }
-
-    const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
-
-    // flatPrice = rawPrice - offset
-    // pixel = h - ((flatPrice + offset - realFromPrice) * h / fullDeltaPrice)
-    const multiplication = -h / fullDeltaPrice;
-    const addition = h - ((offset - realFromPrice) * h) / fullDeltaPrice;
-
-    const res: ShaderWeights = {
+    return {
       offset,
       addition,
       multiplication,
     };
-    
-    return ok(res);
   };
 
-  const setOffsetTimestamp = (offsetPixelX: number, cumulative: boolean = false): Result<null> => {
+  const getPriceToPixelWeights = (): ShaderWeights => {
+    const { h } = canvasSizeRef.current;
+    const view = viewRef.current;
+    const transform = transformRef.current;
+
+    if (h <= 0) {
+      throwAppError("INVALID_CANVAS_SIZE", "canvas height must be set before priceToPixel()");
+    }
+
+    const ohlc = candleData.getFirst();
+    const offset = ohlc.l;
+
+    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
+    if (fullDeltaPrice === 0) {
+      throwAppError("INVALID_VIEW", "price range must not be zero");
+    }
+
+    const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
+    const multiplication = -h / fullDeltaPrice;
+    const addition = h - ((offset - realFromPrice) * h) / fullDeltaPrice;
+
+    return {
+      offset,
+      addition,
+      multiplication,
+    };
+  };
+
+  const setOffsetTimestamp = (offsetPixelX: number, cumulative: boolean = false): void => {
     const { w } = canvasSizeRef.current;
     const view = viewRef.current;
     const transform = transformRef.current;
 
-    if (w <= 0) return err("INVALID_CANVAS_SIZE", "canvas width must be set");
-    if (!isValidNumber(offsetPixelX)) return err("INVALID_OFFSET", "offsetPixelX must be a number");
+    if (w <= 0) {
+      throwAppError("INVALID_CANVAS_SIZE", "canvas width must be set");
+    }
+    if (!isValidNumber(offsetPixelX)) {
+      throwAppError("INVALID_OFFSET", "offsetPixelX must be a number");
+    }
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     const offsetTs = (offsetPixelX / w) * fullDeltaTs;
@@ -513,20 +421,21 @@ function useViewport(candleData: CandleData): Viewport {
       transform.offsetTs = offsetTs;
     }
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const setOffsetPrice = (offsetPixelY: number, cumulative: boolean = false): Result<null> => {
+  const setOffsetPrice = (offsetPixelY: number, cumulative: boolean = false): void => {
     const { h } = canvasSizeRef.current;
     const view = viewRef.current;
     const transform = transformRef.current;
 
-    if (h <= 0) return err("INVALID_CANVAS_SIZE", "canvas height must be set");
-    if (!isValidNumber(offsetPixelY)) return err("INVALID_OFFSET", "offsetPixelY must be a number");
+    if (h <= 0) {
+      throwAppError("INVALID_CANVAS_SIZE", "canvas height must be set");
+    }
+    if (!isValidNumber(offsetPixelY)) {
+      throwAppError("INVALID_OFFSET", "offsetPixelY must be a number");
+    }
 
-    // Đồ thị Y chạy ngược từ trên xuống dưới pixel (h - ...)
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     const offsetPrice = (-offsetPixelY / h) * fullDeltaPrice;
 
@@ -536,89 +445,77 @@ function useViewport(candleData: CandleData): Viewport {
       transform.offsetPrice = offsetPrice;
     }
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const setScaleTimestamp = (scaleX: number, scaleAtPixelX: number, cumulative: boolean = false): Result<null> => {
-    if (!isValidNumber(scaleX) || scaleX <= 0) return err("INVALID_SCALE", "scaleX must be positive");
-    
-    // 1. Đổi scaleAtPixelX -> scaleAtTimestamp trước khi đổi scaleTs
-    const tsResult = pixelToTimestamp(scaleAtPixelX);
-    if (!tsResult.success) return err("INVALID_PIXEL", "cannot convert pixel to timestamp");
-    const scaleAtTimestamp = tsResult.data;
+  const setScaleTimestamp = (scaleX: number, scaleAtPixelX: number, cumulative: boolean = false): void => {
+    if (!isValidNumber(scaleX) || scaleX <= 0) {
+      throwAppError("INVALID_SCALE", "scaleX must be positive");
+    }
+
+    const scaleAtTimestamp = pixelToTimestamp(scaleAtPixelX);
 
     const transform = transformRef.current;
-    
-    // 2. Cập nhật scaleTs
     if (cumulative) {
       transform.scaleTs *= scaleX;
     } else {
       transform.scaleTs = scaleX;
     }
-    if (transform.scaleTs <= 0) return err("INVALID_SCALE", "resulting scaleTs must be positive");
 
-    // 3. Điều chỉnh transform.offsetTs để cố định điểm pivot tại scaleAtPixelX
-    // Công thức gốc: pixelX = ((ts - (fromTs * scaleTs + offsetTs)) / fullDeltaTs) * w
-    // Giải phương trình tìm offsetTs theo pixelX mong muốn:
+    if (transform.scaleTs <= 0) {
+      throwAppError("INVALID_SCALE", "resulting scaleTs must be positive");
+    }
+
     const view = viewRef.current;
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     const { w } = canvasSizeRef.current;
 
-    transform.offsetTs = scaleAtTimestamp - (view.fromTs * transform.scaleTs) - (scaleAtPixelX / w) * fullDeltaTs;
+    transform.offsetTs =
+      scaleAtTimestamp - (view.fromTs * transform.scaleTs) - (scaleAtPixelX / w) * fullDeltaTs;
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const setScalePrice = (scaleY: number, scaleAtPixelY: number, cumulative: boolean = false): Result<null> => {
-    if (!isValidNumber(scaleY) || scaleY <= 0) return err("INVALID_SCALE", "scaleY must be positive");
+  const setScalePrice = (scaleY: number, scaleAtPixelY: number, cumulative: boolean = false): void => {
+    if (!isValidNumber(scaleY) || scaleY <= 0) {
+      throwAppError("INVALID_SCALE", "scaleY must be positive");
+    }
 
-    // 1. Đổi scaleAtPixelY -> scaleAtPrice trước khi đổi scalePrice
-    const priceResult = pixelToPrice(scaleAtPixelY);
-    if (!priceResult.success) return err("INVALID_PIXEL", "cannot convert pixel to price");
-    const scaleAtPrice = priceResult.data;
+    const scaleAtPrice = pixelToPrice(scaleAtPixelY);
 
     const transform = transformRef.current;
-
-    // 2. Cập nhật scalePrice
     if (cumulative) {
       transform.scalePrice *= scaleY;
     } else {
       transform.scalePrice = scaleY;
     }
-    if (transform.scalePrice <= 0) return err("INVALID_SCALE", "resulting scalePrice must be positive");
 
-    // 3. Điều chỉnh transform.offsetPrice để cố định điểm pivot tại scaleAtPixelY
-    // Công thức gốc: pixelY = h - ((price - (fromPrice * scalePrice + offsetPrice)) / fullDeltaPrice) * h
-    // Giải phương trình tìm offsetPrice theo pixelY mong muốn:
+    if (transform.scalePrice <= 0) {
+      throwAppError("INVALID_SCALE", "resulting scalePrice must be positive");
+    }
+
     const view = viewRef.current;
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     const { h } = canvasSizeRef.current;
 
-    transform.offsetPrice = scaleAtPrice - (view.fromPrice * transform.scalePrice) - ((h - scaleAtPixelY) / h) * fullDeltaPrice;
+    transform.offsetPrice =
+      scaleAtPrice - (view.fromPrice * transform.scalePrice) - ((h - scaleAtPixelY) / h) * fullDeltaPrice;
 
-    triggerViewportChange()
-
-    return ok(null);
+    triggerViewportChange();
   };
 
-  const addOnViewportChange = (id: string, callback: (view: View) => void): Result<null> => {
+  const addOnViewportChange = (id: string, callback: (view: View) => void): void => {
     if (listenersRef.current.has(id)) {
-      return err("DUPLICATE_ID", `Listener with id "${id}" already exists.`);
+      throwAppError("DUPLICATE_ID", `Listener with id "${id}" already exists.`);
     }
     listenersRef.current.set(id, callback);
-    return ok(null);
   };
 
-  const removeOnViewportChange = (id: string): Result<null> => {
+  const removeOnViewportChange = (id: string): void => {
     if (!listenersRef.current.has(id)) {
-      return err("NOT_FOUND", `Listener with id "${id}" does not exist.`);
+      throwAppError("NOT_FOUND", `Listener with id "${id}" does not exist.`);
     }
     listenersRef.current.delete(id);
-    return ok(null);
   };
 
   const apiRef = useRef<Viewport | null>(null);
@@ -643,7 +540,7 @@ function useViewport(candleData: CandleData): Viewport {
       setScaleTimestamp,
       setScalePrice,
       addOnViewportChange,
-      removeOnViewportChange
+      removeOnViewportChange,
     };
   }
 

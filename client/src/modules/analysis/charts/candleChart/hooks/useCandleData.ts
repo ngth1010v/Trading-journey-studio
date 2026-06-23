@@ -1,53 +1,44 @@
 import { useRef } from "react";
-import type { Result } from "../../../../../shared/result";
+import { throwAppError } from "../../../../../shared/appError";
 import { marketApi } from "../api/marketsApi";
 import { CONFIG } from "../shared/config";
 import type { Ohlc } from "../shared/types";
-
-
 
 //======================================================================================================
 // PUBLIC
 //======================================================================================================
 export type CandleData = {
   // Set
-  set     (args: SetArgs)               : Promise<Result<null>>;
-  cleanup ()                            : Promise<Result<null>>;
+  set(args: SetCandleDataArgs): Promise<void>;
+  cleanup(): Promise<void>;
 
   // Get
-  get     (fromTs: number, toTs: number): Result<Ohlc[]>;
-  getAll  ()                            : Result<Ohlc[]>;
-  getFirst()                            : Result<Ohlc>;
-  getLast ()                            : Result<Ohlc>;
+  get(fromTs: number, toTs: number): Ohlc[];
+  getAll(): Ohlc[];
+  getFirst(): Ohlc;
+  getLast(): Ohlc;
 
   // Event
-  addOnDataChange(id: string, callback: (data: Ohlc[]) => void): Result<null>;
-  removeOnDataChange(id: string): Result<null>;
+  addOnDataChange(id: string, callback: (data: Ohlc[]) => void): void;
+  removeOnDataChange(id: string): void;
 };
 
-export type SetArgs = {
-  symbol    ?: string;
-  timeframe ?: string;
-  realtime  ?: boolean;
-  fromTs    ?: number;
-  toTs      ?: number;
+export type SetCandleDataArgs = {
+  symbol?: string;
+  timeframe?: string;
+  realtime?: boolean;
+  fromTs?: number;
+  toTs?: number;
 };
-
 
 //======================================================================================================
 // TYPE
 //======================================================================================================
-
-
-type AutoExtendRegisterResult = Result<{ key: number }>;
-
-
-
+type AutoExtendRegisterResult = { key?: number } | null;
 
 //======================================================================================================
 // HELPERS
 //======================================================================================================
-
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
@@ -110,10 +101,13 @@ function sliceOhlcRange(
   return items.slice(start, endExclusive);
 }
 
+function normalizeListenerId(id: string): string {
+  return String(id ?? "").trim();
+}
+
 //======================================================================================================
 // HOOK
 //======================================================================================================
-
 export default function useCandleData(): CandleData {
   const symbolRef = useRef("");
   const timeframeRef = useRef("");
@@ -135,7 +129,8 @@ export default function useCandleData(): CandleData {
       ...ohlcsRef.current,
       ...realtimeOhlcsRef.current,
     ];
-    listenersRef.current.forEach((callback) => {
+
+    listenersRef.current.forEach((callback: (data: Ohlc[]) => void) => {
       try {
         callback(allData);
       } catch (err) {
@@ -148,7 +143,7 @@ export default function useCandleData(): CandleData {
     loopTokenRef.current += 1;
   };
 
-  const cleanup = async (): Promise<Result<null>> => {
+  const cleanup = async (): Promise<void> => {
     stopRealtimeLoop();
 
     const currentKey = realtimeKeyRef.current;
@@ -158,29 +153,12 @@ export default function useCandleData(): CandleData {
     realtimeOhlcsRef.current = [];
 
     if (currentKey == null || !currentSymbol) {
-      return {
-        success: true,
-        data: null,
-        error: null,
-      };
+      triggerDataChange();
+      return;
     }
 
-    const unregisterResult = await marketApi.unregisterAutoExtend(
-      currentSymbol,
-      currentKey,
-    );
-
-    if (!unregisterResult.success) {
-      return unregisterResult;
-    }
-
+    await marketApi.unregisterAutoExtend(currentSymbol, currentKey);
     triggerDataChange();
-
-    return {
-      success: true,
-      data: null,
-      error: null,
-    };
   };
 
   const startRealtimeLoop = (
@@ -195,13 +173,14 @@ export default function useCandleData(): CandleData {
           break;
         }
 
-        const lastResult = await marketApi.getLastOhlc(symbol);
-
-        if (!lastResult.success) {
+        let lastOhlc: Ohlc;
+        try {
+          lastOhlc = await marketApi.getLastOhlc(symbol);
+        } catch (err) {
+          console.warn("getLastOhlc failed:", err);
           continue;
         }
 
-        const lastOhlc = lastResult.data;
         const realtimeItems = realtimeOhlcsRef.current;
 
         if (
@@ -212,140 +191,108 @@ export default function useCandleData(): CandleData {
         } else {
           realtimeItems[realtimeItems.length - 1] = lastOhlc;
         }
+
+        triggerDataChange();
       }
     })();
   };
 
-  const set = async (
-    args: SetArgs,
-  ): Promise<Result<null>> => {
-    // 1. Xử lý fallback cho symbol
-    let symbol = args.symbol !== undefined ? String(args.symbol ?? "").trim() : symbolRef.current;
-    if (!symbol) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "INVALID_SYMBOL", msg: "symbol is required" },
-      };
+  const set = async (args: SetCandleDataArgs): Promise<void> => {
+    // 1. fallback symbol
+    const nextSymbol = args.symbol !== undefined
+      ? String(args.symbol ?? "").trim()
+      : symbolRef.current;
+
+    if (!nextSymbol) {
+      throwAppError("INVALID_SYMBOL", "symbol is required");
     }
 
-    // 2. Xử lý fallback cho timeframe
-    let timeframe = args.timeframe !== undefined ? String(args.timeframe ?? "").trim() : timeframeRef.current;
-    if (!timeframe) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "INVALID_TIMEFRAME", msg: "timeframe is required" },
-      };
+    // 2. fallback timeframe
+    const nextTimeframe = args.timeframe !== undefined
+      ? String(args.timeframe ?? "").trim()
+      : timeframeRef.current;
+
+    if (!nextTimeframe) {
+      throwAppError("INVALID_TIMEFRAME", "timeframe is required");
     }
 
-    // 3. Xử lý fallback cho realtime
-    let realtime = args.realtime !== undefined ? Boolean(args.realtime) : realtimeRef.current;
-    if (realtime === null) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "INVALID_REALTIME", msg: "realtime is required" },
-      };
+    // 3. fallback realtime
+    const nextRealtime = args.realtime !== undefined ? Boolean(args.realtime) : realtimeRef.current;
+    if (nextRealtime === null) {
+      throwAppError("INVALID_REALTIME", "realtime is required");
     }
 
-    // 4. Xử lý fallback cho fromTs và toTs
-    let fromTs = args.fromTs !== undefined ? args.fromTs : fromTsRef.current;
-    let toTs = args.toTs !== undefined ? args.toTs : toTsRef.current;
+    // 4. fallback range
+    const nextFromTs = args.fromTs !== undefined ? args.fromTs : fromTsRef.current;
+    const nextToTs = args.toTs !== undefined ? args.toTs : toTsRef.current;
 
-    if (fromTs === null || toTs === null || !isValidNumber(fromTs) || !isValidNumber(toTs)) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "INVALID_RANGE", msg: "fromTs and toTs must be valid numbers" },
-      };
+    if (
+      nextFromTs === null ||
+      nextToTs === null ||
+      !isValidNumber(nextFromTs) ||
+      !isValidNumber(nextToTs)
+    ) {
+      throwAppError("INVALID_RANGE", "fromTs and toTs must be valid numbers");
     }
 
-    if (toTs < fromTs) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "INVALID_RANGE", msg: "toTs must be greater than or equal to fromTs" },
-      };
+    if (nextToTs < nextFromTs) {
+      throwAppError("INVALID_RANGE", "toTs must be greater than or equal to fromTs");
     }
 
     await cleanup();
 
-    // Tính toán dựa trên giá trị cuối cùng (đã gộp cũ/mới)
-    const tsDelta = toTs - fromTs;
+    const tsDelta = nextToTs - nextFromTs;
     const cacheRatio = CONFIG.CANDLE_DATA.CACHE_RATIO;
 
-    const finalFromTs = fromTs - tsDelta * cacheRatio;
-    const finalToTs = toTs + tsDelta * cacheRatio;
+    const finalFromTs = nextFromTs - tsDelta * cacheRatio;
+    const finalToTs = nextToTs + tsDelta * cacheRatio;
 
-    const ohlcResult = await marketApi.getOhlcs(
-      symbol,
-      timeframe,
+    const fetched = await marketApi.getOhlcs(
+      nextSymbol,
+      nextTimeframe,
       finalFromTs,
       finalToTs,
     );
 
-    if (!ohlcResult.success) {
-      return ohlcResult;
-    }
-    
-    // Lưu lại giá trị thành công vào các Ref cho lần gọi sau
-    ohlcsRef.current = [...ohlcResult.data];
-    symbolRef.current = symbol;
-    timeframeRef.current = timeframe;
-    realtimeRef.current = realtime;
-    fromTsRef.current = fromTs;
-    toTsRef.current = toTs;
+    ohlcsRef.current = [...fetched];
+    symbolRef.current = nextSymbol;
+    timeframeRef.current = nextTimeframe;
+    realtimeRef.current = nextRealtime;
+    fromTsRef.current = nextFromTs;
+    toTsRef.current = nextToTs;
 
-    if (realtime) {
-      const registerResult =
-        (await marketApi.registerAutoExtend(
-          symbol,
-        )) as AutoExtendRegisterResult;
+    if (nextRealtime) {
+      const registerResult: AutoExtendRegisterResult = await marketApi.registerAutoExtend(nextSymbol);
 
-      if (registerResult.success) {
-        const returnedKey =
-          registerResult.data?.key;
+      const returnedKey =
+        registerResult && typeof registerResult === "object" && "key" in registerResult
+          ? registerResult.key
+          : undefined;
 
-        realtimeKeyRef.current =
-          typeof returnedKey === "number"
-            ? returnedKey
-            : keySeedRef.current++;
+      realtimeKeyRef.current =
+        typeof returnedKey === "number"
+          ? returnedKey
+          : keySeedRef.current++;
 
-        realtimeOhlcsRef.current = [];
+      realtimeOhlcsRef.current = [];
 
-        const loopToken = ++loopTokenRef.current;
-
-        startRealtimeLoop(symbol, loopToken);
-      }
+      const loopToken = ++loopTokenRef.current;
+      startRealtimeLoop(nextSymbol, loopToken);
     }
 
     triggerDataChange();
-
-    return {
-      success: true,
-      data: null,
-      error: null,
-    };
   };
 
-  const get = (
-    fromTs: number,
-    toTs: number,
-  ): Result<Ohlc[]> => {
+  const get = (fromTs: number, toTs: number): Ohlc[] => {
     if (
       !isValidNumber(fromTs) ||
       !isValidNumber(toTs) ||
       toTs < fromTs
     ) {
-      return {
-        success: false,
-        data: null,
-        error: {
-          code: "INVALID_RANGE",
-          msg: "fromTs and toTs must be valid numbers, and toTs must be >= fromTs",
-        },
-      };
+      throwAppError(
+        "INVALID_RANGE",
+        "fromTs and toTs must be valid numbers, and toTs must be >= fromTs",
+      );
     }
 
     const base = sliceOhlcRange(
@@ -355,97 +302,61 @@ export default function useCandleData(): CandleData {
     );
 
     if (realtimeKeyRef.current != null) {
-      return {
-        success: true,
-        data: [...base, ...realtimeOhlcsRef.current],
-        error: null,
-      };
+      return [...base, ...realtimeOhlcsRef.current];
     }
 
-    return {
-      success: true,
-      data: base,
-      error: null,
-    };
+    return base;
   };
 
-  const getAll = (): Result<Ohlc[]> => {
-    return {
-      success: true,
-      data: [
-        ...ohlcsRef.current,
-        ...realtimeOhlcsRef.current,
-      ],
-      error: null,
-    };
+  const getAll = (): Ohlc[] => {
+    return [
+      ...ohlcsRef.current,
+      ...realtimeOhlcsRef.current,
+    ];
   };
 
-const getFirst = (): Result<Ohlc> => {
+  const getFirst = (): Ohlc => {
     const allData = getAll();
-    if (!allData.success) return allData as any;
 
-    if (allData.data.length === 0) {
-      return {
-        success: false,
-        data: null,
-        error: {
-          code: "NO_DATA",
-          msg: "No ohlc data available",
-        },
-      };
+    if (allData.length === 0) {
+      throwAppError("NO_DATA", "No ohlc data available");
     }
-    
-    return {
-      success: true,
-      data: allData.data[0],
-      error: null,
-    };
+
+    return allData[0];
   };
 
-  const getLast = (): Result<Ohlc> => {
+  const getLast = (): Ohlc => {
     const allData = getAll();
-    if (!allData.success) return allData as any;
 
-    if (allData.data.length === 0) {
-      return {
-        success: false,
-        data: null,
-        error: {
-          code: "NO_DATA",
-          msg: "No ohlc data available",
-        },
-      };
+    if (allData.length === 0) {
+      throwAppError("NO_DATA", "No ohlc data available");
     }
-    
-    return {
-      success: true,
-      data: allData.data[allData.data.length - 1],
-      error: null,
-    };
+
+    return allData[allData.length - 1];
   };
 
-  const addOnDataChange = (id: string, callback: (data: Ohlc[]) => void): Result<null> => {
-    if (listenersRef.current.has(id)) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "DUPLICATE_ID", msg: `Listener with id "${id}" already exists.` },
-      };
+  const addOnDataChange = (id: string, callback: (data: Ohlc[]) => void): void => {
+    const key = normalizeListenerId(id);
+
+    if (!key) {
+      throwAppError("INVALID_ID", "Listener id is required");
     }
-    listenersRef.current.set(id, callback);
-    return { success: true, data: null, error: null };
+
+    if (listenersRef.current.has(key)) {
+      throwAppError("DUPLICATE_ID", `Listener with id "${key}" already exists.`);
+    }
+
+    listenersRef.current.set(key, callback);
   };
 
-  const removeOnDataChange = (id: string): Result<null> => {
-    if (!listenersRef.current.has(id)) {
-      return {
-        success: false,
-        data: null,
-        error: { code: "NOT_FOUND", msg: `Listener with id "${id}" does not exist.` },
-      };
+  const removeOnDataChange = (id: string): void => {
+    const key = normalizeListenerId(id);
+
+    if (!listenersRef.current.has(key)) {
+      throwAppError("NOT_FOUND", `Listener with id "${key}" does not exist.`);
     }
-    listenersRef.current.delete(id);
-    return { success: true, data: null, error: null };
+
+    listenersRef.current.delete(key);
   };
 
   const apiRef = useRef<CandleData | null>(null);

@@ -1,129 +1,110 @@
-import { useEffect, useRef } from "react";
-import { Application } from "pixi.js";
-import useCandleData from "./hooks/useCandleData";
-import useCandleLayer from "./hooks/useCandleLayer";
-import useViewport from "./hooks/useViewport";
+import { useEffect, useRef } from 'react';
+import { Application } from 'pixi.js';
+import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
+import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
+import useCandleLayer from './hooks/useCandleLayer';
+
+
+const DEFAULT_FROMTS = 1781480000000
+const DEFAULT_TOTS   = 1781484000000
+
+const DEFAULT_DATA: SetCandleDataArgs = {
+  symbol: "NAS100",
+  timeframe: "1M",
+  realtime: false,
+  fromTs: DEFAULT_FROMTS,
+  toTs:   DEFAULT_TOTS
+};
+
+const DEFAULT_VIEW: ViewportSetViewArgs = {
+  fromTs      : DEFAULT_FROMTS,
+  toTs        : DEFAULT_TOTS,
+  fromPrice   : 0,
+  toPrice     : 1,
+};
 
 export default function CandleChart() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pixiAppRef = useRef<Application | null>(null);
-
-  // Initialize the three provided hooks
+  const inited = useRef(false)
+  
+  // 👉 SỬA: Gọi Hook đúng chuẩn React tại top-level (Không bọc trong useRef)
   const candleData = useCandleData();
-  const candleLayer = useCandleLayer();
   const viewport = useViewport(candleData);
-
-  // Test configuration parameters
-  const TEST_SYMBOL = "NAS100";
-  const TEST_TIMEFRAME = "1M";
-  const FROM_TS = 1778220000000;
-  const TO_TS   = 1778220330000;
-  // const TO_TS = 1778255220000;
-  const FROM_PRICE = 16000;
-  const TO_PRICE = 18000;
+  const candleLayer = useCandleLayer();
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    let isDestroyed = false;
-    const app = new Application();
+    let app: Application | null = null;
+    
+    if (inited.current) return
+    inited.current = true
 
     const initChart = async () => {
-      // 1. Initialize PixiJS Application matching the container sizes
-      const width = containerRef.current?.clientWidth || window.innerWidth * 0.8;
-      const height = containerRef.current?.clientHeight || window.innerHeight * 0.8;
+      if (!containerRef.current) return;
       
+      // 1. Set data trước
+      await candleData.set(DEFAULT_DATA);
+      
+      // 2. Khởi tạo PixiJS App trước để có Canvas thực tế trong DOM
+      app = new Application();
+      pixiAppRef.current = app;
+
+      // Lấy kích thước thực tế dựa vào CSS 90vw/90vh của container đã mount
+      const width = containerRef.current.getBoundingClientRect().width || window.innerWidth * 0.9;
+      const height = containerRef.current.getBoundingClientRect().height || window.innerHeight * 0.9;
+
       await app.init({
         width,
         height,
-        background: "#aaaaaa", // Classic dark trading chart background
+        backgroundColor: 0x141823,
+        antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
       });
 
-      if (isDestroyed) {
-        app.destroy(true);
-        return;
+      // 3. Chèn Canvas vào DOM giúp xác định kích thước chính xác tuyệt đối
+      if (app.canvas) {
+        containerRef.current.appendChild(app.canvas);
       }
 
-      pixiAppRef.current = app;
-      containerRef.current?.appendChild(app.canvas);
-
-      // 2. Setup Viewport boundaries & geometry weights
+      // 4. Cấu hình Viewport SAU KHI kích thước thật của Canvas đã sẵn sàng
       viewport.setCanvasSize({ width, height });
-      viewport.setView({
-        fromTs: FROM_TS,
-        toTs: TO_TS,
-        fromPrice: FROM_PRICE,
-        toPrice: TO_PRICE,
-      });
+      viewport.setView(DEFAULT_VIEW);
+      viewport.setAutoPrice();
+      viewport.flush();
 
-      // 3. Request historical data using useCandleData
-      const setRes = await candleData.set({
-        symbol: TEST_SYMBOL,
-        timeframe: TEST_TIMEFRAME,
-        realtime: false, // Explicitly fixed snapshot testing
-        fromTs: FROM_TS,
-        toTs: TO_TS,
-      });
-
-      if (!setRes.success) {
-        console.error("Failed to set candle data target configuration:", setRes);
-        return;
-      }
-
-      // Automatically auto-fit vertical price scaling using the data bounds if supported
-      if (typeof (viewport as any).setAutoPrice === "function") {
-        try {
-          (viewport as any).setAutoPrice(candleData);
-        } catch (e) {
-          console.warn("setAutoPrice fallback execution bypassed:", e);
-        }
-      }
-
-      // 4. Initialize Candle Shader Mesh and Container Layer inside the app stage
-      const initLayerRes = await candleLayer.init(app, candleData, viewport);
-      if (!initLayerRes.success) {
-        console.error("Failed to initialize Candle WebGL Graphics layer:", initLayerRes.error);
-      }
+      // 5. Khởi tạo layer đồ họa
+      await candleLayer.init(app, candleData, viewport);
+      
+      // 👉 Mẹo PixiJS v8: Ép Pixi render thử 1 frame để tạo `globalUniforms.uProjectionMatrix`
+      app.render(); 
+      
+      // 6. Cập nhật dữ liệu và vẽ nến lên màn hình
+      candleLayer.updateData();
+      await candleLayer.draw();
     };
 
     initChart();
 
-    // Cleanup resources cleanly when component updates or unmounts
+    // Dọn dẹp khi unmount
     return () => {
-      isDestroyed = true;
-      
-      candleLayer.cleanup();
-      candleData.cleanup();
-      
-      if (typeof viewport.clean === "function") {
-        viewport.clean();
-      }
-
-      if (pixiAppRef.current) {
-        const currentApp = pixiAppRef.current;
-        if (currentApp.canvas && currentApp.canvas.parentNode) {
-          currentApp.canvas.parentNode.removeChild(currentApp.canvas);
-        }
-        currentApp.destroy(true, { children: true, texture: true });
-        pixiAppRef.current = null;
+      if (app) {
+        app.destroy(true, { children: true, texture: true });
       }
     };
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: "80vw",
-        height: "80vh",
-        margin: "0 auto",
-        overflow: "hidden",
-        position: "relative",
-        border: "1px solid #aaaaaa",
-        borderRadius: "4px",
-      }}
+    <div 
+      ref={containerRef} 
+      style={{ 
+        width: '90vw', 
+        height: '90vh', 
+        margin: '5vh auto', 
+        backgroundColor: '#141823', 
+        overflow: 'hidden',
+        position: 'relative' // Giúp đảm bảo bouding rect hoạt động chuẩn
+      }} 
     />
   );
 }

@@ -10,6 +10,12 @@ export const CONFIG = {
     },
 
     CANDLE_LAYER: {
-        CANDLE_SPACING: 1,
+        CANDLE_SPACING: 2,
+    },
+
+    VIEW_CONTROLLER: {
+        CLIENT_EVENT: {
+            SCALE_RATIO: 1.1
+        }
     }
 }
