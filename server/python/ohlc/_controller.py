@@ -180,6 +180,21 @@ def get_last_ohlc(symbol: str, timeframe: str):
     except Exception as exc:
         logger.error(_SECTION, f"Failed to get last OHLC for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading last OHLC.", 500)
+    
+def get_first_ohlc(symbol: str, timeframe: str):
+    timeframe = normalize_timeframe(timeframe)
+    if not is_valid_timeframe(timeframe):
+        return _error(f"Invalid timeframe: {timeframe}")
+
+    try:
+        result = ohlcStorer.getFirstOhlc(symbol, timeframe)
+        if result is False or result is None:
+            return _ok([])
+
+        return _ok(_ohlc_to_dict(result))
+    except Exception as exc:
+        logger.error(_SECTION, f"Failed to get first OHLC for {symbol}/{timeframe}: {exc}")
+        return _error("Internal error while loading first OHLC.", 500)
 
 
 def shutdown_server():
