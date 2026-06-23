@@ -3,6 +3,7 @@ import { Application } from 'pixi.js';
 import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
+import useViewController from './hooks/useViewController';
 
 
 const DEFAULT_FROMTS = 1781480000000
@@ -24,87 +25,180 @@ const DEFAULT_VIEW: ViewportSetViewArgs = {
 };
 
 export default function CandleChart() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const pixiAppRef = useRef<Application | null>(null);
-  const inited = useRef(false)
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const pixiAppRef    = useRef<Application | null>(null);
+  const inited        = useRef(false)
   
-  // 👉 SỬA: Gọi Hook đúng chuẩn React tại top-level (Không bọc trong useRef)
-  const candleData = useCandleData();
-  const viewport = useViewport(candleData);
-  const candleLayer = useCandleLayer();
+  const candleData      = useCandleData();
+  const viewport        = useViewport(candleData);
+  const candleLayer     = useCandleLayer();
+  const viewController  = useViewController(viewport);
 
-  useEffect(() => {
-    let app: Application | null = null;
+
+  //=============================================================================================
+  // Init / destroy
+  //=============================================================================================
+  const init = async () => {
+    if (!containerRef.current) return;
     
+    //==============================================================
+    // Data
+    //==============================================================
+    await candleData.set(DEFAULT_DATA);
+      
+
+    //==============================================================
+    // Pixi-app
+    //==============================================================
+    let app: Application | null = null;
+    app = new Application();
+    pixiAppRef.current = app;
+    
+    const width = containerRef.current.getBoundingClientRect().width || window.innerWidth * 0.9;
+    const height = containerRef.current.getBoundingClientRect().height || window.innerHeight * 0.9;
+    await app.init({
+      width,
+      height,
+      backgroundColor: 0x141823,
+      antialias: true,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+    });
+    if (app.canvas) {
+      containerRef.current.appendChild(app.canvas);
+    }
+    
+
+    //==============================================================
+    // Viewport
+    //==============================================================
+    viewport.setCanvasSize({ width, height });
+    viewport.setView(DEFAULT_VIEW);
+    viewport.setAutoPrice();
+    viewport.flush();
+    
+    
+    //==============================================================
+    // Render
+    //==============================================================
+    await candleLayer.init(app, candleData, viewport);
+    app.render(); 
+    candleLayer.updateData();
+    await candleLayer.draw();
+  }
+  
+  const destroy = async () => {
+    if (pixiAppRef.current) {
+      pixiAppRef.current.destroy(true, { children: true, texture: true });
+      candleLayer.cleanup()
+    }
+  }
+  
+  useEffect(() => {
     if (inited.current) return
     inited.current = true
+    init()
+    return ()=>{destroy()}
+  })
+  
+  
+  
+  //=============================================================================================
+  // Event
+  //=============================================================================================
+  // React event
+  const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+    viewController.onMouseDown(x,y,e.button);
+  }
+  const onMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+    viewController.onMouseUp(x,y,e.button);
+  }
+  const onMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+    viewController.onMouseLeave(x,y,e.button);
+  }
+  const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+    viewController.onMouseMove(x,y);
+  }
 
-    const initChart = async () => {
-      if (!containerRef.current) return;
+  // Html event
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    // Wheel
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = element.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const delta = e.deltaY;
       
-      // 1. Set data trước
-      await candleData.set(DEFAULT_DATA);
-      
-      // 2. Khởi tạo PixiJS App trước để có Canvas thực tế trong DOM
-      app = new Application();
-      pixiAppRef.current = app;
-
-      // Lấy kích thước thực tế dựa vào CSS 90vw/90vh của container đã mount
-      const width = containerRef.current.getBoundingClientRect().width || window.innerWidth * 0.9;
-      const height = containerRef.current.getBoundingClientRect().height || window.innerHeight * 0.9;
-
-      await app.init({
-        width,
-        height,
-        backgroundColor: 0x141823,
-        antialias: true,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true,
-      });
-
-      // 3. Chèn Canvas vào DOM giúp xác định kích thước chính xác tuyệt đối
-      if (app.canvas) {
-        containerRef.current.appendChild(app.canvas);
-      }
-
-      // 4. Cấu hình Viewport SAU KHI kích thước thật của Canvas đã sẵn sàng
-      viewport.setCanvasSize({ width, height });
-      viewport.setView(DEFAULT_VIEW);
-      viewport.setAutoPrice();
-      viewport.flush();
-
-      // 5. Khởi tạo layer đồ họa
-      await candleLayer.init(app, candleData, viewport);
-      
-      // 👉 Mẹo PixiJS v8: Ép Pixi render thử 1 frame để tạo `globalUniforms.uProjectionMatrix`
-      app.render(); 
-      
-      // 6. Cập nhật dữ liệu và vẽ nến lên màn hình
-      candleLayer.updateData();
-      await candleLayer.draw();
+      viewController.onWheel(x, y, delta);
     };
+    element.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // Key down
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      viewController.onKeyDown(e.key);
+    };
+    element.addEventListener('keydown', handleKeyDown);
+    
+    // Key up
+    const handleKeyUp = (e: KeyboardEvent) => {
+      e.preventDefault();
+      viewController.onKeyUp(e.key);
+    };
+    element.addEventListener('keyup', handleKeyUp);
 
-    initChart();
 
-    // Dọn dẹp khi unmount
+
+    // Dọn dẹp event listener
     return () => {
-      if (app) {
-        app.destroy(true, { children: true, texture: true });
-      }
+      element.removeEventListener('wheel', handleWheel);
+      element.removeEventListener('keydown', handleKeyDown);
+      element.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [viewController]); 
 
+  //=============================================================================================
+  // Return
+  //=============================================================================================
   return (
     <div 
       ref={containerRef} 
+      tabIndex={0}
       style={{ 
         width: '90vw', 
         height: '90vh', 
         margin: '5vh auto', 
         backgroundColor: '#141823', 
         overflow: 'hidden',
-        position: 'relative' // Giúp đảm bảo bouding rect hoạt động chuẩn
-      }} 
+        position: 'relative',
+        outline: 'none',
+      }}
+      onMouseDown={onMouseDown} 
+      onMouseEnter={() => {
+        if (containerRef.current) containerRef.current.focus();
+      }}
+      onMouseUp={onMouseUp} 
+      onMouseMove={onMouseMove} 
+      onMouseLeave={(e) => {
+        onMouseLeave(e)
+        if (containerRef.current) containerRef.current.blur();
+      }}
     />
   );
 }

@@ -11,6 +11,7 @@ export type CandleData = {
   // Set
   set(args: SetCandleDataArgs): Promise<void>;
   cleanup(): Promise<void>;
+  update(fromTs: number, toTs: number): Promise<void>;
 
   // Get
   get(fromTs: number, toTs: number): Ohlc[];
@@ -114,6 +115,9 @@ export default function useCandleData(): CandleData {
   const realtimeRef = useRef<boolean | null>(null);
   const fromTsRef = useRef<number | null>(null);
   const toTsRef = useRef<number | null>(null);
+
+  const reloadFromTsRef = useRef<number>(0);
+  const reloadToTsRef = useRef<number>(0)
 
   const ohlcsRef = useRef<Ohlc[]>([]);
   const realtimeOhlcsRef = useRef<Ohlc[]>([]);
@@ -239,13 +243,17 @@ export default function useCandleData(): CandleData {
       throwAppError("INVALID_RANGE", "toTs must be greater than or equal to fromTs");
     }
 
-    await cleanup();
+    // await cleanup();
 
     const tsDelta = nextToTs - nextFromTs;
     const cacheRatio = CONFIG.CANDLE_DATA.CACHE_RATIO;
 
     const finalFromTs = nextFromTs - tsDelta * cacheRatio;
     const finalToTs = nextToTs + tsDelta * cacheRatio;
+
+    const reloadRatio = Math.min(CONFIG.CANDLE_DATA.CACHE_RATIO, CONFIG.CANDLE_DATA.RELOAD_RATIO);
+    reloadFromTsRef.current = nextFromTs - tsDelta * reloadRatio;
+    reloadToTsRef.current = nextToTs + tsDelta * reloadRatio;
 
     const fetched = await marketApi.getOhlcs(
       nextSymbol,
@@ -281,6 +289,12 @@ export default function useCandleData(): CandleData {
     }
 
     triggerDataChange();
+  };
+
+  const update = async (fromTs: number, toTs: number): Promise<void> => {
+    if (fromTs < reloadFromTsRef.current || reloadToTsRef.current < toTs) {
+      await set({ fromTs, toTs });
+    }
   };
 
   const get = (fromTs: number, toTs: number): Ohlc[] => {
@@ -365,6 +379,7 @@ export default function useCandleData(): CandleData {
     apiRef.current = {
       set,
       get,
+      update,
       getAll,
       getFirst,
       getLast,

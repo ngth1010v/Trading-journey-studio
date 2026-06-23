@@ -40,7 +40,7 @@ type ContainerLike = Container & {
 // CONSTANT
 //======================================================================================================
 const DEFAULT_STYLES: CandleStyles = {
-  outlineThickness  : 1,
+  outlineThickness  : 2,
   upOutlineColor    : [0, 170, 0],
   upBodyColor       : [0, 170, 0],
   downOutlineColor  : [220, 40, 40],
@@ -506,6 +506,9 @@ export default function useCandleLayer(): CandleLayer {
 
     updateData();
     await draw();
+
+    candleDataRef.current.addOnDataChange("candleLayer/init", updateData)
+    viewportRef.current.addOnViewportChange("candleLayer/init", draw)
   };
 
   const updateData = (): void => {
@@ -633,6 +636,9 @@ export default function useCandleLayer(): CandleLayer {
         // ignore
       }
     }
+
+    candleDataRef.current?.removeOnDataChange("candleLayer/init")
+    viewportRef.current?.removeOnViewportChange("candleLayer/init")
 
     appRef.current = null;
     candleDataRef.current = null;

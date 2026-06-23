@@ -196,20 +196,20 @@ function useViewport(candleData: CandleData): Viewport {
     const view = viewRef.current;
     const transform = transformRef.current;
 
-    view.fromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
-    view.toTs = view.toTs * transform.scaleTs + transform.offsetTs;
-    view.fromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
-    view.toPrice = view.toPrice * transform.scalePrice + transform.offsetPrice;
+    view.fromTs     = view.fromTs * transform.scaleTs + transform.offsetTs;
+    view.toTs       = view.toTs * transform.scaleTs + transform.offsetTs;
+    view.fromPrice  = view.fromPrice * transform.scalePrice + transform.offsetPrice;
+    view.toPrice    = view.toPrice * transform.scalePrice + transform.offsetPrice;
 
     transform.offsetTs = 0;
     transform.offsetPrice = 0;
     transform.scaleTs = 1;
     transform.scalePrice = 1;
 
-    await candleData.set({
-      fromTs: Math.round(view.fromTs),
-      toTs: Math.round(view.toTs),
-    });
+    await candleData.update(
+      Math.round(view.fromTs),
+      Math.round(view.toTs),
+    );
 
     triggerViewportChange();
   };
