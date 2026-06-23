@@ -83,7 +83,7 @@ router.all(/^\/api\/markets\/(.*)/, async (req, res) => {
 
     const targetUrl = `http://localhost:5000/${content}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
 
-    logger.debug(_SECTION, `API -> Market-server: ${req.method} ${targetUrl}`);
+    // logger.debug(_SECTION, `API -> Market-server: ${req.method} ${targetUrl}`);
 
     try {
         const response = await fetch(targetUrl, {
