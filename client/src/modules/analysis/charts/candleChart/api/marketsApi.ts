@@ -80,9 +80,18 @@ async function getOhlcs(
 /**
  * GET /api/markets/:symbol/last
  */
-async function getLastOhlc(symbol: string): Promise<Ohlc> {
+async function getLastOhlc(symbol: string, timeframe: string): Promise<Ohlc> {
   return request<Ohlc>(
-    `${API_BASE}/${encodeURIComponent(symbol)}/last`,
+    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/last`,
+  );
+}
+
+/**
+ * GET /api/markets/:symbol/last
+ */
+async function getFirstOhlc(symbol: string, timeframe: string): Promise<Ohlc> {
+  return request<Ohlc>(
+    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/first`,
   );
 }
 
@@ -134,6 +143,7 @@ export const marketApi = {
   getSymbolData,
   getOhlcs,
   getLastOhlc,
+  getFirstOhlc,
   callExtendBack,
   registerAutoExtend,
   unregisterAutoExtend,

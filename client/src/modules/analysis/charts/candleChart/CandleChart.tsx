@@ -12,7 +12,7 @@ const DEFAULT_TOTS   = 1781484000000
 const DEFAULT_DATA: SetCandleDataArgs = {
   symbol: "NAS100",
   timeframe: "1M",
-  realtime: false,
+  realtime: true,
   fromTs: DEFAULT_FROMTS,
   toTs:   DEFAULT_TOTS
 };

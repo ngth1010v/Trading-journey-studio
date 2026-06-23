@@ -517,6 +517,8 @@ export default function useCandleLayer(): CandleLayer {
       throwAppError("NOT_INITIALIZED", "candleData is not initialized");
     }
 
+    console.log("UPDATE")
+
     const allOhlcs = candleData.getAll();
 
     const timestampWeightsResult = viewportRef.current?.getTimestampToPixelWeights();

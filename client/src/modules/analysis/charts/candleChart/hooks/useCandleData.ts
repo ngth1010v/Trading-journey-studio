@@ -9,19 +9,21 @@ import type { Ohlc } from "../shared/types";
 //======================================================================================================
 export type CandleData = {
   // Set
-  set(args: SetCandleDataArgs): Promise<void>;
-  cleanup(): Promise<void>;
-  update(fromTs: number, toTs: number): Promise<void>;
+  set               (args: SetCandleDataArgs)                               : Promise<void>;
+  cleanup           ()                                                      : Promise<void>;
+  update            (fromTs: number, toTs: number)                          : Promise<void>;
 
   // Get
-  get(fromTs: number, toTs: number): Ohlc[];
-  getAll(): Ohlc[];
-  getFirst(): Ohlc;
-  getLast(): Ohlc;
+  get               (fromTs: number, toTs: number)                          : Ohlc[];
+  getAll            ()                                                      : Ohlc[]; 
+  getFirst          ()                                                      : Ohlc;
+  getLast           ()                                                      : Ohlc;
 
   // Event
-  addOnDataChange(id: string, callback: (data: Ohlc[]) => void): void;
-  removeOnDataChange(id: string): void;
+  addOnDataChange   (id: string, callback: (data: Ohlc[]) => void): void;
+  removeOnDataChange(id: string)                                  : void;
+  addOnLastDataChange(id: string, callback: (data: Ohlc) => void) : void;
+  removeOnLastDataChange(id: string)                              : void;
 };
 
 export type SetCandleDataArgs = {
@@ -112,49 +114,56 @@ function normalizeListenerId(id: string): string {
 export default function useCandleData(): CandleData {
   const symbolRef = useRef("");
   const timeframeRef = useRef("");
-  const realtimeRef = useRef<boolean | null>(null);
+  const lastRef = useRef<boolean | null>(null);
   const fromTsRef = useRef<number | null>(null);
   const toTsRef = useRef<number | null>(null);
 
   const reloadFromTsRef = useRef<number>(0);
-  const reloadToTsRef = useRef<number>(0)
+  const reloadToTsRef = useRef<number>(0);
 
-  const ohlcsRef = useRef<Ohlc[]>([]);
-  const realtimeOhlcsRef = useRef<Ohlc[]>([]);
-  const realtimeKeyRef = useRef<number | null>(null);
+  const ohlcsRef        = useRef<Ohlc[]>([]);
+  const firstOhlcRef    = useRef<Ohlc | null>(null)
+  const lastOhlcRef     = useRef<Ohlc | null>(null);
+  const realtimeKeyRef  = useRef<number | null>(null);
 
   const loopTokenRef = useRef(0);
   const keySeedRef = useRef(1);
 
   const listenersRef = useRef<Map<string, (data: Ohlc[]) => void>>(new Map());
+  const lastDataListenersRef = useRef<Map<string, (data: Ohlc) => void>>(new Map());
 
   const triggerDataChange = (): void => {
-    const allData = [
-      ...ohlcsRef.current,
-      ...realtimeOhlcsRef.current,
-    ];
-
     listenersRef.current.forEach((callback: (data: Ohlc[]) => void) => {
       try {
-        callback(allData);
+        callback(ohlcsRef.current);
       } catch (err) {
         console.error("Error in onDataChange callback:", err);
       }
     });
   };
 
-  const stopRealtimeLoop = (): void => {
+  const triggerLastDataChange = (lastOhlc: Ohlc): void => {
+    lastDataListenersRef.current.forEach((callback: (data: Ohlc) => void) => {
+      try {
+        callback(lastOhlc);
+      } catch (err) {
+        console.error("Error in onLastDataChange callback:", err);
+      }
+    });
+  };
+
+  const stopLastLoop = (): void => {
     loopTokenRef.current += 1;
   };
 
   const cleanup = async (): Promise<void> => {
-    stopRealtimeLoop();
+    stopLastLoop();
 
     const currentKey = realtimeKeyRef.current;
     const currentSymbol = symbolRef.current;
 
     realtimeKeyRef.current = null;
-    realtimeOhlcsRef.current = [];
+    lastOhlcRef.current = null;
 
     if (currentKey == null || !currentSymbol) {
       triggerDataChange();
@@ -165,7 +174,7 @@ export default function useCandleData(): CandleData {
     triggerDataChange();
   };
 
-  const startRealtimeLoop = (
+  const startLastLoop = (
     symbol: string,
     loopToken: number,
   ): void => {
@@ -179,24 +188,32 @@ export default function useCandleData(): CandleData {
 
         let lastOhlc: Ohlc;
         try {
-          lastOhlc = await marketApi.getLastOhlc(symbol);
+          lastOhlc = await marketApi.getLastOhlc(symbol, timeframeRef.current);
         } catch (err) {
           console.warn("getLastOhlc failed:", err);
           continue;
         }
 
-        const realtimeItems = realtimeOhlcsRef.current;
+        const currentLast = lastOhlcRef.current;
 
-        if (
-          realtimeItems.length === 0 ||
-          realtimeItems[realtimeItems.length - 1].t < lastOhlc.t
-        ) {
-          realtimeItems.push(lastOhlc);
+        if (currentLast && currentLast.t < lastOhlc.t) {
+          await set({ fromTs: currentLast.t, toTs: lastOhlc.t });
+          lastOhlcRef.current = lastOhlc;
+          triggerLastDataChange(lastOhlc);
         } else {
-          realtimeItems[realtimeItems.length - 1] = lastOhlc;
-        }
+          const isChanged = !currentLast || 
+            currentLast.o !== lastOhlc.o ||
+            currentLast.h !== lastOhlc.h ||
+            currentLast.l !== lastOhlc.l ||
+            currentLast.c !== lastOhlc.c ||
+            currentLast.v !== lastOhlc.v ||
+            currentLast.t !== lastOhlc.t;
 
-        triggerDataChange();
+          lastOhlcRef.current = lastOhlc;
+          if (isChanged) {
+            triggerLastDataChange(lastOhlc);
+          }
+        }
       }
     })();
   };
@@ -220,15 +237,15 @@ export default function useCandleData(): CandleData {
       throwAppError("INVALID_TIMEFRAME", "timeframe is required");
     }
 
-    // 3. fallback realtime
-    const nextRealtime = args.realtime !== undefined ? Boolean(args.realtime) : realtimeRef.current;
-    if (nextRealtime === null) {
+    // 3. fallback last
+    const nextLast = args.realtime !== undefined ? Boolean(args.realtime) : lastRef.current;
+    if (nextLast === null) {
       throwAppError("INVALID_REALTIME", "realtime is required");
     }
 
     // 4. fallback range
-    const nextFromTs = args.fromTs !== undefined ? args.fromTs : fromTsRef.current;
-    const nextToTs = args.toTs !== undefined ? args.toTs : toTsRef.current;
+    let nextFromTs = args.fromTs !== undefined ? args.fromTs : fromTsRef.current;
+    let nextToTs = args.toTs !== undefined ? args.toTs : toTsRef.current;
 
     if (
       nextFromTs === null ||
@@ -243,7 +260,10 @@ export default function useCandleData(): CandleData {
       throwAppError("INVALID_RANGE", "toTs must be greater than or equal to fromTs");
     }
 
-    // await cleanup();
+    firstOhlcRef.current = await marketApi.getFirstOhlc(nextSymbol, nextTimeframe)
+    if (firstOhlcRef.current) nextFromTs = Math.max(nextFromTs, firstOhlcRef.current.t)
+    lastOhlcRef.current = await marketApi.getLastOhlc(nextSymbol, nextTimeframe)
+    if (lastOhlcRef.current) nextToTs = Math.min(nextToTs, lastOhlcRef.current.t)
 
     const tsDelta = nextToTs - nextFromTs;
     const cacheRatio = CONFIG.CANDLE_DATA.CACHE_RATIO;
@@ -265,11 +285,11 @@ export default function useCandleData(): CandleData {
     ohlcsRef.current = [...fetched];
     symbolRef.current = nextSymbol;
     timeframeRef.current = nextTimeframe;
-    realtimeRef.current = nextRealtime;
+    lastRef.current = nextLast;
     fromTsRef.current = nextFromTs;
     toTsRef.current = nextToTs;
 
-    if (nextRealtime) {
+    if (nextLast) {
       const registerResult: AutoExtendRegisterResult = await marketApi.registerAutoExtend(nextSymbol);
 
       const returnedKey =
@@ -282,16 +302,20 @@ export default function useCandleData(): CandleData {
           ? returnedKey
           : keySeedRef.current++;
 
-      realtimeOhlcsRef.current = [];
+      lastOhlcRef.current = ohlcsRef.current.length > 0 
+        ? ohlcsRef.current[ohlcsRef.current.length - 1] 
+        : null;
 
       const loopToken = ++loopTokenRef.current;
-      startRealtimeLoop(nextSymbol, loopToken);
+      startLastLoop(nextSymbol, loopToken);
     }
 
     triggerDataChange();
   };
 
   const update = async (fromTs: number, toTs: number): Promise<void> => {
+    if (firstOhlcRef.current) fromTs = Math.max(fromTs, firstOhlcRef.current.t)
+    if (lastOhlcRef.current) toTs = Math.min(toTs, lastOhlcRef.current.t)
     if (fromTs < reloadFromTsRef.current || reloadToTsRef.current < toTs) {
       await set({ fromTs, toTs });
     }
@@ -315,18 +339,15 @@ export default function useCandleData(): CandleData {
       toTs,
     );
 
-    if (realtimeKeyRef.current != null) {
-      return [...base, ...realtimeOhlcsRef.current];
+    if (realtimeKeyRef.current != null && lastOhlcRef.current) {
+      return [...base, lastOhlcRef.current];
     }
 
     return base;
   };
 
   const getAll = (): Ohlc[] => {
-    return [
-      ...ohlcsRef.current,
-      ...realtimeOhlcsRef.current,
-    ];
+    return ohlcsRef.current;
   };
 
   const getFirst = (): Ohlc => {
@@ -373,6 +394,30 @@ export default function useCandleData(): CandleData {
     listenersRef.current.delete(key);
   };
 
+  const addOnLastDataChange = (id: string, callback: (data: Ohlc) => void): void => {
+    const key = normalizeListenerId(id);
+
+    if (!key) {
+      throwAppError("INVALID_ID", "Listener id is required");
+    }
+
+    if (lastDataListenersRef.current.has(key)) {
+      throwAppError("DUPLICATE_ID", `Listener with id "${key}" already exists.`);
+    }
+
+    lastDataListenersRef.current.set(key, callback);
+  };
+
+  const removeOnLastDataChange = (id: string): void => {
+    const key = normalizeListenerId(id);
+
+    if (!lastDataListenersRef.current.has(key)) {
+      throwAppError("NOT_FOUND", `Listener with id "${key}" does not exist.`);
+    }
+
+    lastDataListenersRef.current.delete(key);
+  };
+
   const apiRef = useRef<CandleData | null>(null);
 
   if (!apiRef.current) {
@@ -386,6 +431,8 @@ export default function useCandleData(): CandleData {
       cleanup,
       addOnDataChange,
       removeOnDataChange,
+      addOnLastDataChange,
+      removeOnLastDataChange,
     };
   }
 
