@@ -4,6 +4,7 @@ import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
+import useCursorController from './hooks/useCursorController';
 
 
 const DEFAULT_FROMTS = 1782205200000
@@ -11,7 +12,7 @@ const DEFAULT_TOTS   = 1782208800000
 
 const DEFAULT_DATA: SetCandleDataArgs = {
   symbol: "NAS100",
-  timeframe: "1S",
+  timeframe: "1M",
   realtime: true,
   fromTs: DEFAULT_FROMTS,
   toTs:   DEFAULT_TOTS
@@ -29,10 +30,11 @@ export default function CandleChart() {
   const pixiAppRef    = useRef<Application | null>(null);
   const inited        = useRef(false)
   
-  const candleData      = useCandleData();
-  const viewport        = useViewport(candleData);
-  const candleLayer     = useCandleLayer();
-  const viewController  = useViewController(viewport);
+  const candleData        = useCandleData();
+  const viewport          = useViewport(candleData);
+  const candleLayer       = useCandleLayer();
+  const viewController    = useViewController(viewport);
+  const cursorController  = useCursorController(candleData, viewport)
 
 
   //=============================================================================================
@@ -119,17 +121,26 @@ export default function CandleChart() {
     const y = e.nativeEvent.offsetY;
     viewController.onMouseUp(x,y,e.button);
   }
+  const onMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+    viewController.onMouseLeave(x,y,e.button);
+    cursorController.onMouseEnter()
+  }
   const onMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     viewController.onMouseLeave(x,y,e.button);
+    cursorController.onMouseLeave()
   }
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     viewController.onMouseMove(x,y);
+    cursorController.onMouseMove(x,y);
   }
 
   // Html event
@@ -153,6 +164,7 @@ export default function CandleChart() {
     const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       viewController.onKeyDown(e.key);
+      cursorController.onKeyDown(e.key)
     };
     element.addEventListener('keydown', handleKeyDown);
     
@@ -160,6 +172,7 @@ export default function CandleChart() {
     const handleKeyUp = (e: KeyboardEvent) => {
       e.preventDefault();
       viewController.onKeyUp(e.key);
+      cursorController.onKeyUp(e.key)
     };
     element.addEventListener('keyup', handleKeyUp);
 
@@ -190,7 +203,8 @@ export default function CandleChart() {
         outline: 'none',
       }}
       onMouseDown={onMouseDown} 
-      onMouseEnter={() => {
+      onMouseEnter={(e) => {
+        onMouseEnter(e)
         if (containerRef.current) containerRef.current.focus();
       }}
       onMouseUp={onMouseUp} 
