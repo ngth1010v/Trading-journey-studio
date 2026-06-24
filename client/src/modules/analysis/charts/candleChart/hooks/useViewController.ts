@@ -10,6 +10,7 @@ export type ViewController = {
   onWheel       : (x: number, y: number, delta: number) => void;
   onKeyDown     : (key: string) => void;
   onKeyUp       : (key: string) => void;
+  setEnable     : (enable?: boolean) => void;
 };
 
 //======================================================================================================
@@ -28,10 +29,24 @@ export default function useViewController(viewport: Viewport): ViewController {
   const mousePos = useRef<Point>({ x: 0, y: 0 });
   const mouseDragging = useRef<boolean>(false);
   const pressingKey = useRef<Set<string>>(new Set<string>());
+  const isEnabled = useRef<boolean>(true);
+
+  const setEnable = useCallback(
+    (enable = true): void => {
+      isEnabled.current = enable;
+      
+      // Khi đang pan (mouseDragging = true) mà bị disable -> ép kết thúc giống onMouseUp
+      if (!enable && mouseDragging.current) {
+        mouseDragging.current = false;
+        viewport.flush();
+      }
+    },
+    [viewport],
+  );
 
   const onMouseDown = useCallback(
     (x: number, y: number, button: number): void => {
-      if (button !== LEFT_BUTTON) {
+      if (!isEnabled.current || button !== LEFT_BUTTON) {
         return;
       }
 
@@ -96,7 +111,7 @@ export default function useViewController(viewport: Viewport): ViewController {
 
   const onWheel = useCallback(
     (x: number, y: number, delta: number): void => {
-      if (mouseDragging.current) {
+      if (!isEnabled.current || mouseDragging.current) {
         return;
       }
 
@@ -153,6 +168,7 @@ export default function useViewController(viewport: Viewport): ViewController {
     onWheel,
     onKeyDown,
     onKeyUp,
-    onMouseLeave
+    onMouseLeave,
+    setEnable
   };
 }
