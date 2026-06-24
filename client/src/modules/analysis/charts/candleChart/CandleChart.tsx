@@ -44,7 +44,7 @@ export default function CandleChart() {
   const candleLayer       = useCandleLayer();
   const viewController    = useViewController(viewport);
   const cursorController  = useCursor(candleData, viewport)
-  const axes              = useGridAxes(viewport, candleData)
+  const gridAxes              = useGridAxes(viewport, candleData)
 
 
 
@@ -106,7 +106,7 @@ export default function CandleChart() {
     //==============================================================
     // GridAxes
     //==============================================================
-    axes.init(app);
+    gridAxes.init(app);
   }
   
   const destroy = async () => {
@@ -197,6 +197,26 @@ export default function CandleChart() {
     };
     element.addEventListener('keyup', handleKeyUp);
 
+    // Resize
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!pixiAppRef.current) return;
+      
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+
+        // 1. Resize Pixi Application
+        pixiAppRef.current.renderer.resize(width, height);
+
+        // 2. Cập nhật lại kích thước Viewport
+        viewport.setCanvasSize({ width, height });
+        
+        // 3. Render lại các layer (nếu viewport/candleLayer của bạn cần trigger vẽ lại)
+        candleLayer.draw(); 
+        gridAxes.draw();
+      }
+    });
+    resizeObserver.observe(element);
+
 
 
     // Dọn dẹp event listener
@@ -204,6 +224,7 @@ export default function CandleChart() {
       element.removeEventListener('wheel', handleWheel);
       element.removeEventListener('keydown', handleKeyDown);
       element.removeEventListener('keyup', handleKeyUp);
+      resizeObserver.disconnect();
     };
   }, [viewController]); 
 
