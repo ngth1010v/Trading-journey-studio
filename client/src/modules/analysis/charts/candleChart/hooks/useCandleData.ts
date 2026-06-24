@@ -19,6 +19,7 @@ export type CandleData = {
   getFirst                ()                                            : Ohlc;
   getLast                 ()                                            : Ohlc;
   getPoint                ()                                            : number;
+  getTimeframe            ()                                            : string;
 
   // Event
   addOnDataChange         (id: string, callback: (data: Ohlc[]) => void): void;
@@ -382,6 +383,11 @@ export default function useCandleData(): CandleData {
     return 1
   };
 
+  const getTimeframe = (): string => {
+    if (timeframeRef.current) return timeframeRef.current
+    return "1M"
+  };
+
   const addOnDataChange = (id: string, callback: (data: Ohlc[]) => void): void => {
     const key = normalizeListenerId(id);
 
@@ -441,6 +447,7 @@ export default function useCandleData(): CandleData {
       getFirst,
       getLast,
       getPoint,
+      getTimeframe,
       cleanup,
       addOnDataChange,
       removeOnDataChange,

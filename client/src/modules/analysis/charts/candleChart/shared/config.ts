@@ -18,5 +18,10 @@ export const CONFIG = {
         CLIENT_EVENT: {
             SCALE_RATIO: 1.1
         }
+    },
+
+    AXES: {
+        PRICE_SPACING_RATIO: 3,
+        TIME_SPACING_RATIO : 1.5
     }
 }

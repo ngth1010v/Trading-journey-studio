@@ -5,6 +5,7 @@ import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
 import useCursor, {type CursorStyles} from './hooks/useCursor';
+import useGridAxes from './hooks/useGridAxes';
 
 
 const DEFAULT_FROMTS = 1782205200000
@@ -43,6 +44,8 @@ export default function CandleChart() {
   const candleLayer       = useCandleLayer();
   const viewController    = useViewController(viewport);
   const cursorController  = useCursor(candleData, viewport)
+  const axes              = useGridAxes(viewport, candleData)
+
 
 
   //=============================================================================================
@@ -99,7 +102,11 @@ export default function CandleChart() {
     //==============================================================
     cursorController.init(app);
     cursorController.setStyle(DEFAULT_CURSOR_STYLE);
-  
+    
+    //==============================================================
+    // GridAxes
+    //==============================================================
+    axes.init(app);
   }
   
   const destroy = async () => {
