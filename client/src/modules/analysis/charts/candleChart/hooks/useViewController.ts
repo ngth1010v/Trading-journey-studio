@@ -132,6 +132,7 @@ export default function useViewController(viewport: Viewport): ViewController {
 
       if (pressingKey.current.has("Control") && pressingKey.current.has("r")) {
         viewport.setAutoPrice();
+        viewport.flush();
       }
     },
     [viewport],
