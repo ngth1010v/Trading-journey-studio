@@ -8,7 +8,30 @@ import type { Ohlc } from "../shared/types";
 //======================================================================================================
 // TYPES
 //======================================================================================================
-type Point = {
+
+export type Cursor = {
+  // Init / Cleanup
+  init        (app: Application)                    : void;
+  destroy     ()                                    : void;
+
+  // Set
+  setVisible  (visible?: boolean)                   : void;
+  setStyle    (style: CursorStyles)                 : void;
+  setMagnet   (enable?: boolean, distance?: number) : void;
+
+  // Event
+  onMouseEnter()                                    : void;
+  onMouseLeave()                                    : void;
+  onMouseMove (x: number, y: number)                : void;
+  onKeyDown   (key: string)                         : void;
+  onKeyUp     (key: string)                         : void;
+
+  // Pos
+  getPixel    ()                                    : Point;
+  get         ()                                    : { timestamp: number; price: number };
+};
+
+export type Point = {
   x: number;
   y: number;
 };
@@ -20,27 +43,6 @@ export type CursorStyles = {
 
   dashWidth: number;
   dashSpace: number;
-};
-
-export type CursorController = {
-  // Init / Cleanup
-  init(app: Application): void;
-  destroy(): void;
-
-  // Style
-  setStyle(style: CursorStyles): void;
-
-  // Event
-  onMouseEnter(): void;
-  onMouseLeave(): void;
-  onMouseMove(x: number, y: number): void;
-  onKeyDown(key: string): void;
-  onKeyUp(key: string): void;
-
-  // Pos
-  setMagnet(enable?: boolean, distance?: number): void;
-  getPixel(): Point;
-  get(): { timestamp: number; price: number };
 };
 
 //======================================================================================================
@@ -105,16 +107,17 @@ function sanitizeGapSize(value: number): number {
 //======================================================================================================
 // HOOK
 //======================================================================================================
-export default function useCursorController(
+export default function useCursor(
   candleData: CandleData,
   viewport: Viewport,
-): CursorController {
+): Cursor {
   const onScreenRef = useRef<boolean>(false);
   const cursorPosRef = useRef<Point>({ x: 0, y: 0 });
   const alignRef = useRef<boolean>(false);
   const startAlignPosRef = useRef<Point>({ x: 0, y: 0 });
   const magnetRef = useRef<boolean>(true);
   const magnetDistancePixelRef = useRef<number>(30);
+  const visibleRef = useRef<boolean>(true);
 
   const appRef = useRef<Application | null>(null);
   const containerRef = useRef<Container | null>(null);
@@ -243,7 +246,7 @@ export default function useCursorController(
 
     graphics.clear();
 
-    const visible = onScreenRef.current;
+    const visible = onScreenRef.current && visibleRef.current;
     container.visible = visible;
     graphics.visible = visible;
 
@@ -364,6 +367,11 @@ export default function useCursorController(
     redrawGraphics();
   };
 
+  const setVisible = (visible: boolean = true): void => {
+    visibleRef.current = visible;
+    redrawGraphics();
+  };
+
   const onMouseEnter = (): void => {
     onScreenRef.current = true;
     refreshCursor();
@@ -413,13 +421,14 @@ export default function useCursorController(
     };
   };
 
-  const apiRef = useRef<CursorController | null>(null);
+  const apiRef = useRef<Cursor | null>(null);
 
   if (!apiRef.current) {
     apiRef.current = {
       init,
       destroy,
       setStyle,
+      setVisible,
       onMouseEnter,
       onMouseLeave,
       onMouseMove,

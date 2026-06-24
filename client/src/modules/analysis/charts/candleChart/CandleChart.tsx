@@ -4,7 +4,7 @@ import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
-import useCursorController, {type CursorStyles} from './hooks/useCursorController';
+import useCursor, {type CursorStyles} from './hooks/useCursor';
 
 
 const DEFAULT_FROMTS = 1782205200000
@@ -42,7 +42,7 @@ export default function CandleChart() {
   const viewport          = useViewport(candleData);
   const candleLayer       = useCandleLayer();
   const viewController    = useViewController(viewport);
-  const cursorController  = useCursorController(candleData, viewport)
+  const cursorController  = useCursor(candleData, viewport)
 
 
   //=============================================================================================
