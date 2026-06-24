@@ -8,29 +8,29 @@ import type { CandleData } from "./useCandleData";
 // PUBLIC
 //======================================================================================================
 export type Viewport = {
-  clean(): void;
-  setCanvasSize(args: ViewportSetCanvasSizeArgs): void;
+  clean                       ()                                                            : void;
+  setCanvasSize               (args: ViewportSetCanvasSizeArgs)                             : void;
 
   // View
-  setView(args: ViewportSetViewArgs): void;
-  getView(): View;
-  getTransformedView(): View;
+  setView                     (args: ViewportSetViewArgs)                                   : void;
+  getView                     ()                                                            : View;
+  getTransformedView          ()                                                            : View;
 
   // Transform
-  setAutoPrice(): void;
-  setOffsetTimestamp(offsetPixelX: number, cumulative?: boolean): void;
-  setScaleTimestamp(scaleX: number, scaleAtPixelX: number, cumulative?: boolean): void;
-  setOffsetPrice(offsetPixelY: number, cumulative?: boolean): void;
-  setScalePrice(scaleY: number, scaleAtPixelY: number, cumulative?: boolean): void;
-  flush(): Promise<void>;
+  setAutoPrice                ()                                                            : void;
+  setOffsetTimestamp          (offsetPixelX: number, cumulative?: boolean)                  : void;
+  setScaleTimestamp           (scaleX: number, scaleAtPixelX: number, cumulative?: boolean) : void;
+  setOffsetPrice              (offsetPixelY: number, cumulative?: boolean)                  : void;
+  setScalePrice               (scaleY: number, scaleAtPixelY: number, cumulative?: boolean) : void;
+  flush                       ()                                                            : Promise<void>;
 
   // Converter
-  timestampToPixel(timestamp: number): number;
-  pixelToTimestamp(pixel: number): number;
-  priceToPixel(price: number): number;
-  pixelToPrice(pixel: number): number;
-  getTimestampToPixelWeights(): ShaderWeights;
-  getPriceToPixelWeights(): ShaderWeights;
+  timestampToPixel            (timestamp: number)                                           : number;
+  pixelToTimestamp            (pixel: number)                                               : number;
+  priceToPixel                (price: number)                                               : number;
+  pixelToPrice                (pixel: number)                                               : number;
+  getTimestampToPixelWeights  ()                                                            : ShaderWeights;
+  getPriceToPixelWeights      ()                                                            : ShaderWeights;
 
   // Event
   addOnViewportChange(id: string, callback: (view: View) => void): void;

@@ -9,21 +9,21 @@ import type { Ohlc } from "../shared/types";
 //======================================================================================================
 export type CandleData = {
   // Set
-  set               (args: SetCandleDataArgs)                               : Promise<void>;
-  cleanup           ()                                                      : Promise<void>;
-  update            (fromTs: number, toTs: number)                          : Promise<void>;
+  set                       (args: SetCandleDataArgs)                   : Promise<void>;
+  cleanup                   ()                                          : Promise<void>;
+  update                    (fromTs: number, toTs: number)              : Promise<void>;
 
   // Get
-  get               (fromTs: number, toTs: number)                          : Ohlc[];
-  getAll            ()                                                      : Ohlc[]; 
-  getFirst          ()                                                      : Ohlc;
-  getLast           ()                                                      : Ohlc;
+  get                     (fromTs: number, toTs: number)                : Ohlc[];
+  getAll                  ()                                            : Ohlc[]; 
+  getFirst                ()                                            : Ohlc;
+  getLast                 ()                                            : Ohlc;
 
   // Event
-  addOnDataChange   (id: string, callback: (data: Ohlc[]) => void): void;
-  removeOnDataChange(id: string)                                  : void;
-  addOnLastDataChange(id: string, callback: (data: Ohlc) => void) : void;
-  removeOnLastDataChange(id: string)                              : void;
+  addOnDataChange         (id: string, callback: (data: Ohlc[]) => void): void;
+  removeOnDataChange      (id: string)                                  : void;
+  addOnLastDataChange     (id: string, callback: (data: Ohlc) => void)  : void;
+  removeOnLastDataChange  (id: string)                                  : void;
 };
 
 export type SetCandleDataArgs = {
