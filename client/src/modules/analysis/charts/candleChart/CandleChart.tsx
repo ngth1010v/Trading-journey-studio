@@ -4,7 +4,7 @@ import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
-import useCursorController from './hooks/useCursorController';
+import useCursorController, {type CursorStyles} from './hooks/useCursorController';
 
 
 const DEFAULT_FROMTS = 1782205200000
@@ -24,6 +24,14 @@ const DEFAULT_VIEW: ViewportSetViewArgs = {
   fromPrice   : 0,
   toPrice     : 1,
 };
+
+const DEFAULT_CURSOR_STYLE: CursorStyles = {
+  type      : "dash",
+  thickness : 1,
+  color     : [120, 120, 140],
+  dashWidth : 15,
+  dashSpace : 7,
+}
 
 export default function CandleChart() {
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -78,21 +86,27 @@ export default function CandleChart() {
     viewport.setView(DEFAULT_VIEW);
     viewport.setAutoPrice();
     viewport.flush();
-    
-    
+
     //==============================================================
-    // Render
+    // CandleLayer
     //==============================================================
     await candleLayer.init(app, candleData, viewport);
-    app.render(); 
     candleLayer.updateData();
     await candleLayer.draw();
+    
+    //==============================================================
+    // Cursor
+    //==============================================================
+    cursorController.init(app);
+    cursorController.setStyle(DEFAULT_CURSOR_STYLE);
+  
   }
   
   const destroy = async () => {
     if (pixiAppRef.current) {
       pixiAppRef.current.destroy(true, { children: true, texture: true });
       candleLayer.cleanup()
+      cursorController.destroy()
     }
   }
   
