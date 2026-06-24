@@ -18,6 +18,7 @@ export type CandleData = {
   getAll                  ()                                            : Ohlc[]; 
   getFirst                ()                                            : Ohlc;
   getLast                 ()                                            : Ohlc;
+  getPoint                ()                                            : number;
 
   // Event
   addOnDataChange         (id: string, callback: (data: Ohlc[]) => void): void;
@@ -116,7 +117,9 @@ export default function useCandleData(): CandleData {
   const timeframeRef  = useRef("");
   const lastRef       = useRef<boolean | null>(null);
   const fromTsRef     = useRef<number | null>(null);
-  const toTsRef         = useRef<number | null>(null);
+  const toTsRef       = useRef<number | null>(null);
+
+  const pointRef      = useRef<number>(1)
 
   const reloadFromTsRef = useRef<number>(0);
   const reloadToTsRef   = useRef<number>(0);
@@ -228,6 +231,7 @@ export default function useCandleData(): CandleData {
     if (!nextSymbol) {
       throwAppError("INVALID_SYMBOL", "symbol is required");
     }
+    pointRef.current = (await marketApi.getSymbolData(nextSymbol)).point
 
     // 2. fallback timeframe
     const nextTimeframe = args.timeframe !== undefined
@@ -371,8 +375,11 @@ export default function useCandleData(): CandleData {
       throwAppError("NO_DATA", "No ohlc data available");
     }
     return allData[allData.length - 1];
+  };
 
-    
+  const getPoint = (): number => {
+    if (pointRef.current) return pointRef.current
+    return 1
   };
 
   const addOnDataChange = (id: string, callback: (data: Ohlc[]) => void): void => {
@@ -433,6 +440,7 @@ export default function useCandleData(): CandleData {
       getAll,
       getFirst,
       getLast,
+      getPoint,
       cleanup,
       addOnDataChange,
       removeOnDataChange,
