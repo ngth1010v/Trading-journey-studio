@@ -143,26 +143,47 @@ def _query_extreme_from_cold(files: list[Path], order: str) -> Ohlc | None:
 
 
 def _get_extreme_ohlc(symbol: str, timeframe: str, order: str) -> Ohlc | None:
-    candidates: list[Ohlc] = []
+    order = order.upper()
 
-    first_hot = _query_single_ohlc(_hot_db_path(symbol, timeframe, _HOT_DB_FIRST), order)
-    if first_hot is not None:
-        candidates.append(first_hot)
+    if order == "ASC":
+        # Dữ liệu đã có thứ tự:
+        # firstHot -> cold -> lastHot
+        first = _query_single_ohlc(
+            _hot_db_path(symbol, timeframe, _HOT_DB_FIRST),
+            "ASC",
+        )
+        if first is not None:
+            return first
 
-    last_hot = _query_single_ohlc(_hot_db_path(symbol, timeframe, _HOT_DB_LAST), order)
-    if last_hot is not None:
-        candidates.append(last_hot)
+        cold_files = _cold_files(symbol, timeframe)
+        cold = _query_extreme_from_cold(cold_files, "ASC")
+        if cold is not None:
+            return cold
 
-    cold = _query_extreme_from_cold(_cold_files(symbol, timeframe), order)
+        return _query_single_ohlc(
+            _hot_db_path(symbol, timeframe, _HOT_DB_LAST),
+            "ASC",
+        )
+
+    # DESC
+    # Dữ liệu đã có thứ tự:
+    # firstHot -> cold -> lastHot
+    last = _query_single_ohlc(
+        _hot_db_path(symbol, timeframe, _HOT_DB_LAST),
+        "DESC",
+    )
+    if last is not None:
+        return last
+
+    cold_files = _cold_files(symbol, timeframe)
+    cold = _query_extreme_from_cold(cold_files, "DESC")
     if cold is not None:
-        candidates.append(cold)
+        return cold
 
-    if not candidates:
-        return None
-
-    if order.upper() == "ASC":
-        return min(candidates, key=lambda o: o.t)
-    return max(candidates, key=lambda o: o.t)
+    return _query_single_ohlc(
+        _hot_db_path(symbol, timeframe, _HOT_DB_FIRST),
+        "DESC",
+    )
 
 
 def _read_hot_range(path: Path, from_ts: int, to_ts: int) -> list[Ohlc]:
