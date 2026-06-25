@@ -9,16 +9,17 @@ import type { GridAxes } from "./useGridAxes";
 // PUBLIC
 //======================================================================================================
 export type Axes = {
-  init                  : (app: Application)                     => void;
-  draw                  : ()                                     => void;
-  setStyle              : (style: AxesStyles)                    => void;
+  init                  : (app: Application)                            => void;
+  draw                  : ()                                            => void;
+  setStyle              : (style: AxesStyles)                           => void;
+  setEnable             : (timestampAxis: boolean, priceAxis: boolean)  => void;
 
-  setTimestampLabel     : (label: TimestampLabel)                => void;
-  removeTimestampLabel  : (id: string)                           => void;
-  setPriceLabel         : (label: PriceLabel)                    => void;
-  removePriceLabel      : (id: string)                           => void;
+  setTimestampLabel     : (label: TimestampLabel)                       => void;
+  removeTimestampLabel  : (id: string)                                  => void;
+  setPriceLabel         : (label: PriceLabel)                           => void;
+  removePriceLabel      : (id: string)                                  => void;
 
-  destroy               : ()                                     => void;
+  destroy               : ()                                            => void;
 };
 
 //======================================================================================================
@@ -332,9 +333,6 @@ export default function useAxes(
   const setEnable = (timestampAxis: boolean, priceAxis: boolean): void => {
     isEnabledTsRef.current = timestampAxis;
     isEnabledPriceRef.current = priceAxis;
-    if (typeof gridAxes.setEnable === "function") {
-      gridAxes.setEnable(timestampAxis, priceAxis);
-    }
     draw();
   };
 
