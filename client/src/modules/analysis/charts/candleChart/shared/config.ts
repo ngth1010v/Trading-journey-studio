@@ -23,5 +23,9 @@ export const CONFIG = {
     AXES: {
         PRICE_SPACING_RATIO: 3,
         TIME_SPACING_RATIO : 1.5
+    },
+
+    AXES_CONTROLLER: {
+        SCALE_RATIO: 1
     }
 }

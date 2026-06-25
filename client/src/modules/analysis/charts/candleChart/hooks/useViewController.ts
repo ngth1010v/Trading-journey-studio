@@ -10,7 +10,14 @@ export type ViewController = {
   onWheel       : (x: number, y: number, delta: number) => void;
   onKeyDown     : (key: string) => void;
   onKeyUp       : (key: string) => void;
-  setEnable     : (enable?: boolean) => void;
+  setEnable     : (args?: SetEnableArgs) => void;
+};
+
+export type SetEnableArgs = {
+  scaleTimestamp?: boolean;
+  scalePrice?: boolean;
+  panTimestamp?: boolean;
+  panPrice?: boolean;
 };
 
 //======================================================================================================
@@ -29,14 +36,37 @@ export default function useViewController(viewport: Viewport): ViewController {
   const mousePos = useRef<Point>({ x: 0, y: 0 });
   const mouseDragging = useRef<boolean>(false);
   const pressingKey = useRef<Set<string>>(new Set<string>());
-  const isEnabled = useRef<boolean>(true);
+  const isEnabled = useRef({
+    scaleTimestamp: true,
+    scalePrice: true,
+    panTimestamp: true,
+    panPrice: true,
+  });
 
   const setEnable = useCallback(
-    (enable = true): void => {
-      isEnabled.current = enable;
-      
-      // Khi đang pan (mouseDragging = true) mà bị disable -> ép kết thúc giống onMouseUp
-      if (!enable && mouseDragging.current) {
+    (args: SetEnableArgs = {}): void => {
+      if (args.scaleTimestamp !== undefined) {
+        isEnabled.current.scaleTimestamp = args.scaleTimestamp;
+      }
+
+      if (args.scalePrice !== undefined) {
+        isEnabled.current.scalePrice = args.scalePrice;
+      }
+
+      if (args.panTimestamp !== undefined) {
+        isEnabled.current.panTimestamp = args.panTimestamp;
+      }
+
+      if (args.panPrice !== undefined) {
+        isEnabled.current.panPrice = args.panPrice;
+      }
+
+      const panDisabled =
+        !isEnabled.current.panTimestamp &&
+        !isEnabled.current.panPrice;
+
+      // đang drag mà disable toàn bộ pan -> stop drag
+      if (panDisabled && mouseDragging.current) {
         mouseDragging.current = false;
         viewport.flush();
       }
@@ -46,7 +76,13 @@ export default function useViewController(viewport: Viewport): ViewController {
 
   const onMouseDown = useCallback(
     (x: number, y: number, button: number): void => {
-      if (!isEnabled.current || button !== LEFT_BUTTON) {
+      if (
+        button !== LEFT_BUTTON ||
+        (
+          !isEnabled.current.panTimestamp &&
+          !isEnabled.current.panPrice
+        )
+      ) {
         return;
       }
 
@@ -87,8 +123,13 @@ export default function useViewController(viewport: Viewport): ViewController {
       const rx = mouseStartPos.current.x - mousePos.current.x;
       const ry = mouseStartPos.current.y - mousePos.current.y;
 
-      viewport.setOffsetTimestamp(rx);
-      viewport.setOffsetPrice(ry);
+      if (isEnabled.current.panTimestamp) {
+        viewport.setOffsetTimestamp(rx);
+      }
+
+      if (isEnabled.current.panPrice) {
+        viewport.setOffsetPrice(ry);
+      }
     },
     [viewport],
   );
@@ -111,7 +152,7 @@ export default function useViewController(viewport: Viewport): ViewController {
 
   const onWheel = useCallback(
     (x: number, y: number, delta: number): void => {
-      if (!isEnabled.current || mouseDragging.current) {
+      if (mouseDragging.current) {
         return;
       }
 
@@ -125,10 +166,17 @@ export default function useViewController(viewport: Viewport): ViewController {
       const scaleFactor = Math.pow(baseStep, magnitude);
       const step = direction > 0 ? scaleFactor : 1 / scaleFactor;
       
-      if (!pressingKey.current.has("Alt")) {
+      if (
+        isEnabled.current.scaleTimestamp &&
+        !pressingKey.current.has("Alt")
+      ) {
         viewport.setScaleTimestamp(step, x, true);
       }
-      if (!pressingKey.current.has("Control")) {
+
+      if (
+        isEnabled.current.scalePrice &&
+        !pressingKey.current.has("Control")
+      ) {
         viewport.setScalePrice(step, y, true);
       }
       
