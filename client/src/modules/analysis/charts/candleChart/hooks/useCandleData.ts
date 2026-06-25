@@ -27,6 +27,8 @@ export type CandleData = {
   removeOnDataChange      (id: string)                                  : void;
   addOnLastDataChange     (id: string, callback: (data: Ohlc) => void)  : void;
   removeOnLastDataChange  (id: string)                                  : void;
+  addOnDataPolling        (id: string, callback: () => void)            : void;
+  removeOnDataPolling     (id: string)                                  : void;
 };
 
 export type SetCandleDataArgs = {
@@ -135,8 +137,20 @@ export default function useCandleData(): CandleData {
 
   const listenersRef = useRef<Map<string, (data: Ohlc[]) => void>>(new Map());
   const lastDataListenersRef = useRef<Map<string, (data: Ohlc) => void>>(new Map());
+  const dataPollingListenersRef = useRef<Map<string, () => void>>(new Map());
 
-  const triggerDataChange = (): void => {
+  const triggerDataPolling = async (): Promise<void> => {
+    const callbacks = Array.from(dataPollingListenersRef.current.values());
+    for (const callback of callbacks) {
+      try {
+        callback();
+      } catch (err) {
+        console.error("Error in onDataPolling callback:", err);
+      }
+    }
+  };
+
+  const triggerDataChange = async (): Promise<void> => {
     listenersRef.current.forEach((callback: (data: Ohlc[]) => void) => {
       try {
         callback(ohlcsRef.current);
@@ -146,7 +160,7 @@ export default function useCandleData(): CandleData {
     });
   };
 
-  const triggerLastDataChange = (lastOhlc: Ohlc): void => {
+  const triggerLastDataChange = async (lastOhlc: Ohlc): Promise<void> => {
     lastDataListenersRef.current.forEach((callback: (data: Ohlc) => void) => {
       try {
         callback(lastOhlc);
@@ -182,7 +196,8 @@ export default function useCandleData(): CandleData {
   ): void => {
     void (async () => {
       while (loopTokenRef.current === loopToken) {
-        await sleep(1000);
+        
+        triggerDataPolling();
 
         if (loopTokenRef.current !== loopToken) {
           break;
@@ -199,11 +214,11 @@ export default function useCandleData(): CandleData {
         const currentLast = lastOhlcRef.current;
 
         if (currentLast && currentLast.t < lastOhlc.t) {
-
+          
           if (currentLast.t <= reloadToTsRef.current)
             if (fromTsRef.current && toTsRef.current)
               await set({ fromTs: fromTsRef.current, toTs: toTsRef.current });
-
+            
           lastOhlcRef.current = lastOhlc;
           triggerLastDataChange(lastOhlc);
         } else {
@@ -220,6 +235,8 @@ export default function useCandleData(): CandleData {
             triggerLastDataChange(lastOhlc);
           }
         }
+
+        await sleep(1000);
       }
     })();
   };
@@ -437,9 +454,79 @@ export default function useCandleData(): CandleData {
     lastDataListenersRef.current.delete(key);
   };
 
+  const addOnDataPolling = (id: string, callback: () => void): void => {
+    const key = normalizeListenerId(id);
+    if (!key) throwAppError("INVALID_ID", "Listener id is required");
+    if (dataPollingListenersRef.current.has(key)) {
+      throwAppError("DUPLICATE_ID", `Listener with id "${key}" already exists.`);
+    }
+    dataPollingListenersRef.current.set(key, callback);
+  };
+
+  const removeOnDataPolling = (id: string): void => {
+    const key = normalizeListenerId(id);
+    if (!dataPollingListenersRef.current.has(key)) {
+      throwAppError("NOT_FOUND", `Listener with id "${key}" does not exist.`);
+    }
+    dataPollingListenersRef.current.delete(key);
+  };
+
   const getRemainTime = (): string => {
-    return "hh:mm:ss";
-  }
+    const tf = timeframeRef.current;
+    if (!tf) return "00:00:00";
+
+    const match = tf.match(/^(\d+)([S|M|H|D|W|MN|Y])$/);
+    if (!match) return "00:00:00";
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    const now = Date.now(); // UTC timestamp theo hệ thống (ms)
+
+    let diff = 0; // ms remaining
+
+    if (["S", "M", "H", "D"].includes(unit)) {
+      let unitMs = 1000;
+      if (unit === "M") unitMs *= 60;
+      if (unit === "H") unitMs *= 60 * 60;
+      if (unit === "D") unitMs *= 60 * 60 * 24;
+
+      const step = value * unitMs;
+      diff = step - (now % step);
+    } else {
+      // Logic Calendar cho W, MN, Y dựa trên giờ UTC
+      const date = new Date(now);
+      if (unit === "W") {
+        // Tuần tới bắt đầu từ Thứ 2 (Day 1) tuần sau hoặc tính theo Chu kỳ tuần của value
+        const currentDay = date.getUTCDay();
+        const daysToNextWeek = (((8 - currentDay) % 7) || 7) + (value - 1) * 7;
+        const nextCandle = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + daysToNextWeek);
+        diff = nextCandle - now;
+      } else if (unit === "MN") {
+        const nextCandle = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + value, 1);
+        diff = nextCandle - now;
+      } else if (unit === "Y") {
+        const nextCandle = Date.UTC(date.getUTCFullYear() + value, 0, 1);
+        diff = nextCandle - now;
+      }
+    }
+
+    // Format kết quả đầu ra
+    const totalSec = Math.floor(diff / 1000);
+    const totalMin = Math.floor(totalSec / 60);
+    const totalHour = Math.floor(totalMin / 60);
+    const d = Math.floor(totalHour / 24);
+
+    const ss = String(totalSec % 60).padStart(2, "0");
+    const mm = String(totalMin % 60).padStart(2, "0");
+    const hh = String(totalHour % 24).padStart(2, "0");
+
+    if (unit === "S") return `00:00:${ss}s`;
+    if (unit === "M") return `00:${mm}:${ss}s`;
+    if (unit === "H") return `${String(totalHour).padStart(2, "0")}:${mm}:${ss}s`;
+    
+    // Đối với D, W, MN, Y format trả về dạng: `${d}d ${hh}:${mm}m`
+    return `${d}d ${hh}:${mm}m`;
+  };
 
   const apiRef = useRef<CandleData | null>(null);
 
@@ -458,7 +545,9 @@ export default function useCandleData(): CandleData {
       removeOnDataChange,
       addOnLastDataChange,
       removeOnLastDataChange,
-      getRemainTime
+      getRemainTime,
+      addOnDataPolling,
+      removeOnDataPolling,
     };
   }
 

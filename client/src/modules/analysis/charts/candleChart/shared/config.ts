@@ -26,6 +26,6 @@ export const CONFIG = {
     },
 
     AXES_CONTROLLER: {
-        SCALE_RATIO: 1
+        SCALE_RATIO: 1.5,
     }
 }

@@ -7,6 +7,7 @@ import useViewController from './hooks/useViewController';
 import useCrosshair, {type CrosshairStyles} from './hooks/useCrosshair';
 import useGridAxes from './hooks/useGridAxes';
 import useAxes from './hooks/useAxes';
+import useAxesController from './hooks/useAxesController';
 
 
 const DEFAULT_FROMTS = 1782205200000
@@ -14,7 +15,7 @@ const DEFAULT_TOTS   = 1782208800000
 
 const DEFAULT_DATA: SetCandleDataArgs = {
   symbol: "NAS100",
-  timeframe: "1M",
+  timeframe: "1H",
   realtime: true,
   fromTs: DEFAULT_FROMTS,
   toTs:   DEFAULT_TOTS
@@ -49,6 +50,7 @@ export default function CandleChart() {
   const crosshair         = useCrosshair(candleData, viewport)
   const gridAxes          = useGridAxes(viewport, candleData)
   const axes              = useAxes(candleData, viewport, gridAxes);
+  const axesController    = useAxesController(candleData,viewport,viewController, crosshair, gridAxes, axes)
 
 
 
@@ -116,6 +118,12 @@ export default function CandleChart() {
     // Axes
     //==============================================================
     axes.init(app);
+
+    //==============================================================
+    // Axes controller
+    //==============================================================
+    axesController.init(app, setBrowserCursor);
+    axesController.draw()
   }
   
   const destroy = async () => {
@@ -123,6 +131,7 @@ export default function CandleChart() {
       pixiAppRef.current.destroy(true, { children: true, texture: true });
       candleLayer.cleanup()
       crosshair.destroy()
+      axesController.destroy()
     }
   }
   
@@ -143,12 +152,14 @@ export default function CandleChart() {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
+    axesController.onMouseDown(x,y,e.button);
     viewController.onMouseDown(x,y,e.button);
   }
   const onMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
+    axesController.onMouseUp();
     viewController.onMouseUp(x,y,e.button);
   }
   const onMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -162,6 +173,7 @@ export default function CandleChart() {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
+    axesController.onMouseLeave();
     viewController.onMouseLeave(x,y,e.button);
     crosshair.onMouseLeave()
   }
@@ -169,6 +181,7 @@ export default function CandleChart() {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
+    axesController.onMouseMove(x,y);
     viewController.onMouseMove(x,y);
     crosshair.onMouseMove(x,y);
   }
