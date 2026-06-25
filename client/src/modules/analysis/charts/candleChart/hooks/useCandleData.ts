@@ -20,6 +20,7 @@ export type CandleData = {
   getLast                 ()                                            : Ohlc;
   getPoint                ()                                            : number;
   getTimeframe            ()                                            : string;
+  getRemainTime           ()                                            : string;
 
   // Event
   addOnDataChange         (id: string, callback: (data: Ohlc[]) => void): void;
@@ -436,6 +437,10 @@ export default function useCandleData(): CandleData {
     lastDataListenersRef.current.delete(key);
   };
 
+  const getRemainTime = (): string => {
+    return "hh:mm:ss";
+  }
+
   const apiRef = useRef<CandleData | null>(null);
 
   if (!apiRef.current) {
@@ -453,6 +458,7 @@ export default function useCandleData(): CandleData {
       removeOnDataChange,
       addOnLastDataChange,
       removeOnLastDataChange,
+      getRemainTime
     };
   }
 

@@ -9,14 +9,14 @@ import type { Ohlc } from "../shared/types";
 // TYPES
 //======================================================================================================
 
-export type Cursor = {
+export type Crosshair = {
   // Init / Cleanup
   init        (app: Application)                    : void;
   destroy     ()                                    : void;
 
   // Set
   setVisible  (visible?: boolean)                   : void;
-  setStyle    (style: CursorStyles)                 : void;
+  setStyle    (style: CrosshairStyles)                 : void;
   setMagnet   (enable?: boolean, distance?: number) : void;
 
   // Event
@@ -36,7 +36,7 @@ export type Point = {
   y: number;
 };
 
-export type CursorStyles = {
+export type CrosshairStyles = {
   type: "solid" | "dash";
   thickness: number;
   color: [number, number, number];
@@ -88,9 +88,9 @@ function rgbToHex(color: [number, number, number]): number {
   return (r << 16) | (g << 8) | b;
 }
 
-function validateCursorStyle(style: CursorStyles): void {
+function validateCrosshairStyle(style: CrosshairStyles): void {
   if (style.type !== "solid" && style.type !== "dash") {
-    throw new Error(`Invalid cursor style type: ${String(style.type)}`);
+    throw new Error(`Invalid Crosshair style type: ${String(style.type)}`);
   }
 }
 
@@ -107,12 +107,12 @@ function sanitizeGapSize(value: number): number {
 //======================================================================================================
 // HOOK
 //======================================================================================================
-export default function useCursor(
+export default function useCrosshair(
   candleData: CandleData,
   viewport: Viewport,
-): Cursor {
+): Crosshair {
   const onScreenRef = useRef<boolean>(false);
-  const cursorPosRef = useRef<Point>({ x: 0, y: 0 });
+  const CrosshairPosRef = useRef<Point>({ x: 0, y: 0 });
   const alignRef = useRef<boolean>(false);
   const startAlignPosRef = useRef<Point>({ x: 0, y: 0 });
   const magnetRef = useRef<boolean>(true);
@@ -124,9 +124,9 @@ export default function useCursor(
   const graphicsRef = useRef<Graphics | null>(null);
 
   const canvasSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-  const calculatedCursorPos = useRef<Point>({ x: 0, y: 0 });
+  const calculatedCrosshairPos = useRef<Point>({ x: 0, y: 0 });
 
-  const cursorStyle = useRef<CursorStyles>({
+  const CrosshairStyle = useRef<CrosshairStyles>({
     type: "solid",
     thickness: 2,
     color: [200, 200, 200],
@@ -187,8 +187,8 @@ export default function useCursor(
   };
 
   const getPixel = (): Point => {
-    const x = cursorPosRef.current.x;
-    const y = cursorPosRef.current.y;
+    const x = CrosshairPosRef.current.x;
+    const y = CrosshairPosRef.current.y;
 
     if (alignRef.current) {
       const start = startAlignPosRef.current;
@@ -252,10 +252,10 @@ export default function useCursor(
 
     if (!visible) return;
 
-    const { x, y } = calculatedCursorPos.current;
+    const { x, y } = calculatedCrosshairPos.current;
     const { w, h } = canvasSize.current;
 
-    const style = cursorStyle.current;
+    const style = CrosshairStyle.current;
     const thickness = Math.max(1, style.thickness);
     const color = rgbToHex(style.color);
 
@@ -303,8 +303,8 @@ export default function useCursor(
     drawStroke(0, y, w, y);
   };
 
-  const refreshCursor = (): void => {
-    calculatedCursorPos.current = getPixel();
+  const refreshCrosshair = (): void => {
+    calculatedCrosshairPos.current = getPixel();
     redrawGraphics();
   };
 
@@ -322,7 +322,7 @@ export default function useCursor(
     containerRef.current = container;
     graphicsRef.current = graphics;
 
-    refreshCursor();
+    refreshCrosshair();
   };
 
   const destroy = (): void => {
@@ -350,13 +350,13 @@ export default function useCursor(
     containerRef.current = null;
     graphicsRef.current = null;
     canvasSize.current = { w: 0, h: 0 };
-    calculatedCursorPos.current = { x: 0, y: 0 };
+    calculatedCrosshairPos.current = { x: 0, y: 0 };
   };
 
-  const setStyle = (style: CursorStyles): void => {
-    validateCursorStyle(style);
+  const setStyle = (style: CrosshairStyles): void => {
+    validateCrosshairStyle(style);
 
-    cursorStyle.current = {
+    CrosshairStyle.current = {
       type: style.type,
       thickness: style.thickness,
       color: [style.color[0], style.color[1], style.color[2]],
@@ -374,7 +374,7 @@ export default function useCursor(
 
   const onMouseEnter = (): void => {
     onScreenRef.current = true;
-    refreshCursor();
+    refreshCrosshair();
   };
 
   const onMouseLeave = (): void => {
@@ -384,36 +384,36 @@ export default function useCursor(
   };
 
   const onMouseMove = (x: number, y: number): void => {
-    if (isValidNumber(x)) cursorPosRef.current.x = x;
-    if (isValidNumber(y)) cursorPosRef.current.y = y;
+    if (isValidNumber(x)) CrosshairPosRef.current.x = x;
+    if (isValidNumber(y)) CrosshairPosRef.current.y = y;
 
-    refreshCursor();
+    refreshCrosshair();
   };
 
   const onKeyDown = (key: string): void => {
     if (key === "Shift" && !alignRef.current && onScreenRef.current) {
       alignRef.current = true;
-      startAlignPosRef.current.x = cursorPosRef.current.x;
-      startAlignPosRef.current.y = cursorPosRef.current.y;
-      refreshCursor();
+      startAlignPosRef.current.x = CrosshairPosRef.current.x;
+      startAlignPosRef.current.y = CrosshairPosRef.current.y;
+      refreshCrosshair();
     }
   };
 
   const onKeyUp = (key: string): void => {
     if (key === "Shift" && alignRef.current) {
       alignRef.current = false;
-      refreshCursor();
+      refreshCrosshair();
     }
   };
 
   const setMagnet = (enable: boolean = true, distance: number = 50): void => {
     magnetRef.current = enable;
     magnetDistancePixelRef.current = isValidNumber(distance) && distance >= 0 ? distance : 50;
-    refreshCursor();
+    refreshCrosshair();
   };
 
   const get = (): { timestamp: number; price: number } => {
-    const { x, y } = calculatedCursorPos.current;
+    const { x, y } = calculatedCrosshairPos.current;
 
     return {
       timestamp: viewport.pixelToTimestamp(x),
@@ -421,7 +421,7 @@ export default function useCursor(
     };
   };
 
-  const apiRef = useRef<Cursor | null>(null);
+  const apiRef = useRef<Crosshair | null>(null);
 
   if (!apiRef.current) {
     apiRef.current = {

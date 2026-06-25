@@ -4,7 +4,7 @@ import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
-import useCursor, {type CursorStyles} from './hooks/useCursor';
+import useCrosshair, {type CrosshairStyles} from './hooks/useCrosshair';
 import useGridAxes from './hooks/useGridAxes';
 import useAxes from './hooks/useAxes';
 
@@ -27,7 +27,7 @@ const DEFAULT_VIEW: ViewportSetViewArgs = {
   toPrice     : 1,
 };
 
-const DEFAULT_CURSOR_STYLE: CursorStyles = {
+const DEFAULT_CURSOR_STYLE: CrosshairStyles = {
   type      : "dash",
   thickness : 1,
   color     : [120, 120, 140],
@@ -46,7 +46,7 @@ export default function CandleChart() {
   const viewport          = useViewport(candleData);
   const candleLayer       = useCandleLayer();
   const viewController    = useViewController(viewport);
-  const cursorController  = useCursor(candleData, viewport)
+  const crosshair         = useCrosshair(candleData, viewport)
   const gridAxes          = useGridAxes(viewport, candleData)
   const axes              = useAxes(candleData, viewport, gridAxes);
 
@@ -102,10 +102,10 @@ export default function CandleChart() {
     await candleLayer.draw();
     
     //==============================================================
-    // Cursor
+    // Crosshair
     //==============================================================
-    cursorController.init(app);
-    cursorController.setStyle(DEFAULT_CURSOR_STYLE);
+    crosshair.init(app);
+    crosshair.setStyle(DEFAULT_CURSOR_STYLE);
     
     //==============================================================
     // GridAxes
@@ -122,7 +122,7 @@ export default function CandleChart() {
     if (pixiAppRef.current) {
       pixiAppRef.current.destroy(true, { children: true, texture: true });
       candleLayer.cleanup()
-      cursorController.destroy()
+      crosshair.destroy()
     }
   }
   
@@ -156,21 +156,21 @@ export default function CandleChart() {
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     viewController.onMouseLeave(x,y,e.button);
-    cursorController.onMouseEnter()
+    crosshair.onMouseEnter()
   }
   const onMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     viewController.onMouseLeave(x,y,e.button);
-    cursorController.onMouseLeave()
+    crosshair.onMouseLeave()
   }
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     viewController.onMouseMove(x,y);
-    cursorController.onMouseMove(x,y);
+    crosshair.onMouseMove(x,y);
   }
 
   // Html event
@@ -194,7 +194,7 @@ export default function CandleChart() {
     const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       viewController.onKeyDown(e.key);
-      cursorController.onKeyDown(e.key)
+      crosshair.onKeyDown(e.key)
     };
     element.addEventListener('keydown', handleKeyDown);
     
@@ -202,7 +202,7 @@ export default function CandleChart() {
     const handleKeyUp = (e: KeyboardEvent) => {
       e.preventDefault();
       viewController.onKeyUp(e.key);
-      cursorController.onKeyUp(e.key)
+      crosshair.onKeyUp(e.key)
     };
     element.addEventListener('keyup', handleKeyUp);
 
