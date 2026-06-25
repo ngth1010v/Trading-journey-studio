@@ -197,14 +197,19 @@ export default function useAxes(
 
     const style = axesStyleRef.current;
     const area = gridAxes.getVisibleArea();
+    const view = viewport.getTransformedView();
     
     tsContainerRef.current.visible = isEnabledTsRef.current;
     priceContainerRef.current.visible = isEnabledPriceRef.current;
 
-    // 1. Draw Timestamp Labels
+    // 1. Draw Timestamp Labels (Filtered using Binary Search Range)
     if (isEnabledTsRef.current) {
       const activeTsIds = new Set<string>();
-      const tsItems = timestampLabelsRef.current.getAll();
+      
+      // Binary search limits based on current view bounds
+      const fromTs = view.fromTs;
+      const toTs = view.toTs;
+      const tsItems = timestampLabelsRef.current.findTimestampRange(fromTs, toTs);
 
       for (const item of tsItems) {
         const cached = getOrCreateCachedLabel(item.id, tsCacheRef.current, tsContainerRef.current);
@@ -243,17 +248,21 @@ export default function useAxes(
             alpha: fillStyle.alpha
         } as any);
 
-        cached.text.position.set(0, h / 2-style.timestampOffset);
+        cached.text.position.set(0, h / 2 - style.timestampOffset);
         cached.container.position.set(x, y);
       }
       
       cleanupUnusedLabels(activeTsIds, tsCacheRef.current);
     }
 
-    // 2. Draw Price Labels
+    // 2. Draw Price Labels (Filtered using Binary Search Range)
     if (isEnabledPriceRef.current) {
       const activePriceIds = new Set<string>();
-      const priceItems = priceLabelsRef.current.getAll();
+
+      // Binary search limits based on current view bounds (handling standard & inverted axis ranges)
+      const minPrice = Math.min(view.fromPrice, view.toPrice);
+      const maxPrice = Math.max(view.fromPrice, view.toPrice);
+      const priceItems = priceLabelsRef.current.findPriceRange(minPrice, maxPrice);
 
       for (const item of priceItems) {
         const cached = getOrCreateCachedLabel(item.id, priceCacheRef.current, priceContainerRef.current);
