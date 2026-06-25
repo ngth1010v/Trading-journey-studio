@@ -20,14 +20,12 @@ export type GridAxes = {
   init            (app: Application)          : void;
   destroy         ()                          : void;
   setStyle        (style: GridGridAxesStyles) : void;
+  setEnable       (timestampAxis: boolean, priceAxis: boolean): void;
   draw            ()                          : void;
-  getVisibleArea  ()                          : GridGridAxesVisibleArea;
+  getVisibleArea  ()                          : GridAxesVisibleArea;
 };
 
 export type GridGridAxesStyles = {
-  priceAxis?: boolean;
-  timestampAxis?: boolean;
-
   margin?: number;
   spacing?: number; // px, space between priceAxis - settingPanel and between timestampAxis - settingPanel
   padding?: number; // px
@@ -45,9 +43,10 @@ export type GridAxisRect = {
   h: number;
 };
 
-export type GridGridAxesVisibleArea = {
+export type GridAxesVisibleArea = {
   timestampAxis: GridAxisRect;
   priceAxis: GridAxisRect;
+  settingPanel: GridAxisRect
 };
 
 
@@ -57,8 +56,6 @@ export type GridGridAxesVisibleArea = {
 const FONT_ASSET_URL = "assets/fonts/Datatype.fnt";
 
 const DEFAULT_STYLE: Required<GridGridAxesStyles> = {
-  priceAxis: true,
-  timestampAxis: true,
   margin: 10,
   spacing: 5,
   padding: 5,
@@ -255,6 +252,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
   const axesStyleRef = useRef<Required<GridGridAxesStyles>>({ ...DEFAULT_STYLE });
 
   const rootRef = useRef<Container | null>(null);
+  const axisStateRef = useRef({ timestampAxis: true, priceAxis: true });
 
   const timestampPanelBgRef = useRef<Graphics | null>(null);
   const timestampTicksRef = useRef<Graphics | null>(null);
@@ -271,9 +269,10 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
   const timestampIconRef = useRef<Text | null>(null);
   const priceIconRef = useRef<Text | null>(null);
 
-  const visibleAreaRef = useRef<GridGridAxesVisibleArea>({
+  const visibleAreaRef = useRef<GridAxesVisibleArea>({
     timestampAxis: { ...EMPTY_RECT },
     priceAxis: { ...EMPTY_RECT },
+    settingPanel: { ...EMPTY_RECT },
   });
 
   const fontLoadedRef = useRef(false);
@@ -736,8 +735,8 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
     setIconSize(leftIcon);
     setIconSize(rightIcon);
 
-    leftIcon.alpha = style.timestampAxis ? 1 : 0.5;
-    rightIcon.alpha = style.priceAxis ? 1 : 0.5;
+    leftIcon.alpha = axisStateRef.current.timestampAxis ? 1 : 0.5;
+    rightIcon.alpha = axisStateRef.current.priceAxis ? 1 : 0.5;
 
     leftIcon.position.set(panel.x + halfW * 0.5, panel.y + panel.h * 0.5);
     rightIcon.position.set(panel.x + halfW + halfW * 0.5, panel.y + panel.h * 0.5);
@@ -757,14 +756,21 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
 
     const timestampRect = timestampLayout.panel;
     const priceRect = priceLayout.panel;
+    const settingRect: GridAxisRect = {
+      x: priceRect.x,
+      y: timestampRect.y,
+      w: priceRect.w,
+      h: timestampRect.h,
+    };
 
     visibleAreaRef.current = {
       timestampAxis: { ...timestampRect },
       priceAxis: { ...priceRect },
+      settingPanel: { ...settingRect }
     };
 
     if (timestampPanelBgRef.current) {
-      if (style.timestampAxis) {
+      if (axisStateRef.current.timestampAxis) {
         drawPanelBackground(
           timestampPanelBgRef.current,
           timestampRect,
@@ -778,7 +784,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
     }
 
     if (pricePanelBgRef.current) {
-      if (style.priceAxis) {
+      if (axisStateRef.current.priceAxis) {
         drawPanelBackground(
           pricePanelBgRef.current,
           priceRect,
@@ -791,7 +797,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
       }
     }
 
-    if (style.timestampAxis) {
+    if (axisStateRef.current.timestampAxis) {
       if (timestampTicksRef.current) timestampTicksRef.current.visible = true;
       if (timestampLabelsRef.current) timestampLabelsRef.current.visible = true;
     } else {
@@ -805,7 +811,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
       }
     }
 
-    if (style.priceAxis) {
+    if (axisStateRef.current.priceAxis) {
       if (priceTicksRef.current) priceTicksRef.current.visible = true;
       if (priceLabelsRef.current) priceLabelsRef.current.visible = true;
     } else {
@@ -854,7 +860,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
       app.stage.addChild(rootRef.current);
     }
 
-    viewportRef.current.addOnViewportChange("axes/init", draw);
+    viewportRef.current.addOnViewportChange("gridAxes/init", draw);
 
     draw();
     void loadAssets();
@@ -898,6 +904,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
     visibleAreaRef.current = {
       timestampAxis: { ...EMPTY_RECT },
       priceAxis: { ...EMPTY_RECT },
+      settingPanel: { ...EMPTY_RECT },
     };
   };
 
@@ -916,8 +923,6 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
       }
     };
 
-    apply("priceAxis");
-    apply("timestampAxis");
     apply("margin");
     apply("spacing");
     apply("padding");
@@ -930,10 +935,16 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
     draw();
   };
 
-  const getVisibleArea = (): GridGridAxesVisibleArea => {
+  const setEnable = (timestampAxis: boolean, priceAxis: boolean): void => {
+    axisStateRef.current = { timestampAxis, priceAxis };
+    draw();
+  };
+
+  const getVisibleArea = (): GridAxesVisibleArea => {
     return {
       timestampAxis: { ...visibleAreaRef.current.timestampAxis },
       priceAxis: { ...visibleAreaRef.current.priceAxis },
+      settingPanel: { ...visibleAreaRef.current.settingPanel }
     };
   };
 
@@ -944,6 +955,7 @@ export default function useGridAxes(viewport: Viewport, candleData: CandleData):
       init,
       destroy,
       setStyle,
+      setEnable,
       draw,
       getVisibleArea,
     };

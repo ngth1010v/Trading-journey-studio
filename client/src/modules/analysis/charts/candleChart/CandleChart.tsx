@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
 import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
@@ -6,6 +6,7 @@ import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
 import useCursor, {type CursorStyles} from './hooks/useCursor';
 import useGridAxes from './hooks/useGridAxes';
+import useAxes from './hooks/useAxes';
 
 
 const DEFAULT_FROMTS = 1782205200000
@@ -38,13 +39,16 @@ export default function CandleChart() {
   const containerRef  = useRef<HTMLDivElement>(null);
   const pixiAppRef    = useRef<Application | null>(null);
   const inited        = useRef(false)
+
+  const [browserCursor, setBrowserCursor] = useState<string>('crosshair');
   
   const candleData        = useCandleData();
   const viewport          = useViewport(candleData);
   const candleLayer       = useCandleLayer();
   const viewController    = useViewController(viewport);
   const cursorController  = useCursor(candleData, viewport)
-  const gridAxes              = useGridAxes(viewport, candleData)
+  const gridAxes          = useGridAxes(viewport, candleData)
+  const axes              = useAxes(candleData, viewport, gridAxes);
 
 
 
@@ -107,6 +111,11 @@ export default function CandleChart() {
     // GridAxes
     //==============================================================
     gridAxes.init(app);
+
+    //==============================================================
+    // Axes
+    //==============================================================
+    axes.init(app);
   }
   
   const destroy = async () => {
@@ -213,6 +222,7 @@ export default function CandleChart() {
         // 3. Render lại các layer (nếu viewport/candleLayer của bạn cần trigger vẽ lại)
         candleLayer.draw(); 
         gridAxes.draw();
+        axes.draw();
       }
     });
     resizeObserver.observe(element);
@@ -227,6 +237,29 @@ export default function CandleChart() {
       resizeObserver.disconnect();
     };
   }, [viewController]); 
+
+
+
+
+
+
+  //TEST=================
+  useEffect(()=>{
+    axes.setTimestampLabel({
+      id: "open-time",
+      timestamp: DEFAULT_FROMTS,
+      color: [255, 150, 150, 150],
+      fontColor: [255, 255, 255],
+    });
+    axes.setPriceLabel({
+      id: "current-price",
+      price: 2957500,
+      color: [255, 150, 150, 150],
+      fontColor: [255, 255, 255],
+    });    
+  }, [])
+
+  //TEST=================
 
   //=============================================================================================
   // Return
@@ -243,6 +276,7 @@ export default function CandleChart() {
         overflow: 'hidden',
         position: 'relative',
         outline: 'none',
+        cursor: browserCursor as React.CSSProperties['cursor'],
       }}
       onMouseDown={onMouseDown} 
       onMouseEnter={(e) => {
