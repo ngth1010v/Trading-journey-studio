@@ -44,6 +44,8 @@ def IsEmpty(symbol: str, timeframe: str):
     return _reader.IsEmpty(symbol, timeframe)
 
 
+
+from .ohlcStorer import *
 __all__ = [
     "appendOhlcs",
     "prependOhlcs",
@@ -52,4 +54,13 @@ __all__ = [
     "getOhlcs",
     "aggregateOhlcs",
     "IsEmpty",
+
+    "getRange",
+    "getFirst",
+    "getLast",
+    "getAvailableSymbols",
+    "aggregate",
+    "append",
+    "prepend",
+
 ]
