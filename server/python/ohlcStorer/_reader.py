@@ -474,3 +474,18 @@ def aggregateOhlcs(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int
             f"aggregateOhlcs({symbol!r}, {srcTimeframe!r}, periods={len(targetPeriods) if targetPeriods is not None else 0}) failed: {exc}",
         )
         return False
+    
+def getAvailableSymbols() -> list[str]:
+    try:
+        markets_dir = config.DATABASE_PATH / "markets"
+        if not markets_dir.exists():
+            return []
+
+        return sorted(
+            entry.name
+            for entry in markets_dir.iterdir()
+            if entry.is_dir()
+        )
+    except Exception as exc:
+        logger.error(_SECTION, f"getSymbols() failed: {exc}")
+        return []

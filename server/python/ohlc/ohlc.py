@@ -14,15 +14,6 @@ bp = Blueprint("ohlc", __name__)
 @bp.route("/ohlc/SHUTDOWN", methods=["GET"])
 def shutdown():
     logger.info(_SECTION, "Ohlc shutdown requested.")
-    # shutdown_server()
-
-    # try:
-    #     shutdown_func = request.environ.get("werkzeug.server.shutdown")
-    #     if callable(shutdown_func):
-    #         shutdown_func()
-    # except Exception as exc:
-    #     logger.warning(_SECTION, f"Server shutdown hook unavailable: {exc}")
-
     return jsonify({"status": "ok", "msg": "shutdown"}), 200
 
 
