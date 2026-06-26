@@ -31,3 +31,16 @@ OHLC_1S_BASE_DEFAULT_TIME = 60 * 60 * 24 * 2
 # The stage will be updated every <OHLC_BATCH> candles.
 # The hightimeframe aggergater will be call every <OHLC_BATCH> candle
 OHLC_BATCH = 120
+
+
+
+
+#==========================================================================
+# OHLC STORER
+#==========================================================================
+# Hot
+OHLC_STORER_HOT_LIMIT            = 1_000_000
+OHLC_STORER_HOT_PREVENTION_LIMIT = 1_001_000
+OHLC_STORER_HOT_WAIT_DURATION    = 1000 * 60 * 5  #5 min
+
+
