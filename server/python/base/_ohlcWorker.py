@@ -85,8 +85,7 @@ def _build_ohlc_from_ohlc(start_batch_ts: int, batch_size: int, timeframe_step: 
                     bar[5] += v
             j += 1
 
-        if have_src:
-            temp_list.append(bar)
+        temp_list.append(bar)
 
     if not temp_list:
         return np.empty((0, 6), dtype=np.int64)
