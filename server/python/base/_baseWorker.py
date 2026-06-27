@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import threading
+import numpy as np
 
 import _logger as logger
 import config
@@ -9,7 +10,6 @@ from tqdm import tqdm
 
 from . import _collector
 from . import _stager
-from _type import Ohlc
 
 _SECTION = "base/_baseWorker.py"
 
@@ -37,6 +37,38 @@ def _symbol_point(symbol: str) -> int:
 # ==============================================================================
 # Core Workflow
 # ==============================================================================
+def _build_ohlc_from_ticks(start_batch_ts: int, batch_size: int, batch_ticks) -> np.ndarray:
+    """
+    Builds an OHLC NumPy array of shape (batch_size, 6) from a sequential list of ticks.
+    Each row matches the structure: [t, o, h, l, c, v]
+    """
+    ohlc_matrix = np.zeros((batch_size, 6), dtype=np.int64)
+    j = 0
+    tick_count = len(batch_ticks)
+
+    for i in range(batch_size):
+        bar_t = start_batch_ts + i * 1000
+        ohlc_matrix[i, 0] = bar_t
+        have_tick = False
+
+        while j < tick_count and bar_t <= batch_ticks[j].t < bar_t + 1000:
+            tick = batch_ticks[j]
+            if not have_tick:
+                ohlc_matrix[i, 1] = tick.b  # Open
+                ohlc_matrix[i, 2] = tick.b  # High
+                ohlc_matrix[i, 3] = tick.b  # Low
+                ohlc_matrix[i, 4] = tick.b  # Close
+                ohlc_matrix[i, 5] = tick.v  # Volume
+                have_tick = True
+            else:
+                if tick.b > ohlc_matrix[i, 2]: ohlc_matrix[i, 2] = tick.b
+                if tick.b < ohlc_matrix[i, 3]: ohlc_matrix[i, 3] = tick.b
+                ohlc_matrix[i, 4] = tick.b
+                ohlc_matrix[i, 5] += tick.v
+            j += 1
+
+    return ohlc_matrix
+
 def triggerNextTimeframe(symbol: str):
     stageFromTs = _stager.getFrom("1S", symbol)
     stageToTs = _stager.getTo("1S", symbol)
@@ -48,8 +80,6 @@ def triggerNextTimeframe(symbol: str):
         "symbol": symbol,
         "timestamp": stageToTs
     })
-
-from tqdm import tqdm
 
 
 def extendBack(symbol: str, fromTs: int) -> None:
@@ -76,37 +106,12 @@ def extendBack(symbol: str, fromTs: int) -> None:
         # Get ticks
         batchTick = _collector.fetchTicksFromMt5(symbol, point, startBatchTs, endBatchTs)
 
-        # Build ohlc
-        batchOhlcs = []
-        j = 0
-        tick_count = len(batchTick)
-
-        for i in range(config.OHLC_BATCH):
-            bar_t = startBatchTs + i * 1000
-            bar = Ohlc(t=bar_t, o=0, h=0, l=0, c=0, v=0)
-            haveTick = False
-
-            while j < tick_count and bar_t <= batchTick[j].t < bar_t + 1000:
-                tick = batchTick[j]
-                if not haveTick:
-                    bar.o = tick.b
-                    bar.h = tick.b
-                    bar.l = tick.b
-                    bar.c = tick.b
-                    bar.v = tick.v
-                    haveTick = True
-                else:
-                    if tick.b > bar.h: bar.h = tick.b
-                    if tick.b < bar.l: bar.l = tick.b
-                    bar.c = tick.b
-                    bar.v += tick.v
-                j += 1
-
-            batchOhlcs.append(bar)
+        # Build ohlc matrix via NumPy
+        batchOhlcs = _build_ohlc_from_ticks(startBatchTs, config.OHLC_BATCH, batchTick)
 
         # Write
-        if batchOhlcs:
-            ohlcStorer.prependOhlcs(symbol, "1S", batchOhlcs)
+        if batchOhlcs.size > 0:
+            ohlcStorer.prepend(symbol, "1S", batchOhlcs)
 
         _stager.setFrom("1S", symbol, startBatchTs)
         triggerNextTimeframe(symbol)
@@ -147,37 +152,12 @@ def extendFront(symbol: str) -> None:
         # Get ticks
         batchTick = _collector.fetchTicksFromMt5(symbol, point, startBatchTs, endBatchTs)
 
-        # Build ohlc
-        batchOhlcs = []
-        j = 0
-        tick_count = len(batchTick)
-
-        for i in range(ohlcBatchSize):
-            bar_t = startBatchTs + i * 1000
-            bar = Ohlc(t=bar_t, o=0, h=0, l=0, c=0, v=0)
-            haveTick = False
-
-            while j < tick_count and bar_t <= batchTick[j].t < bar_t + 1000:
-                tick = batchTick[j]
-                if not haveTick:
-                    bar.o = tick.b
-                    bar.h = tick.b
-                    bar.l = tick.b
-                    bar.c = tick.b
-                    bar.v = tick.v
-                    haveTick = True
-                else:
-                    if tick.b > bar.h: bar.h = tick.b
-                    if tick.b < bar.l: bar.l = tick.b
-                    bar.c = tick.b
-                    bar.v += tick.v
-                j += 1
-
-            batchOhlcs.append(bar)
+        # Build ohlc matrix via NumPy
+        batchOhlcs = _build_ohlc_from_ticks(startBatchTs, ohlcBatchSize, batchTick)
 
         # Write
-        if batchOhlcs:
-            ohlcStorer.appendOhlcs(symbol, "1S", batchOhlcs)
+        if batchOhlcs.size > 0:
+            ohlcStorer.append(symbol, "1S", batchOhlcs)
 
         _stager.setTo("1S", symbol, endBatchTs)
         triggerNextTimeframe(symbol)
@@ -223,10 +203,6 @@ def worker() -> None:
                 extendFront(symbol)
 
 
-
-        
-
-
 # ==============================================================================
 # Initialization
 # ==============================================================================
@@ -238,23 +214,19 @@ def init() -> None:
     _collector.init()
     
     # Retrieve available symbols; handles explicit structure from ohlcStorer
-    if hasattr(ohlcStorer, "getAvailableSymbols"):
-        symbols_list = ohlcStorer.getAvailableSymbols()
-    else:
-        # Fallback if imported via _reader internally
-        from ohlcStorer import _reader
-        symbols_list = _reader.getAvailableSymbols()
+    symbols_list = ohlcStorer.getAvailableSymbols()
         
     for symbol in symbols_list:
-        first_ohlc = ohlcStorer.getFirstOhlc(symbol, "1S")
-        if first_ohlc not in (None, False):
-            _stager.setFrom("1S", symbol, int(first_ohlc.t))
+
+        first_ohlc = ohlcStorer.getFirst(symbol, "1S")
+        if first_ohlc.size > 0:
+            _stager.setFrom("1S", symbol, int(first_ohlc[0, 0]))
         else:
             _stager.setFrom("1S", symbol, 0)
         
-        last_ohlc = ohlcStorer.getLastOhlc(symbol, "1S")
-        if last_ohlc not in (None, False):
-            _stager.setTo("1S", symbol, int(last_ohlc.t) + 1000)
+        last_ohlc = ohlcStorer.getLast(symbol, "1S")
+        if last_ohlc.size > 0:
+            _stager.setTo("1S", symbol, int(last_ohlc[0, 0]) + 1000)
         else:
             _stager.setTo("1S", symbol, 0)
 

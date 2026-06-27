@@ -1,13 +1,12 @@
 import os
 import time
-import queue
 import threading
 import numpy as np
 
 import config
 import _logger
-from ohlcStorer import _coldStorer
-from ohlcStorer._utils import get_directory
+from . import _coldStorer
+from ._utils import get_directory
 
 # Global Cache
 # cache[symbol][timeframe] = { openTimestamp, data, tail, lock, write_queue }
@@ -53,7 +52,7 @@ def _start(symbol: str, timeframe: str) -> None:
             "data": data,
             "tail": tail,
             "lock": 0,
-            "write_queue": queue.Queue()
+            "flushing": False
         }
 
 
@@ -85,15 +84,19 @@ def _end(symbol: str, timeframe: str) -> None:
         if not cache[symbol]:
             del cache[symbol]
 
-
 def _refresh(symbol: str, timeframe: str) -> dict:
     """Ensures cache exists and updates the openTimestamp."""
+    need_start = False
+
     with _global_lock:
         if symbol not in cache or timeframe not in cache.get(symbol, {}):
-            _start(symbol, timeframe)
-            
+            need_start = True
+
+    if need_start:
+        _start(symbol, timeframe)
+
     c = cache[symbol][timeframe]
-    c['openTimestamp'] = int(time.time() * 1000)
+    c["openTimestamp"] = int(time.time() * 1000)
     return c
 
 
@@ -102,28 +105,35 @@ def _checkCapacity(symbol: str, timeframe: str) -> None:
     c = cache.get(symbol, {}).get(timeframe)
     if not c or c['tail'] is None:
         return
+    if c["flushing"]:
+        return
         
     limit = config.OHLC_STORER_HOT_LIMIT
     
     if (c['tail'] >= limit):
+        c["flushing"] = True
         def _flush_thread():
-            # Flush the oldest <limit> bars (which are at the front of the array)
-            cold_data = c['data'][:limit].copy()
-            _coldStorer.write(symbol, timeframe, cold_data)
-            
-            while c['lock'] != 0:
-                time.sleep(0.5)
-            c['lock'] = 2
-            
-            # Shift the remaining forward to index 0
-            remaining_count = c['tail'] - limit
-            if remaining_count > 0:
-                c['data'][:remaining_count] = c['data'][limit : c['tail']]
-                c['tail'] = remaining_count
-            else:
-                c['tail'] = None
-                
-            c['lock'] = 0
+            try:
+                # Flush the oldest <limit> bars (which are at the front of the array)
+                cold_data = c['data'][:limit].copy()
+                _coldStorer.write(symbol, timeframe, cold_data)
+
+                while c['lock'] != 0:
+                    time.sleep(0.5)
+                c['lock'] = 2
+
+                # Shift the remaining forward to index 0
+                remaining_count = c['tail'] - limit
+                if remaining_count > 0:
+                    c['data'][:remaining_count] = c['data'][limit:c['tail']]
+                    c['tail'] = remaining_count
+                else:
+                    c['tail'] = None
+
+                c['lock'] = 0
+
+            finally:
+                c["flushing"] = False
 
         threading.Thread(target=_flush_thread, daemon=True).start()
 
@@ -219,43 +229,41 @@ def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray 
 
 
 def append(symbol: str, timeframe: str, data: np.ndarray) -> None:
-    """Appends new data to the tail (left to right) utilizing a FIFO queue system."""
+    """Synchronously appends new data to the tail."""
     c = _refresh(symbol, timeframe)
-    
-    # Enqueue data to guarantee writers are processed First-Come-First-Served
-    c['write_queue'].put(data)
-    
-    def _writer_thread():
-        # Pop the next payload from the queue
-        write_data = c['write_queue'].get()
-        num_new = write_data.shape[0]
-        
-        while c['lock'] != 0:
-            time.sleep(0.1)
-            
-        c['lock'] = 1
-        
-        try:
-            prevention_limit = config.OHLC_STORER_HOT_PREVENTION_LIMIT
-            
-            # Wait for flush loop if append operation risks immediate hard array bounds crash
-            current_tail = 0 if c['tail'] is None else c['tail']
-            while current_tail + num_new > prevention_limit:
-                c['lock'] = 0
-                time.sleep(0.5)
-                c['lock'] = 1
-                current_tail = 0 if c['tail'] is None else c['tail']
 
-            if c['tail'] is None:
-                c['data'][:num_new] = write_data
-                c['tail'] = num_new
-            else:
-                c['data'][c['tail'] : c['tail'] + num_new] = write_data
-                c['tail'] += num_new
-                
-        finally:
-            c['lock'] = 0
-            c['write_queue'].task_done()
-            _checkCapacity(symbol, timeframe)
-            
-    threading.Thread(target=_writer_thread, daemon=True).start()
+    num_new = data.shape[0]
+
+    while c["lock"] != 0:
+        time.sleep(0.1)
+
+    c["lock"] = 1
+
+    try:
+        prevention_limit = config.OHLC_STORER_HOT_PREVENTION_LIMIT
+
+        while True:
+            current_tail = 0 if c["tail"] is None else c["tail"]
+
+            if current_tail + num_new <= prevention_limit:
+                break
+
+            c["lock"] = 0
+            time.sleep(0.5)
+
+            while c["lock"] != 0:
+                time.sleep(0.1)
+
+            c["lock"] = 1
+
+        if c["tail"] is None:
+            c["data"][:num_new] = data
+            c["tail"] = num_new
+        else:
+            c["data"][c["tail"]:c["tail"] + num_new] = data
+            c["tail"] += num_new
+
+    finally:
+        c["lock"] = 0
+
+    _checkCapacity(symbol, timeframe)

@@ -25,6 +25,10 @@ OHLC_MT5_BATCH = 1200
 
 
 
+
+#==========================================================================
+# BASE
+#==========================================================================
 # Timedelta for each extendFront call if not have data in database yet
 OHLC_1S_BASE_DEFAULT_TIME = 60 * 60 * 24 * 2 
 
@@ -32,15 +36,15 @@ OHLC_1S_BASE_DEFAULT_TIME = 60 * 60 * 24 * 2
 # The hightimeframe aggergater will be call every <OHLC_BATCH> candle
 OHLC_BATCH = 120
 
-
+# Number of requests for MT5 = <OHLC_BATCH> * <OHLC_MT5_EXTEND_RATIO>
+OHLC_MT5_EXTEND_RATIO = 20
 
 
 #==========================================================================
 # OHLC STORER
 #==========================================================================
-# Hot
 OHLC_STORER_HOT_LIMIT            = 1_000_000
-OHLC_STORER_HOT_PREVENTION_LIMIT = 1_001_000
+OHLC_STORER_HOT_PREVENTION_LIMIT = 1_010_000
 OHLC_STORER_HOT_WAIT_DURATION    = 1000 * 60 * 5  #5 min
 
 

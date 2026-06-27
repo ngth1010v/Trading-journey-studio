@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import threading
+import numpy as np
 import _logger as logger
 import config
 
 from base import _stager
-from _type import Ohlc
-import ohlcStorer._reader as _reader
-import ohlcStorer._writer as _writer
+import ohlcStorer
 
 # ============================================================================================================
 # CONSTANTS & HELPERS
@@ -53,6 +52,46 @@ def _timestamp_ceil(timestamp: int, timeframe: str) -> int:
 # ============================================================================================================
 # CORE WORKFLOW logic
 # ============================================================================================================
+def _build_ohlc_from_ohlc(start_batch_ts: int, batch_size: int, timeframe_step: int, batch_src: np.ndarray) -> np.ndarray:
+    """
+    Downsamples a higher-resolution source OHLC NumPy array into a lower-resolution target OHLC matrix.
+    Skips bars that contain no source metrics to save storage allocation space.
+    """
+    temp_list = []
+    j = 0
+    src_count = batch_src.shape[0]
+
+    for i in range(batch_size):
+        bar_t = start_batch_ts + i * timeframe_step
+        have_src = False
+        
+        # Temporary tracker fields: [t, o, h, l, c, v]
+        bar = [bar_t, 0, 0, 0, 0, 0]
+
+        while j < src_count and bar_t <= batch_src[j, 0] < bar_t + timeframe_step:
+            t, o, h, l, c, v = batch_src[j]
+            if not have_src:
+                bar[1] = o  # Open
+                bar[2] = h  # High
+                bar[3] = l  # Low
+                bar[4] = c  # Close
+                bar[5] = v  # Volume
+                have_src = True
+            else:
+                if h > bar[2]: bar[2] = h
+                if l < bar[3]: bar[3] = l
+                bar[4] = c
+                bar[5] += v
+            j += 1
+
+        if have_src:
+            temp_list.append(bar)
+
+    if not temp_list:
+        return np.empty((0, 6), dtype=np.int64)
+        
+    return np.array(temp_list, dtype=np.int64)
+
 def triggerNextTimeframe(symbol: str, timeframe: str):
     # Refresh stage boundaries
     stageFromTs = _stager.getFrom(timeframe, symbol)
@@ -69,6 +108,7 @@ def triggerNextTimeframe(symbol: str, timeframe: str):
             "symbol": symbol,
             "timestamp": stageToTs
         })
+
 
 def extendBack(symbol: str, timeframe: str) -> None:
     srcTimeframe = _get_src_timeframe(timeframe)
@@ -98,39 +138,15 @@ def extendBack(symbol: str, timeframe: str) -> None:
         endBatchTs = currentTs
         ohlcBatchSize = (endBatchTs - startBatchTs) // timeframeStep
         
-        # Get src
-        batchSrc = _reader.getOhlcs(symbol, srcTimeframe, startBatchTs, endBatchTs) or []
+        # Get src matrix
+        batchSrc = ohlcStorer.getRange(symbol, srcTimeframe, startBatchTs, endBatchTs)
         
-        # Build ohlc
-        batchOhlcs = []
-        j = 0
-        for i in range(ohlcBatchSize):
-            bar_t = startBatchTs + i * timeframeStep
-            bar = Ohlc(t=bar_t, o=0, h=0, l=0, c=0, v=0)
-            haveSrc = False
-            
-            while j < len(batchSrc) and bar.t <= batchSrc[j].t < bar.t + timeframeStep:
-                srcBar = batchSrc[j]
-                if not haveSrc:
-                    bar.o = srcBar.o
-                    bar.h = srcBar.h
-                    bar.l = srcBar.l
-                    bar.c = srcBar.c
-                    bar.v = srcBar.v
-                    haveSrc = True
-                else:
-                    bar.h = max(bar.h, srcBar.h)
-                    bar.l = min(bar.l, srcBar.l)
-                    bar.c = srcBar.c
-                    bar.v += srcBar.v
-                j += 1
-                
-            if haveSrc:
-                batchOhlcs.append(bar)
+        # Build lower resolution matrix via NumPy
+        batchOhlcs = _build_ohlc_from_ohlc(startBatchTs, ohlcBatchSize, timeframeStep, batchSrc)
 
         # Write
-        if batchOhlcs:
-            _writer.prependOhlcs(symbol, timeframe, batchOhlcs)
+        if batchOhlcs.size > 0:
+            ohlcStorer.prepend(symbol, timeframe, batchOhlcs)
             
         _stager.setFrom(timeframe, symbol, startBatchTs)
         triggerNextTimeframe(symbol, timeframe)
@@ -166,43 +182,18 @@ def extendFront(symbol: str, timeframe: str) -> None:
         endBatchTs = min(endTs, currentTs + config.OHLC_BATCH * timeframeStep)
         ohlcBatchSize = (endBatchTs - startBatchTs) // timeframeStep
         
-        # Get src
-        batchSrc = _reader.getOhlcs(symbol, srcTimeframe, startBatchTs, endBatchTs) or []
+        # Get src matrix
+        batchSrc = ohlcStorer.getRange(symbol, srcTimeframe, startBatchTs, endBatchTs)
         
-        # Build ohlc
-        batchOhlcs = []
-        j = 0
-        for i in range(ohlcBatchSize):
-            bar_t = startBatchTs + i * timeframeStep
-            bar = Ohlc(t=bar_t, o=0, h=0, l=0, c=0, v=0)
-            haveSrc = False
-            
-            while j < len(batchSrc) and bar.t <= batchSrc[j].t < bar.t + timeframeStep:
-                srcBar = batchSrc[j]
-                if not haveSrc:
-                    bar.o = srcBar.o
-                    bar.h = srcBar.h
-                    bar.l = srcBar.l
-                    bar.c = srcBar.c
-                    bar.v = srcBar.v
-                    haveSrc = True
-                else:
-                    bar.h = max(bar.h, srcBar.h)
-                    bar.l = min(bar.l, srcBar.l)
-                    bar.c = srcBar.c
-                    bar.v += srcBar.v
-                j += 1
-                
-            if haveSrc:
-                batchOhlcs.append(bar)
+        # Build lower resolution matrix via NumPy
+        batchOhlcs = _build_ohlc_from_ohlc(startBatchTs, ohlcBatchSize, timeframeStep, batchSrc)
 
         # Write
-        if batchOhlcs:
-            _writer.appendOhlcs(symbol, timeframe, batchOhlcs)
+        if batchOhlcs.size > 0:
+            ohlcStorer.append(symbol, timeframe, batchOhlcs)
             
         _stager.setTo(timeframe, symbol, endBatchTs)
         triggerNextTimeframe(symbol, timeframe)
-
 
         # Next loop
         currentTs = endBatchTs
@@ -252,13 +243,13 @@ def init(timeframe: str) -> None:
         logger.error(_SECTION, f"Invalid timeframe for init: {timeframe}. Must be one of {_VALID_INIT_TIMEFRAMES}")
         return
 
-    symbols = _reader.getAvailableSymbols()
-    for symbol in symbols:
-        first_ohlc = _reader.getFirstOhlc(symbol, timeframe)
-        last_ohlc = _reader.getLastOhlc(symbol, timeframe)
+    symbols_list = ohlcStorer.getAvailableSymbols()
+    for symbol in symbols_list:
+        first_ohlc = ohlcStorer.getFirst(symbol, timeframe)
+        last_ohlc = ohlcStorer.getLast(symbol, timeframe)
 
-        first_t = first_ohlc.t if first_ohlc else 0
-        last_t = (last_ohlc.t + TIMEFRAME_MAP[timeframe]) if last_ohlc else 0
+        first_t = int(first_ohlc[0, 0]) if first_ohlc.size > 0 else 0
+        last_t = (int(last_ohlc[0, 0]) + TIMEFRAME_MAP[timeframe]) if last_ohlc.size > 0 else 0
 
         _stager.setFrom(timeframe, symbol, first_t)
         _stager.setTo(timeframe, symbol, last_t)

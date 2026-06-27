@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
 from typing import Any, Iterable
+import numpy as np
 
-from _type import Ohlc
 import _logger as logger
 import ohlcStorer
 
@@ -32,44 +31,37 @@ def _parse_timestamp(raw_value: Any) -> int | None:
         return None
 
 
-def _ohlc_to_dict(item: Any) -> dict[str, Any]:
-    if item is None:
+def _np_row_to_dict(row: np.ndarray) -> dict[str, Any]:
+    if row is None or len(row) < 6:
         return {}
-
-    if isinstance(item, dict):
-        return dict(item)
-
-    if is_dataclass(item):
-        return asdict(item)
-
-    result: dict[str, Any] = {}
-    for key in ("t", "o", "h", "l", "c", "v"):
-        if hasattr(item, key):
-            result[key] = getattr(item, key)
-    return result
+    return {
+        "t": int(row[0]),
+        "o": float(row[1]) if isinstance(row[1], float) else int(row[1]),
+        "h": float(row[2]) if isinstance(row[2], float) else int(row[2]),
+        "l": float(row[3]) if isinstance(row[3], float) else int(row[3]),
+        "c": float(row[4]) if isinstance(row[4], float) else int(row[4]),
+        "v": float(row[5]) if isinstance(row[5], float) else int(row[5]),
+    }
 
 
-def _items_to_json(items: Iterable[Any]) -> list[dict[str, Any]]:
-    return [_ohlc_to_dict(item) for item in items]
-
-
-def _pick_price(item: Any) -> int | float | None:
-    for key in ("bid", "c", "o", "h", "l"):
-        if hasattr(item, key):
-            value = getattr(item, key)
-            if value is not None:
-                return value
-    if isinstance(item, dict):
-        for key in ("bid", "c", "o", "h", "l"):
-            value = item.get(key)
-            if value is not None:
-                return value
-    return None
+def _list_row_to_dict(row: list[int | float]) -> dict[str, Any]:
+    if not row or len(row) < 6:
+        return {}
+    return {
+        "t": int(row[0]),
+        "o": row[1],
+        "h": row[2],
+        "l": row[3],
+        "c": row[4],
+        "v": row[5],
+    }
 
 
 def _is_empty_result(result: Any) -> bool:
     if result is None:
         return True
+    if isinstance(result, np.ndarray):
+        return result.size == 0
     if isinstance(result, (list, tuple, set, dict)) and len(result) == 0:
         return True
     return False
@@ -128,17 +120,21 @@ def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
 
     try:
         if base_timeframe == timeframe:
-            result = ohlcStorer.getOhlcs(symbol, timeframe, from_ts, to_ts)
+            result = ohlcStorer.getRange(symbol, timeframe, from_ts, to_ts)
+            if _is_empty_result(result):
+                return _ok([])
+            return _ok([_np_row_to_dict(row) for row in result])
         else:
             periods = build_target_periods(from_ts, to_ts, timeframe)
             if not periods:
                 return _ok([])
-            result = ohlcStorer.aggregateOhlcs(symbol, base_timeframe, periods)
+            logger.debug(_SECTION, f"GET aggregate for {symbol}/{timeframe} from {symbol}/{base_timeframe}")
+            # aggregate returns list[list[int]] as per ohlcStorer definition
+            result = ohlcStorer.aggregate(symbol, base_timeframe, periods)
+            if _is_empty_result(result):
+                return _ok([])
+            return _ok([_list_row_to_dict(row) for row in result])
 
-        if _is_empty_result(result):
-            return _ok([])
-
-        return _ok(_items_to_json(result))
     except Exception as exc:
         logger.error(_SECTION, f"Failed to get OHLCs for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading OHLC data.", 500)
@@ -150,48 +146,51 @@ def get_last_ohlc(symbol: str, timeframe: str):
         return _error(f"Invalid timeframe: {timeframe}")
 
     try:
-        last_s1 = ohlcStorer.getLastOhlc(symbol, "1S")
-        if last_s1 is None:
+        last_s1 = ohlcStorer.getLast(symbol, "1S")
+        if _is_empty_result(last_s1):
             return _ok([])
 
-        last_ts = getattr(last_s1, "t", None)
-        if last_ts is None:
-            return _error("Invalid last 1S OHLC payload.")
+        # last_s1 is an [N, 6] array; grab the first matching newest bar
+        last_row = last_s1[0]
+        last_ts = int(last_row[0])
 
-        open_ts = _resolve_last_open_timestamp(timeframe, int(last_ts))
+        open_ts = _resolve_last_open_timestamp(timeframe, last_ts)
         if open_ts is None:
             return _error(f"Unable to resolve open timestamp for timeframe: {timeframe}")
 
-        periods = [(open_ts, int(last_ts))]
-        result = ohlcStorer.aggregateOhlcs(symbol, "1S", periods)
+        periods = [(open_ts, last_ts)]
+        result = ohlcStorer.aggregate(symbol, "1S", periods)
 
         if not _is_empty_result(result):
-            first = result[0]
-            payload = _ohlc_to_dict(first)
-            if payload:
-                return _ok(payload)
+            return _ok(_list_row_to_dict(result[0]))
 
-        price = _pick_price(last_s1)
-        if price is None:
-            return _ok([])
-
-        fallback = Ohlc(t=open_ts, o=price, h=price, l=price, c=price, v=0)
-        return _ok(_ohlc_to_dict(fallback))
+        # Fallback handling using elements from the extracted array row indices [1]=O, [2]=H, [3]=L, [4]=C
+        price = last_row[4]  # default fallback to Close price
+        fallback = {
+            "t": open_ts,
+            "o": price,
+            "h": price,
+            "l": price,
+            "c": price,
+            "v": 0,
+        }
+        return _ok(fallback)
     except Exception as exc:
         logger.error(_SECTION, f"Failed to get last OHLC for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading last OHLC.", 500)
     
+
 def get_first_ohlc(symbol: str, timeframe: str):
     timeframe = normalize_timeframe(timeframe)
     if not is_valid_timeframe(timeframe):
         return _error(f"Invalid timeframe: {timeframe}")
 
     try:
-        result = ohlcStorer.getFirstOhlc(symbol, timeframe)
-        if result is False or result is None:
+        result = ohlcStorer.getFirst(symbol, timeframe)
+        if _is_empty_result(result):
             return _ok([])
 
-        return _ok(_ohlc_to_dict(result))
+        return _ok(_np_row_to_dict(result[0]))
     except Exception as exc:
         logger.error(_SECTION, f"Failed to get first OHLC for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading first OHLC.", 500)

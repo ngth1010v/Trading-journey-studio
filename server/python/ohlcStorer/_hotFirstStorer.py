@@ -1,14 +1,14 @@
 import os
 import time
-import queue
 import threading
 import numpy as np
 
 import config
 import _logger
-from ohlcStorer import _coldStorer
-from ohlcStorer._utils import get_directory
+from . import _coldStorer
+from ._utils import get_directory
 
+_SECTION = "ohlcStorer/_hotFirstStorer"
 # Global Cache
 # cache[symbol][timeframe] = { openTimestamp, data, head, lock, write_queue }
 cache = {}
@@ -16,7 +16,6 @@ cache = {}
 _manager_alive = False
 _manager_thread = None
 _global_lock = threading.Lock()
-
 
 # ==============================================================================
 # HELPER FUNCTIONS
@@ -53,7 +52,7 @@ def _start(symbol: str, timeframe: str) -> None:
             "data": data,
             "head": head,
             "lock": 0,
-            "write_queue": queue.Queue()
+            "flushing": False
         }
 
 
@@ -87,13 +86,17 @@ def _end(symbol: str, timeframe: str) -> None:
 
 
 def _refresh(symbol: str, timeframe: str) -> dict:
-    """Ensures cache exists and updates the openTimestamp."""
+    need_start = False
+
     with _global_lock:
         if symbol not in cache or timeframe not in cache.get(symbol, {}):
-            _start(symbol, timeframe)
-            
+            need_start = True
+
+    if need_start:
+        _start(symbol, timeframe)
+
     c = cache[symbol][timeframe]
-    c['openTimestamp'] = int(time.time() * 1000)
+    c["openTimestamp"] = int(time.time() * 1000)
     return c
 
 
@@ -102,30 +105,36 @@ def _checkCapacity(symbol: str, timeframe: str) -> None:
     c = cache.get(symbol, {}).get(timeframe)
     if not c or c['head'] is None:
         return
+    if c["flushing"]:
+        return
         
     limit = config.OHLC_STORER_HOT_LIMIT
     prevention = config.OHLC_STORER_HOT_PREVENTION_LIMIT
     
     if (prevention - c['head'] >= limit):
+        c["flushing"] = True
         def _flush_thread():
-            # Flush the oldest <limit> bars (which are at the tail of the array)
-            cold_data = c['data'][-limit:].copy()
-            _coldStorer.write(symbol, timeframe, cold_data)
-            
-            while c['lock'] != 0:
-                time.sleep(0.5)
-            c['lock'] = 2
-            
-            # Shift the remaining active data to the end of the array to free up space at head
-            remaining_count = (prevention - c['head']) - limit
-            if remaining_count > 0:
-                new_head = prevention - remaining_count
-                c['data'][new_head:] = c['data'][c['head'] : -limit]
-                c['head'] = new_head
-            else:
-                c['head'] = None
-                
-            c['lock'] = 0
+            try:
+                # Flush the oldest <limit> bars (which are at the tail of the array)
+                cold_data = c['data'][-limit:].copy()
+                _coldStorer.write(symbol, timeframe, cold_data)
+
+                while c['lock'] != 0:
+                    time.sleep(0.5)
+                c['lock'] = 2
+
+                remaining_count = (prevention - c['head']) - limit
+                if remaining_count > 0:
+                    new_head = prevention - remaining_count
+                    c['data'][new_head:] = c['data'][c['head']:-limit]
+                    c['head'] = new_head
+                else:
+                    c['head'] = None
+
+                c['lock'] = 0
+
+            finally:
+                c["flushing"] = False
 
         threading.Thread(target=_flush_thread, daemon=True).start()
 
@@ -180,10 +189,11 @@ def shutdown() -> None:
 
 def getFirst(symbol: str, timeframe: str) -> np.ndarray | list:
     """Returns the single oldest active candle row."""
-    c = _refresh(symbol, timeframe)
+
+    c = _refresh(symbol, timeframe)    
     while c['lock'] == 2:
         time.sleep(0.1)
-        
+
     if c['head'] is None:
         return []
     return c['data'][c['head']].copy()
@@ -221,42 +231,40 @@ def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray 
 
 
 def prepend(symbol: str, timeframe: str, data: np.ndarray) -> None:
-    """Appends new data to the head (right to left) utilizing a FIFO queue system."""
+    """Synchronously prepends new data to the head."""
     c = _refresh(symbol, timeframe)
-    
-    # Enqueue data to guarantee writers are processed First-Come-First-Served
-    c['write_queue'].put(data)
-    
-    def _writer_thread():
-        # Pop the next payload from the queue
-        write_data = c['write_queue'].get()
-        num_new = write_data.shape[0]
-        
-        while c['lock'] != 0:
-            time.sleep(0.1)
-            
-        c['lock'] = 1
-        
-        try:
-            prevention = config.OHLC_STORER_HOT_PREVENTION_LIMIT
-            
-            # Wait for flush if we overflow (edge case defense)
-            while c['head'] is not None and (c['head'] - num_new < 0):
-                c['lock'] = 0
-                time.sleep(0.5) 
-                c['lock'] = 1
 
-            if c['head'] is None:
-                c['head'] = prevention - num_new
-                c['data'][c['head']:] = write_data
-            else:
-                new_head = c['head'] - num_new
-                c['data'][new_head : c['head']] = write_data
-                c['head'] = new_head
-                
-        finally:
-            c['lock'] = 0
-            c['write_queue'].task_done()
-            _checkCapacity(symbol, timeframe)
-            
-    threading.Thread(target=_writer_thread, daemon=True).start()
+    num_new = data.shape[0]
+
+    while c["lock"] != 0:
+        time.sleep(0.1)
+
+    c["lock"] = 1
+
+    try:
+        prevention = config.OHLC_STORER_HOT_PREVENTION_LIMIT
+
+        while True:
+            if c["head"] is None or c["head"] - num_new >= 0:
+                break
+
+            c["lock"] = 0
+            time.sleep(0.5)
+
+            while c["lock"] != 0:
+                time.sleep(0.1)
+
+            c["lock"] = 1
+
+        if c["head"] is None:
+            c["head"] = prevention - num_new
+            c["data"][c["head"]:] = data
+        else:
+            new_head = c["head"] - num_new
+            c["data"][new_head:c["head"]] = data
+            c["head"] = new_head
+
+    finally:
+        c["lock"] = 0
+
+    _checkCapacity(symbol, timeframe)

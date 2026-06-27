@@ -17,6 +17,7 @@ from ohlc import bp as ohlc_bp
 import base
 import _logger as logger
 import symbols
+import ohlcStorer 
 
 app = Flask(__name__)
 
@@ -106,6 +107,7 @@ def shutdown():
         daemon=True,
     ).start()
 
+    ohlcStorer.shutdown()
     mt5.shutdown()
     logger.info("main.py", "MT5 connection closed and application shutting down.")
 
@@ -123,6 +125,7 @@ def main() -> None:
         logger.error("main.py", "Shutting down server startup due to MT5 initialization failure.")
         return
 
+    ohlcStorer.init()
     symbols.symbols.init()
     base.base.init()
 
