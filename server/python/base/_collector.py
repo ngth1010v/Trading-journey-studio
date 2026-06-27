@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import MetaTrader5 as mt5
+import numpy as np
 
 import _logger as logger
 from ._type import Tick
@@ -74,77 +75,33 @@ def _utc_ms_to_mt5_ms(utc_ms: int) -> int:
     return int(utc_ms + _ensure_offset())
 
 
-def _mt5_ms_to_utc_ms(mt5_ms: Any) -> int:
-    return int(_safe_int(mt5_ms)) - _ensure_offset()
-
-
-def _raw_tick_to_tick(raw_tick: Any, point: int) -> Tick | None:
-    try:
-        if hasattr(raw_tick, "dtype") and getattr(raw_tick.dtype, "names", None):
-            names = raw_tick.dtype.names or ()
-            timestamp = raw_tick["time_msc"] if "time_msc" in names else None
-            if timestamp is None:
-                timestamp = _safe_int(raw_tick["time"]) * 1000
-
-            bid = raw_tick["bid"] if "bid" in names else None
-            ask = raw_tick["ask"] if "ask" in names else None
-            if bid is None or ask is None:
-                return None
-
-            volume = 0
-            if "real_volume" in names:
-                volume = raw_tick["real_volume"]
-            elif "volume" in names:
-                volume = raw_tick["volume"]
-        elif isinstance(raw_tick, dict):
-            timestamp = raw_tick.get("time_msc")
-            if timestamp is None:
-                timestamp = _safe_int(raw_tick.get("time", 0)) * 1000
-
-            bid = raw_tick.get("bid")
-            ask = raw_tick.get("ask")
-            if bid is None or ask is None:
-                return None
-
-            volume = raw_tick.get("real_volume", raw_tick.get("volume", 0))
-        else:
-            timestamp = getattr(raw_tick, "time_msc", None)
-            if timestamp is None:
-                timestamp = _safe_int(getattr(raw_tick, "time", 0)) * 1000
-
-            bid = getattr(raw_tick, "bid", None)
-            ask = getattr(raw_tick, "ask", None)
-            if bid is None or ask is None:
-                return None
-
-            volume = getattr(raw_tick, "real_volume", getattr(raw_tick, "volume", 0))
-
-        timestamp = _mt5_ms_to_utc_ms(timestamp)
-
-        return Tick(
-            t=int(timestamp),
-            b=int(round(float(bid) * point)),
-            a=int(round(float(ask) * point)),
-            v=_safe_int(volume),
-        )
-    except Exception as exc:
-        logger.error(_SECTION, f"Failed to convert raw tick: {exc}")
-        return None
-
-
-def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> list[Tick]:
+def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.ndarray:
     """
-    Return a list of UTC ticks that satisfy fromTs <= tick.t < toTs.
+    Return numpy array:
+        [
+            [t:int64, b:int64, v:int64],
+            ...
+        ]
+
+    where:
+        t = UTC timestamp (ms)
+        b = bid * point
+        v = real volume
     """
+    empty = np.empty((0, 3), dtype=np.int64)
+
     try:
         symbol = (symbol or "").strip()
         if not symbol:
             logger.warning(_SECTION, "Empty symbol passed to fetchTicksFromMt5().")
-            return []
+            return empty
 
         if fromTs <= 0 or toTs <= 0:
-            logger.warning(_SECTION, f"Invalid range for {symbol!r}: fromTs={fromTs}, toTs={toTs}")
-            return []
+            logger.warning(
+                _SECTION,
+                f"Invalid range for {symbol!r}: fromTs={fromTs}, toTs={toTs}",
+            )
+            return empty
 
         if fromTs > toTs:
             fromTs, toTs = toTs, fromTs
@@ -155,19 +112,52 @@ def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> list[T
             _ms_to_dt(_utc_ms_to_mt5_ms(toTs)),
             mt5.COPY_TICKS_ALL,
         )
+
         if raw is None or len(raw) == 0:
-            return []
+            return empty
 
-        out: list[Tick] = []
-        for item in raw:
-            tick = _raw_tick_to_tick(item, point)
-            if tick is None:
-                continue
-            if fromTs <= tick.t < toTs:
-                out.append(tick)
+        names = raw.dtype.names or ()
 
-        out.sort(key=lambda t: t.t)
+        # timestamp
+        if "time_msc" in names:
+            t = raw["time_msc"].astype(np.int64)
+        else:
+            t = raw["time"].astype(np.int64) * 1000
+
+        t -= _ensure_offset()
+
+        # bid
+        b = np.rint(raw["bid"].astype(np.float64) * point).astype(np.int64)
+
+        # volume
+        if "real_volume" in names:
+            v = raw["real_volume"].astype(np.int64)
+        elif "volume" in names:
+            v = raw["volume"].astype(np.int64)
+        else:
+            v = np.zeros(len(raw), dtype=np.int64)
+
+        # filter: fromTs <= t < toTs
+        mask = (t >= fromTs) & (t < toTs)
+
+        if not np.any(mask):
+            return empty
+
+        out = np.empty((mask.sum(), 3), dtype=np.int64)
+        out[:, 0] = t[mask]
+        out[:, 1] = b[mask]
+        out[:, 2] = v[mask]
+
+        # MT5 thường đã trả theo thời gian, nhưng đảm bảo chắc chắn
+        if len(out) > 1:
+            order = np.argsort(out[:, 0], kind="stable")
+            out = out[order]
+
         return out
+
     except Exception as exc:
-        logger.error(_SECTION, f"fetchTicksFromMt5({symbol!r}, {point}, {fromTs}, {toTs}) failed: {exc}")
-        return []
+        logger.error(
+            _SECTION,
+            f"fetchTicksFromMt5({symbol!r}, {point}, {fromTs}, {toTs}) failed: {exc}",
+        )
+        return empty

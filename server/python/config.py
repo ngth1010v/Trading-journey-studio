@@ -7,25 +7,6 @@ MT5_INIT_RETRY = 3
 
 DATABASE_PATH = Path(__file__).parent.parent.resolve() / "database"
 
-
-# old config
-OHLC_BASE_BATCH_LIMIT           = 1200              # 1S ohlcs
-OHLC_BASE_DEFAULT_LIMIT         = 60 * 60 * 24      # 1S ohlcs
-OHLC_BATCH_LIMIT                = 1000              # ohlcs         
-
-
-
-# Auto split file into .paquet every <OHLC_FILE_LIMIT> bar
-OHLC_FILE_LIMIT = 2000000 
-
-# Number of 1S-candles for each call to copy_ticks_range from mt5
-OHLC_MT5_BATCH = 1200
-
-
-
-
-
-
 #==========================================================================
 # BASE
 #==========================================================================
@@ -36,8 +17,8 @@ OHLC_1S_BASE_DEFAULT_TIME = 60 * 60 * 24 * 2
 # The hightimeframe aggergater will be call every <OHLC_BATCH> candle
 OHLC_BATCH = 120
 
-# Number of requests for MT5 = <OHLC_BATCH> * <OHLC_MT5_EXTEND_RATIO>
-OHLC_MT5_EXTEND_RATIO = 20
+# Number of requests for MT5 = <OHLC_BATCH> * <OHLC_MT5_EXTEND_PART>
+OHLC_MT5_EXTEND_PART = 20
 
 
 #==========================================================================

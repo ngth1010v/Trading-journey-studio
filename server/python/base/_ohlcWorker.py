@@ -70,18 +70,19 @@ def _build_ohlc_from_ohlc(start_batch_ts: int, batch_size: int, timeframe_step: 
 
         while j < src_count and bar_t <= batch_src[j, 0] < bar_t + timeframe_step:
             t, o, h, l, c, v = batch_src[j]
-            if not have_src:
-                bar[1] = o  # Open
-                bar[2] = h  # High
-                bar[3] = l  # Low
-                bar[4] = c  # Close
-                bar[5] = v  # Volume
-                have_src = True
-            else:
-                if h > bar[2]: bar[2] = h
-                if l < bar[3]: bar[3] = l
-                bar[4] = c
-                bar[5] += v
+            if (not (o == h == l == c == v == 0)):
+                if not have_src:
+                    bar[1] = o  # Open
+                    bar[2] = h  # High
+                    bar[3] = l  # Low
+                    bar[4] = c  # Close
+                    bar[5] = v  # Volume
+                    have_src = True
+                else:
+                    if h > bar[2]: bar[2] = h
+                    if l < bar[3]: bar[3] = l
+                    bar[4] = c
+                    bar[5] += v
             j += 1
 
         if have_src:

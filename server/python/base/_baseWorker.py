@@ -43,7 +43,7 @@ def _build_ohlc_from_ticks(start_batch_ts: int, batch_size: int, batch_ticks) ->
     Each row matches the structure: [t, o, h, l, c, v]
     """
     ohlc_matrix = np.zeros((batch_size, 6), dtype=np.int64)
-    j = 0
+    j = np.searchsorted(batch_ticks[:, 0], start_batch_ts, side="left")
     tick_count = len(batch_ticks)
 
     for i in range(batch_size):
@@ -51,20 +51,20 @@ def _build_ohlc_from_ticks(start_batch_ts: int, batch_size: int, batch_ticks) ->
         ohlc_matrix[i, 0] = bar_t
         have_tick = False
 
-        while j < tick_count and bar_t <= batch_ticks[j].t < bar_t + 1000:
-            tick = batch_ticks[j]
+        while j < tick_count and bar_t <= batch_ticks[j][0] < bar_t + 1000:
+            tickPrice = batch_ticks[j][1]
             if not have_tick:
-                ohlc_matrix[i, 1] = tick.b  # Open
-                ohlc_matrix[i, 2] = tick.b  # High
-                ohlc_matrix[i, 3] = tick.b  # Low
-                ohlc_matrix[i, 4] = tick.b  # Close
-                ohlc_matrix[i, 5] = tick.v  # Volume
+                ohlc_matrix[i, 1] = tickPrice  # Open
+                ohlc_matrix[i, 2] = tickPrice  # High
+                ohlc_matrix[i, 3] = tickPrice  # Low
+                ohlc_matrix[i, 4] = tickPrice  # Close
+                ohlc_matrix[i, 5] = batch_ticks[j][2]  # Volume
                 have_tick = True
             else:
-                if tick.b > ohlc_matrix[i, 2]: ohlc_matrix[i, 2] = tick.b
-                if tick.b < ohlc_matrix[i, 3]: ohlc_matrix[i, 3] = tick.b
-                ohlc_matrix[i, 4] = tick.b
-                ohlc_matrix[i, 5] += tick.v
+                if tickPrice > ohlc_matrix[i, 2]: ohlc_matrix[i, 2] = tickPrice
+                if tickPrice < ohlc_matrix[i, 3]: ohlc_matrix[i, 3] = tickPrice
+                ohlc_matrix[i, 4] = tickPrice
+                ohlc_matrix[i, 5] += batch_ticks[j][2]
             j += 1
 
     return ohlc_matrix
@@ -96,15 +96,22 @@ def extendBack(symbol: str, fromTs: int) -> None:
     total = max(0, (endTs - startTs) // (config.OHLC_BATCH * 1000) + 1)
     pbar = tqdm(total=total, desc=f"{symbol} Back", unit="batch")
 
-    currentTs = endTs
+    batchTick         = None
+    unsolvedTickPart  = 0
 
+    currentTs = endTs
     while startTs <= currentTs:
+
         # Prepare
         startBatchTs = currentTs - config.OHLC_BATCH * 1000
-        endBatchTs = currentTs
+        endBatchTs   = currentTs
 
         # Get ticks
-        batchTick = _collector.fetchTicksFromMt5(symbol, point, startBatchTs, endBatchTs)
+        if (unsolvedTickPart == 0):
+            endTickBatchTs   = endBatchTs
+            startTickBatchTs = max(startTs, endTickBatchTs - config.OHLC_BATCH * config.OHLC_MT5_EXTEND_PART * 1000)
+            batchTick = _collector.fetchTicksFromMt5(symbol, point, startTickBatchTs, endTickBatchTs)
+            unsolvedTickPart = config.OHLC_MT5_EXTEND_PART
 
         # Build ohlc matrix via NumPy
         batchOhlcs = _build_ohlc_from_ticks(startBatchTs, config.OHLC_BATCH, batchTick)
@@ -120,6 +127,7 @@ def extendBack(symbol: str, fromTs: int) -> None:
 
         # Next loop
         currentTs = startBatchTs
+        unsolvedTickPart -= 1
 
     pbar.close()
 
@@ -138,6 +146,9 @@ def extendFront(symbol: str) -> None:
     total = max(0, (endTs - startTs + config.OHLC_BATCH * 1000 - 1) // (config.OHLC_BATCH * 1000))
     pbar = tqdm(total=total, desc=f"{symbol} Front", unit="batch")
 
+    batchTick = None
+    unsolvedTickPart = 0
+
     currentTs = startTs
 
     while currentTs < endTs:
@@ -150,7 +161,11 @@ def extendFront(symbol: str) -> None:
             break
 
         # Get ticks
-        batchTick = _collector.fetchTicksFromMt5(symbol, point, startBatchTs, endBatchTs)
+        if unsolvedTickPart == 0:
+            startTickBatchTs = startBatchTs
+            endTickBatchTs = min( endTs, startTickBatchTs + config.OHLC_BATCH * config.OHLC_MT5_EXTEND_PART * 1000)
+            batchTick = _collector.fetchTicksFromMt5( symbol, point, startTickBatchTs, endTickBatchTs )
+            unsolvedTickPart = config.OHLC_MT5_EXTEND_PART
 
         # Build ohlc matrix via NumPy
         batchOhlcs = _build_ohlc_from_ticks(startBatchTs, ohlcBatchSize, batchTick)
@@ -166,6 +181,7 @@ def extendFront(symbol: str) -> None:
 
         # Next loop
         currentTs = endBatchTs
+        unsolvedTickPart -= 1
 
     pbar.close()
 
