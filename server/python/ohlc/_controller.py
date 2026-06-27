@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 import numpy as np
+import struct
 
 import _logger as logger
 import ohlcStorer
@@ -99,6 +100,33 @@ def _resolve_last_open_timestamp(target_timeframe: str, last_ts: int) -> int | N
         return start_of_year_utc(last_ts)
     return None
 
+def _build_bin_from_numpy(data: np.ndarray) -> bytes:
+    """
+    Binary layout:
+
+    int64 count
+    int64[count] t
+    int64[count] o
+    int64[count] h
+    int64[count] l
+    int64[count] c
+    int64[count] v
+    """
+    data = np.asarray(data, dtype=np.int64)
+
+    count = data.shape[0]
+
+    parts = [
+        struct.pack("<q", count),
+    ]
+
+    for col in range(6):
+        parts.append(
+            np.ascontiguousarray(data[:, col]).tobytes()
+        )
+
+    return b"".join(parts)
+
 
 def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
     timeframe = normalize_timeframe(timeframe)
@@ -137,6 +165,52 @@ def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
 
     except Exception as exc:
         logger.error(_SECTION, f"Failed to get OHLCs for {symbol}/{timeframe}: {exc}")
+        return _error("Internal error while loading OHLC data.", 500)
+    
+def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
+    timeframe = normalize_timeframe(timeframe)
+
+    if not is_valid_timeframe(timeframe):
+        return _error(f"Invalid timeframe: {timeframe}")
+
+    from_ts = _parse_timestamp(from_ts_raw)
+    to_ts = _parse_timestamp(to_ts_raw)
+
+    if from_ts is None or to_ts is None:
+        return _error("fromTs and toTs are required integer timestamps.")
+
+    if from_ts < 0 or to_ts < 0:
+        return _error("fromTs and toTs must be non-negative.")
+
+    if to_ts <= from_ts:
+        return _error("toTs must be greater than fromTs.")
+
+    base_timeframe = get_base_timeframe(timeframe)
+
+    if base_timeframe is None:
+        return _error(f"Unsupported timeframe: {timeframe}")
+
+    try:
+        if base_timeframe != timeframe:
+            return _error("Binary API currently supports only base timeframes.")
+
+        result = ohlcStorer.getRange(
+            symbol,
+            timeframe,
+            from_ts,
+            to_ts,
+        )
+
+        if _is_empty_result(result):
+            return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+
+        return _ok(_build_bin_from_numpy(result))
+
+    except Exception as exc:
+        logger.error(
+            _SECTION,
+            f"Failed to get binary OHLCs for {symbol}/{timeframe}: {exc}",
+        )
         return _error("Internal error while loading OHLC data.", 500)
 
 
@@ -194,12 +268,3 @@ def get_first_ohlc(symbol: str, timeframe: str):
     except Exception as exc:
         logger.error(_SECTION, f"Failed to get first OHLC for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading first OHLC.", 500)
-
-
-def shutdown_server():
-    logger.info(_SECTION, "Shutdown requested.")
-    try:
-        logger.reset()
-    except Exception:
-        pass
-    return True

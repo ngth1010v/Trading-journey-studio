@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 
 import _logger as logger
 
-from ._controller import get_first_ohlc, get_last_ohlc, get_ohlcs, shutdown_server
+from ._controller import get_first_ohlc, get_last_ohlc, get_ohlcs, get_ohlcs_bin
 
 _SECTION = "ohlc/ohlc.py"
 
@@ -24,6 +24,22 @@ def getData(symbol: str, timeframe: str):
     payload, code = get_ohlcs(symbol, timeframe, from_ts, to_ts)
     return jsonify(payload), code
 
+@bp.route("/<symbol>/<timeframe>/bin", methods=["GET"])
+def getDataBin(symbol: str, timeframe: str):
+    from_ts = request.args.get("fromTs")
+    to_ts = request.args.get("toTs")
+
+    payload, code = get_ohlcs_bin(symbol, timeframe, from_ts, to_ts)
+
+    if code != 200:
+        return jsonify(payload), code
+
+    return Response(
+        payload,
+        status=200,
+        mimetype="application/octet-stream",
+    )
+
 
 @bp.route("/<symbol>/<timeframe>/last", methods=["GET"])
 def getLast(symbol: str, timeframe: str):
@@ -34,3 +50,4 @@ def getLast(symbol: str, timeframe: str):
 def getFirst(symbol: str, timeframe: str):
     payload, code = get_first_ohlc(symbol, timeframe)
     return jsonify(payload), code
+
