@@ -50,11 +50,11 @@ def _list_row_to_dict(row: list[int | float]) -> dict[str, Any]:
         return {}
     return {
         "t": int(row[0]),
-        "o": row[1],
-        "h": row[2],
-        "l": row[3],
-        "c": row[4],
-        "v": row[5],
+        "o": int(row[1]),
+        "h": int(row[2]),
+        "l": int(row[3]),
+        "c": int(row[4]),
+        "v": int(row[5]),
     }
 
 
@@ -246,11 +246,14 @@ def get_last_ohlc(symbol: str, timeframe: str):
         if open_ts is None:
             return _error(f"Unable to resolve open timestamp for timeframe: {timeframe}")
 
-        periods = [(open_ts, last_ts)]
+        periods = [(open_ts, last_ts + 1000)]
         result = ohlcStorer.aggregate(symbol, "1S", periods)
 
         if not _is_empty_result(result):
-            return _ok(_list_row_to_dict(result[0]))
+            result = _list_row_to_dict(result[0])
+            return _ok(result)
+        
+
 
         # Fallback handling using elements from the extracted array row indices [1]=O, [2]=H, [3]=L, [4]=C
         price = last_row[4]  # default fallback to Close price
@@ -267,18 +270,3 @@ def get_last_ohlc(symbol: str, timeframe: str):
         logger.error(_SECTION, f"Failed to get last OHLC for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading last OHLC.", 500)
     
-
-def get_first_ohlc(symbol: str, timeframe: str):
-    timeframe = normalize_timeframe(timeframe)
-    if not is_valid_timeframe(timeframe):
-        return _error(f"Invalid timeframe: {timeframe}")
-
-    try:
-        result = ohlcStorer.getFirst(symbol, timeframe)
-        if _is_empty_result(result):
-            return _ok([])
-
-        return _ok(_np_row_to_dict(result[0]))
-    except Exception as exc:
-        logger.error(_SECTION, f"Failed to get first OHLC for {symbol}/{timeframe}: {exc}")
-        return _error("Internal error while loading first OHLC.", 500)

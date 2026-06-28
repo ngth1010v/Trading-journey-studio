@@ -200,17 +200,18 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
             # Accumulate values falling neatly within the explicit period frame bounds
             while j < src_count and period_from <= source_rows[j, 0] < period_to:
                 t, o, h, l, c, v = source_rows[j]
-                if matched_count == 0:
-                    bar[1] = int(o)  # Open
-                    bar[2] = int(h)  # High
-                    bar[3] = int(l)  # Low
-                    bar[4] = int(c)  # Close
-                    bar[5] = int(v)  # Volume
-                else:
-                    if h > bar[2]: bar[2] = int(h)
-                    if l < bar[3]: bar[3] = int(l)
-                    bar[4] = int(c)
-                    bar[5] += int(v)
+                if (not (o == h == l == c == v == 0)):
+                    if matched_count == 0:
+                        bar[1] = int(o)  # Open
+                        bar[2] = int(h)  # High
+                        bar[3] = int(l)  # Low
+                        bar[4] = int(c)  # Close
+                        bar[5] = int(v)  # Volume
+                    else:
+                        if h > bar[2]: bar[2] = int(h)
+                        if l < bar[3]: bar[3] = int(l)
+                        bar[4] = int(c)
+                        bar[5] += int(v)
 
                 matched_count += 1
                 j += 1

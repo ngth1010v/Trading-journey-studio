@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request, Response, make_response
 
 import _logger as logger
 
-from ._controller import get_first_ohlc, get_last_ohlc, get_ohlcs, get_ohlcs_bin
+from ._controller import get_last_ohlc, get_ohlcs, get_ohlcs_bin
 
 _SECTION = "ohlc/ohlc.py"
 
@@ -70,9 +70,3 @@ def getDataBin(symbol: str, timeframe: str):
 def getLast(symbol: str, timeframe: str):
     payload, code = get_last_ohlc(symbol, timeframe)
     return jsonify(payload), code
-
-@bp.route("/<symbol>/<timeframe>/first", methods=["GET"])
-def getFirst(symbol: str, timeframe: str):
-    payload, code = get_first_ohlc(symbol, timeframe)
-    return jsonify(payload), code
-
