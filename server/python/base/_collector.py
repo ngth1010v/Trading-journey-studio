@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import MetaTrader5 as mt5
 import numpy as np
 
 import _logger as logger
+import config
 from ._type import Tick
 
 _SECTION = "base/_collector.py"
 
-_MT5_SERVER_OFFSET_MS: int | None = None
+# Lưu offset theo giờ, mặc định ban đầu là 0
+_MT5_SERVER_OFFSET_HOURS: int = 0
+_IS_INITIALIZED: bool = False
 
 
 def _ms_to_dt(ts_ms: int) -> datetime:
@@ -25,16 +30,22 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
-def init() -> int:
+def init() -> bool:
     """
-    Cache the server-vs-UTC offset in milliseconds.
-
-    The result is best-effort. If it cannot be determined, 0 is used.
+    Initialize and cache the server-vs-UTC offset in hours.
+    
+    Returns:
+        bool: True if initialization was successful (or fallback file read succeeded),
+              False if market is closed and no setup file exists.
     """
-    global _MT5_SERVER_OFFSET_MS
+    global _MT5_SERVER_OFFSET_HOURS, _IS_INITIALIZED
 
-    if _MT5_SERVER_OFFSET_MS is not None:
-        return _MT5_SERVER_OFFSET_MS
+    if _IS_INITIALIZED:
+        return True
+
+    # Xác định đường dẫn file serverInfo.json
+    db_path = Path(config.DATABASE_PATH)
+    file_path = db_path / "serverInfo.json"
 
     try:
         candidates = mt5.symbols_get() or []
@@ -46,33 +57,87 @@ def init() -> int:
                 break
 
         if not probe_symbol:
-            _MT5_SERVER_OFFSET_MS = 0
-            logger.warning(_SECTION, "No probe symbol found while initializing server offset. Using 0 ms.")
-            return 0
+            logger.warning(_SECTION, "No probe symbol found while initializing server offset.")
+            tick = None
+        else:
+            tick = mt5.symbol_info_tick(probe_symbol)
 
-        tick = mt5.symbol_info_tick(probe_symbol)
         if tick is None:
-            _MT5_SERVER_OFFSET_MS = 0
-            logger.warning(_SECTION, f"Could not read MT5 tick for {probe_symbol!r}. Using 0 ms.")
-            return 0
+            logger.warning(_SECTION, f"Could not read MT5 tick for {probe_symbol!r}. Market might be closed.")
+            # Coi như market đang close -> Chuyển sang nhánh xử lý abs(delta) > 20 phút
+            return _handle_market_closed(file_path)
 
+        # Lấy timestamp giờ UTC và server (ms)
         utc_now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         server_now_ms = _safe_int(getattr(tick, "time_msc", 0))
-        _MT5_SERVER_OFFSET_MS = server_now_ms - utc_now_ms
+        
+        delta_ms = server_now_ms - utc_now_ms
+        abs_delta_minutes = abs(delta_ms) / (1000 * 60)
 
-        return _MT5_SERVER_OFFSET_MS
+        # NẾU ABS(DELTA) <= 20 PHÚT
+        if abs_delta_minutes <= 20:
+            # Round delta theo giờ
+            offset_hours = int(round(delta_ms / (1000 * 60 * 60)))
+            _MT5_SERVER_OFFSET_HOURS = offset_hours
+            
+            # Ghi offset xuống file json
+            db_path.mkdir(parents=True, exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump({"serverUtc": offset_hours}, f, indent=4)
+                
+            _IS_INITIALIZED = True
+            return True
+            
+        # NẾU ABS(DELTA) > 20 PHÚT -> Market đang close
+        else:
+            return _handle_market_closed(file_path)
+
     except Exception as exc:
-        _MT5_SERVER_OFFSET_MS = 0
-        logger.warning(_SECTION, f"Failed to initialize server offset: {exc}. Using 0 ms.")
-        return 0
+        logger.error(_SECTION, f"Exception during init(): {exc}. Forcing market-closed fallback logic.")
+        return _handle_market_closed(file_path)
 
 
-def _ensure_offset() -> int:
-    return init()
+def _handle_market_closed(file_path: Path) -> bool:
+    """Xử lý nhánh logic khi Market Close hoặc không lấy được Tick realtime"""
+    global _MT5_SERVER_OFFSET_HOURS, _IS_INITIALIZED
+
+    if file_path.exists():
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                _MT5_SERVER_OFFSET_HOURS = int(data.get("serverUtc", 0))
+            logger.warning(_SECTION, f"Market closed. Loaded existing offset from file: {_MT5_SERVER_OFFSET_HOURS} hours.")
+            _IS_INITIALIZED = True
+            return True
+        except Exception as exc:
+            logger.error(_SECTION, f"Failed to read existing config file: {exc}")
+
+    # Nếu không có file (hoặc file lỗi nát không đọc được)
+    try:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump({"serverUtc": 0}, f, indent=4)
+    except Exception as exc:
+        logger.error(_SECTION, f"Could not create default file: {exc}")
+
+    _MT5_SERVER_OFFSET_HOURS = 0  # Coi offset mặc định là 0h để chạy tiếp khi fetch
+    logger.error(_SECTION, "Market closed and no valid serverInfo.json found. Created default file with serverUtc: 0.")
+    
+    # Đánh dấu đã init (dù thất bại) để không bị lặp lại logic ghi/đọc file này ở các vòng gọi sau
+    _IS_INITIALIZED = True 
+    return False
+
+
+def _get_offset_ms() -> int:
+    """Helper chuyển đổi offset giờ hiện tại sang mili giây dùng cho fetch"""
+    # Đảm bảo đã chạy qua logic init ít nhất 1 lần
+    if not _IS_INITIALIZED:
+        init()
+    return _MT5_SERVER_OFFSET_HOURS * 60 * 60 * 1000
 
 
 def _utc_ms_to_mt5_ms(utc_ms: int) -> int:
-    return int(utc_ms + _ensure_offset())
+    return int(utc_ms + _get_offset_ms())
 
 
 def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.ndarray:
@@ -106,10 +171,12 @@ def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.nda
         if fromTs > toTs:
             fromTs, toTs = toTs, fromTs
 
+        offset_ms = _get_offset_ms()
+
         raw = mt5.copy_ticks_range(
             symbol,
-            _ms_to_dt(_utc_ms_to_mt5_ms(fromTs)),
-            _ms_to_dt(_utc_ms_to_mt5_ms(toTs)),
+            _ms_to_dt(fromTs + offset_ms),
+            _ms_to_dt(toTs + offset_ms),
             mt5.COPY_TICKS_ALL,
         )
 
@@ -124,7 +191,7 @@ def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.nda
         else:
             t = raw["time"].astype(np.int64) * 1000
 
-        t -= _ensure_offset()
+        t -= offset_ms
 
         # bid
         b = np.rint(raw["bid"].astype(np.float64) * point).astype(np.int64)
