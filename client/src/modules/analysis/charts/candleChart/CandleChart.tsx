@@ -10,12 +10,12 @@ import useAxes from './hooks/useAxes';
 import useAxesController from './hooks/useAxesController';
 
 
-const DEFAULT_FROMTS = 1780185600000
-const DEFAULT_TOTS   = 1781222400000
+const DEFAULT_FROMTS = 1782432000000
+const DEFAULT_TOTS   = 1782439200000
 
 const DEFAULT_DATA = {
   symbol: "NAS100",
-  timeframe: "1H",
+  timeframe: "1M",
   realtime: true,
   fromTs: DEFAULT_FROMTS,
   toTs:   DEFAULT_TOTS
@@ -65,8 +65,8 @@ export default function CandleChart() {
     //==============================================================
     await candleData.setSrc(DEFAULT_DATA.symbol, DEFAULT_DATA.timeframe);
     await candleData.setRange(DEFAULT_DATA.fromTs, DEFAULT_DATA.toTs);
-    candleData.setRealtime(false)
-    console.log(candleData.getBinRange(0, candleData.getSize()))
+    candleData.setRealtime(true)
+    
       
 
     //==============================================================

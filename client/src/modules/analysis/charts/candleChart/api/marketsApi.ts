@@ -166,18 +166,6 @@ async function getLast(
 }
 
 /**
- * GET /api/markets/:symbol/:timeframe/first
- */
-async function getFirst(
-  symbol: string,
-  timeframe: string,
-): Promise<Ohlc> {
-  return request<Ohlc>(
-    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/first`,
-  );
-}
-
-/**
  * GET /api/markets/:symbol/extend/:timestamp
  */
 async function callExtend(
@@ -194,6 +182,5 @@ export const marketApi = {
   getSymbol,
   getRange,
   getLast,
-  getFirst,
   callExtend,
 };

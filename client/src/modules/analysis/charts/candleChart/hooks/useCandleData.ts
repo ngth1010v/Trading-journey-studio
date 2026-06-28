@@ -90,6 +90,8 @@ export default function useCandleData(): CandleData {
       const fromTs = state.current._fromTs;
       const toTs = state.current._toTs;
 
+      // console.log(newLast)
+
       // Conditional range data sync check
       if (
         currentLast &&
@@ -104,12 +106,16 @@ export default function useCandleData(): CandleData {
 
       state.current._lastOhlc = newLast;
       state.current.onLastDataChangeListeners.forEach((cb) => cb());
+
+      if (state.current._symbol)
+        marketApi.callExtend(state.current._symbol, Date.now())
     } catch (err) {
       console.error("Realtime interval operation processing exception caught:", err);
     } finally {
       // Enqueue next tick recursive interval
       if (state.current._realtimeEnable) {
-        state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 500);
+        // state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 500);
+        state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 1000);
       }
     }
   };
@@ -178,6 +184,8 @@ export default function useCandleData(): CandleData {
 
         state.current._cache = predata;
         state.current.onDataChangeListeners.forEach((cb) => cb());
+
+        
       } catch (err) {
         throwAppError("CANDLE_DATA_ERROR", err instanceof Error ? err.message : String(err));
       }
@@ -208,8 +216,61 @@ export default function useCandleData(): CandleData {
     },
 
     getRemainTime(): string {
-      return "---";
-    },
+        const tf = state.current._timeframe;
+        if (!tf) return "00:00:00";
+
+        const match = tf.match(/^(\d+)([S|M|H|D|W|MN|Y])$/);
+        if (!match) return "00:00:00";
+
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+        const now = Date.now(); // UTC timestamp theo hệ thống (ms)
+
+        let diff = 0; // ms remaining
+
+        if (["S", "M", "H", "D"].includes(unit)) {
+          let unitMs = 1000;
+          if (unit === "M") unitMs *= 60;
+          if (unit === "H") unitMs *= 60 * 60;
+          if (unit === "D") unitMs *= 60 * 60 * 24;
+
+          const step = value * unitMs;
+          diff = step - (now % step);
+        } else {
+          // Logic Calendar cho W, MN, Y dựa trên giờ UTC
+          const date = new Date(now);
+          if (unit === "W") {
+            // Tuần tới bắt đầu từ Thứ 2 (Day 1) tuần sau hoặc tính theo Chu kỳ tuần của value
+            const currentDay = date.getUTCDay();
+            const daysToNextWeek = (((8 - currentDay) % 7) || 7) + (value - 1) * 7;
+            const nextCandle = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + daysToNextWeek);
+            diff = nextCandle - now;
+          } else if (unit === "MN") {
+            const nextCandle = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + value, 1);
+            diff = nextCandle - now;
+          } else if (unit === "Y") {
+            const nextCandle = Date.UTC(date.getUTCFullYear() + value, 0, 1);
+            diff = nextCandle - now;
+          }
+        }
+
+        // Format kết quả đầu ra
+        const totalSec = Math.floor(diff / 1000);
+        const totalMin = Math.floor(totalSec / 60);
+        const totalHour = Math.floor(totalMin / 60);
+        const d = Math.floor(totalHour / 24);
+
+        const ss = String(totalSec % 60).padStart(2, "0");
+        const mm = String(totalMin % 60).padStart(2, "0");
+        const hh = String(totalHour % 24).padStart(2, "0");
+
+        if (unit === "S") return `00:00:${ss}s`;
+        if (unit === "M") return `00:${mm}:${ss}s`;
+        if (unit === "H") return `${String(totalHour).padStart(2, "0")}:${mm}:${ss}s`;
+        
+        // Đối với D, W, MN, Y format trả về dạng: `${d}d ${hh}:${mm}m`
+        return `${d}d ${hh}:${mm}m`;
+      },
 
     findBack(timestamp: number): number | null {
       try {
