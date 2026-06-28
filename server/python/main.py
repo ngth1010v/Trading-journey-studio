@@ -85,6 +85,7 @@ def shutdown():
     logger.info("main.py", "Received shutdown request.")
     base_url = f"http://127.0.0.1:{PORT}"
 
+    # 1. Gửi request thông báo shutdown tới các blueprint khác nếu cần
     for route in (
         "/symbols/SHUTDOWN",
         "/base/SHUTDOWN",
@@ -95,27 +96,44 @@ def shutdown():
         except Exception as e:
             logger.debug("main.py", f"Failed to notify {route}: {e}")
 
-    def stop_server():
+    # 2. Hàm xử lý dọn dẹp và đóng server chạy ngầm
+    def background_shutdown():
         global _server
+        
+        # Chờ 1 chút để Flask kịp trả về response HTTP 200 cho client
+        time.sleep(0.5) 
+        
+        # Chạy dọn dẹp dữ liệu trước khi kill server
+        logger.info("main.py", "Start ohlc shutdown")
+        try:
+            ohlcStorer.shutdown()
+        except Exception as e:
+            logger.error("main.py", f"Error during ohlcStorer shutdown: {e}")
+        
+        logger.info("main.py", "Closing MT5 connection...")
+        try:
+            mt5.shutdown()
+        except Exception as e:
+            logger.error("main.py", f"Error during MT5 shutdown: {e}")
+        logger.info("main.py", "MT5 connection closed.")
 
+        # Lệnh cuối cùng: Dừng Flask Server và kết thúc process
         if _server is not None:
+            logger.info("main.py", "Stopping Flask server...")
             _server.shutdown()
             logger.info("main.py", "Flask server stopped.")
 
+    # Kích hoạt thread ngầm xử lý các bước trên
     Thread(
-        target=stop_server,
+        target=background_shutdown,
         daemon=True,
     ).start()
 
-    ohlcStorer.shutdown()
-    mt5.shutdown()
-    logger.info("main.py", "MT5 connection closed and application shutting down.")
-
+    # 3. Trả về Response ngay lập tức cho client
     return jsonify({
         "status": "ok",
-        "msg": "server shutdown"
+        "msg": "server is shutting down properly"
     }), 200
-
 
 def main() -> None:
     global _server
