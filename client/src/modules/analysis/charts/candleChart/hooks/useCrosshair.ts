@@ -170,8 +170,10 @@ export default function useCrosshair(
 
     const view = viewport.getTransformedView();
 
-    const fromId = candleData.find(view.fromTs);
-    const toId = candleData.find(view.toTs);
+    let fromId = candleData.findBack(view.fromTs);
+    let toId   = candleData.findBack(view.toTs);
+    if (fromId === null) fromId = candleData.findFront(view.fromTs)
+    if (toId === null) toId = candleData.findFront(view.toTs)
 
     if (fromId == null || toId == null) {
       throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");

@@ -219,12 +219,15 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
-    let realFromId = candleData.find(realFromTs)
     const realToTs   = view.toTs * transform.scaleTs + transform.offsetTs;
-    let realToId   = candleData.find(realToTs)
+    let realFromId   = candleData.findBack(realFromTs)
+    let realToId     = candleData.findBack(realToTs)
+    if (realFromId === null) realFromId = candleData.findFront(realFromTs)
+    if (realToId === null) realToId = candleData.findFront(realToTs)
 
-    if (realFromId === null) realFromId = 0
-    if (realToId === null)   realToId = candleData.getSize()-1
+    if (realFromId === null || realToId === null) {
+      throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
+    }
 
     if (realToId - realFromId === 0) {
       throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
@@ -265,8 +268,6 @@ function useViewport(candleData: CandleData): Viewport {
 
     transform.scalePrice = targetDeltaPrice / currentDeltaPrice;
     transform.offsetPrice = targetFromPrice - view.fromPrice * transform.scalePrice;
-
-    console.log("PASS", view, transform)
 
     triggerViewportChange();
   };

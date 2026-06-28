@@ -24,7 +24,9 @@ export interface CandleData {
   getPoint              ()                                  : number;
   getRemainTime         ()                                  : string;
 
-  find                  (timestamp: number)                 : number | null;
+  findBack              (timestamp: number)                 : number | null;
+  findFront             (timestamp: number)                 : number | null;
+
   getSize               ()                                  : number;
   get                   (id: number)                        : Ohlc | null;
   getRange              (fromId: number, count: number)     : Ohlc[] | null;
@@ -209,31 +211,62 @@ export default function useCandleData(): CandleData {
       return "---";
     },
 
-    find(timestamp: number): number | null {
+    findBack(timestamp: number): number | null {
       try {
         const cache = state.current._cache;
         if (!cache || cache.t.length === 0) return null;
 
-        // Perform standard Binary Search to discover matching condition index (t[index] < timestamp)
         let low = 0;
         let high = cache.t.length - 1;
-        let resultIdx = -1;
+        let result = -1;
 
         while (low <= high) {
-          const mid = Math.floor((low + high) / 2);
-          const midTime = Number(cache.t[mid]);
+          const mid = (low + high) >> 1;
 
-          if (midTime < timestamp) {
-            resultIdx = mid;
-            low = mid + 1; // Seek further right to target the latest index match
+          if (Number(cache.t[mid]) < timestamp) {
+            result = mid;
+            low = mid + 1;
           } else {
             high = mid - 1;
           }
         }
 
-        return resultIdx !== -1 ? resultIdx : null;
+        return result === -1 ? null : result;
       } catch (err) {
-        throwAppError("CANDLE_DATA_ERROR", err instanceof Error ? err.message : String(err));
+        throwAppError(
+          "CANDLE_DATA_ERROR",
+          err instanceof Error ? err.message : String(err),
+        );
+        return null;
+      }
+    },
+
+    findFront(timestamp: number): number | null {
+      try {
+        const cache = state.current._cache;
+        if (!cache || cache.t.length === 0) return null;
+
+        let low = 0;
+        let high = cache.t.length - 1;
+        let result = -1;
+
+        while (low <= high) {
+          const mid = (low + high) >> 1;
+
+          if (timestamp <= Number(cache.t[mid])) {
+            result = mid;
+            high = mid - 1;
+          } else {
+            low = mid + 1;
+          }
+        }
+
+        return result === -1 ? null : result;
+      } catch (err) {
+        throwAppError(
+          "CANDLE_DATA_ERROR",
+          err instanceof Error ? err.message : String(err),
+        );
         return null;
       }
     },
