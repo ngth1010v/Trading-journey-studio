@@ -4,7 +4,6 @@ import { throwAppError } from "../../../../../shared/appError";
 import type { CandleData } from "./useCandleData";
 import type { Viewport, ShaderWeights } from "./useViewport";
 import { CONFIG } from "../shared/config";
-import type { Ohlc } from "../shared/types";
 
 //======================================================================================================
 // PUBLIC
@@ -327,23 +326,6 @@ function buildGeometryFromRange(
   return geometry;
 }
 
-function flattenOhlcs(ohlcs: Ohlc[], timestampOffset: number, priceOffset: number): Float32Array {
-  const flat = new Float32Array(ohlcs.length * FLOATS_PER_OHLC);
-
-  for (let i = 0; i < ohlcs.length; i += 1) {
-    const item = ohlcs[i];
-    const base = i * FLOATS_PER_OHLC;
-
-    flat[base + 0] = item.t - timestampOffset;
-    flat[base + 1] = item.o - priceOffset;
-    flat[base + 2] = item.h - priceOffset;
-    flat[base + 3] = item.l - priceOffset;
-    flat[base + 4] = item.c - priceOffset;
-  }
-
-  return flat;
-}
-
 function toPixelTimestamp(viewport: Viewport, timestamp: number): number {
   return viewport.timestampToPixel(timestamp);
 }
@@ -528,9 +510,9 @@ export default function useCandleLayer(): CandleLayer {
     updateData();
     await draw();
 
-    candleDataRef.current.addOnDataChange("candleLayer/init", updateData)
-    candleDataRef.current.addOnLastDataChange("candleLayer/init", draw)
-    viewportRef.current.addOnViewportChange("candleLayer/init", draw)
+    candleDataRef.current.addOnDataChange("candleLayer/init", updateData);
+    candleDataRef.current.addOnLastDataChange("candleLayer/init", draw);
+    viewportRef.current.addOnViewportChange("candleLayer/init", draw);
   };
 
   const updateData = (): void => {
@@ -539,8 +521,13 @@ export default function useCandleLayer(): CandleLayer {
       throwAppError("NOT_INITIALIZED", "candleData is not initialized");
     }
 
+    const size = candleData.getSize();
+    const binOhlcs = candleData.getBinRange(0, size);
 
-    const allOhlcs = candleData.getAll();
+    if (!binOhlcs) {
+      flatOhlcsRef.current = new Float32Array();
+      return;
+    }
 
     const timestampWeightsResult = viewportRef.current?.getTimestampToPixelWeights();
     const timestampOffset = timestampWeightsResult ? timestampWeightsResult.offset : 0;
@@ -548,7 +535,19 @@ export default function useCandleLayer(): CandleLayer {
     const priceWeightsResult = viewportRef.current?.getPriceToPixelWeights();
     const priceOffset = priceWeightsResult ? priceWeightsResult.offset : 0;
 
-    flatOhlcsRef.current = flattenOhlcs(allOhlcs, timestampOffset, priceOffset);
+    const flat = new Float32Array(size * FLOATS_PER_OHLC);
+
+    for (let i = 0; i < size; i += 1) {
+      const base = i * FLOATS_PER_OHLC;
+      // Convert BigInt to Number & subtract offsets directly
+      flat[base + 0] = Number(binOhlcs.t[i]) - timestampOffset;
+      flat[base + 1] = Number(binOhlcs.o[i]) - priceOffset;
+      flat[base + 2] = Number(binOhlcs.h[i]) - priceOffset;
+      flat[base + 3] = Number(binOhlcs.l[i]) - priceOffset;
+      flat[base + 4] = Number(binOhlcs.c[i]) - priceOffset;
+    }
+
+    flatOhlcsRef.current = flat;
   };
 
   const setStyles = (candleStyles: CandleStyles): void => {
@@ -740,10 +739,9 @@ export default function useCandleLayer(): CandleLayer {
       }
     }
 
-
-    candleDataRef.current?.removeOnDataChange("candleLayer/init")
-    candleDataRef.current?.removeOnLastDataChange("candleLayer/init")
-    viewportRef.current?.removeOnViewportChange("candleLayer/init")
+    candleDataRef.current?.removeOnDataChange("candleLayer/init");
+    candleDataRef.current?.removeOnLastDataChange("candleLayer/init");
+    viewportRef.current?.removeOnViewportChange("candleLayer/init");
 
     appRef.current = null;
     candleDataRef.current = null;

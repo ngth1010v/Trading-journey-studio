@@ -203,6 +203,11 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
 
         if _is_empty_result(result):
             return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+        
+        print(result.shape)
+        print(result.dtype)
+
+        print(result[:3])
 
         return _ok(_build_bin_from_numpy(result))
 

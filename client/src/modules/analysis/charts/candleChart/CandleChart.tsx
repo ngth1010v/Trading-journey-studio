@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
-import useCandleData, { type SetCandleDataArgs } from './hooks/useCandleData';
+import useCandleData from './hooks/useCandleData';
 import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
 import useCandleLayer from './hooks/useCandleLayer';
 import useViewController from './hooks/useViewController';
@@ -10,10 +10,10 @@ import useAxes from './hooks/useAxes';
 import useAxesController from './hooks/useAxesController';
 
 
-const DEFAULT_FROMTS = 1782205200000
-const DEFAULT_TOTS   = 1782208800000
+const DEFAULT_FROMTS = 1780185600000
+const DEFAULT_TOTS   = 1781222400000
 
-const DEFAULT_DATA: SetCandleDataArgs = {
+const DEFAULT_DATA = {
   symbol: "NAS100",
   timeframe: "1H",
   realtime: true,
@@ -63,7 +63,10 @@ export default function CandleChart() {
     //==============================================================
     // Data
     //==============================================================
-    await candleData.set(DEFAULT_DATA);
+    await candleData.setSrc(DEFAULT_DATA.symbol, DEFAULT_DATA.timeframe);
+    await candleData.setRange(DEFAULT_DATA.fromTs, DEFAULT_DATA.toTs);
+    candleData.setRealtime(false)
+    console.log(candleData.get(0))
       
 
     //==============================================================

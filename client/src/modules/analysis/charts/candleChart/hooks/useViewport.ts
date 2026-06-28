@@ -206,7 +206,7 @@ function useViewport(candleData: CandleData): Viewport {
     transform.scaleTs = 1;
     transform.scalePrice = 1;
 
-    await candleData.update(
+    await candleData.setRange(
       Math.round(view.fromTs),
       Math.round(view.toTs),
     );
@@ -219,23 +219,32 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
-    const realToTs = view.toTs * transform.scaleTs + transform.offsetTs;
+    const realFromId = candleData.find(realFromTs)
+    const realToTs   = view.toTs * transform.scaleTs + transform.offsetTs;
+    const realToId   = candleData.find(realToTs)
 
-    const ohlcs = candleData.get(realFromTs, realToTs);
-    if (ohlcs.length === 0) {
+    if (!realFromId || !realToId){
+      throwAppError("INVAILD_RANGE_ID", "cannot find id from fromTs/toTs");
+    }
+    if (realToId - realFromId === 0) {
+      throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
+    }
+    
+    const binCount = realToTs - realFromId + 1
+    const binOhlcs = candleData.getBinRange(realFromId, binCount);
+    if (!binOhlcs) {
       throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
     }
 
-    let maxPrice = ohlcs[0].h;
-    let minPrice = ohlcs[0].l;
+    let maxPrice = binOhlcs.h[0];
+    let minPrice = binOhlcs.l[0];
 
-    for (let i = 1; i < ohlcs.length; i += 1) {
-      const item = ohlcs[i];
-      if (item.h > maxPrice) maxPrice = item.h;
-      if (item.l < minPrice) minPrice = item.l;
+    for (let i = 1; i < binCount; i += 1) {
+      if (binOhlcs.h[i] > maxPrice) maxPrice = binOhlcs.h[i];
+      if (binOhlcs.l[i] < minPrice) minPrice = binOhlcs.l[i];
     }
 
-    const priceRange = maxPrice - minPrice;
+    const priceRange = Number(maxPrice - minPrice);
     if (priceRange <= 0) {
       throwAppError("INVALID_AUTO_PRICE", "price range from OHLC data must be greater than zero");
     }
@@ -245,10 +254,10 @@ function useViewport(candleData: CandleData): Viewport {
       throwAppError("INVALID_VIEW", "current price range must not be zero");
     }
 
-    const ratio = CONFIG.VIEWPORT.AUTO_TRANSFORM_PRICE_RATIO;
+    const ratio            = CONFIG.VIEWPORT.AUTO_TRANSFORM_PRICE_RATIO;
     const targetDeltaPrice = priceRange / ratio;
-    const padding = (targetDeltaPrice - priceRange) / 2;
-    const targetFromPrice = minPrice - padding;
+    const padding          = (targetDeltaPrice - priceRange) / 2;
+    const targetFromPrice  = Number(minPrice) - padding;
 
     transform.scalePrice = targetDeltaPrice / currentDeltaPrice;
     transform.offsetPrice = targetFromPrice - view.fromPrice * transform.scalePrice;
@@ -345,8 +354,8 @@ function useViewport(candleData: CandleData): Viewport {
   };
 
   const getTimestampToPixelWeights = (): ShaderWeights => {
-    const ohlc = candleData.getFirst();
-    const offset = ohlc.t;
+    const ohlc = candleData.get(0);
+    const offset = ohlc ? ohlc.t : 0;
 
     const { w } = canvasSizeRef.current;
     const view = viewRef.current;
@@ -381,8 +390,8 @@ function useViewport(candleData: CandleData): Viewport {
       throwAppError("INVALID_CANVAS_SIZE", "canvas height must be set before priceToPixel()");
     }
 
-    const ohlc = candleData.getFirst();
-    const offset = ohlc.l;
+    const ohlc = candleData.get(0);
+    const offset = ohlc ? ohlc.l : 0;
 
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     if (fullDeltaPrice === 0) {

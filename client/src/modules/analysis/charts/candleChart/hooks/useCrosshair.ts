@@ -4,6 +4,7 @@ import type { Application } from "pixi.js";
 import type { CandleData } from "./useCandleData";
 import type { Viewport } from "./useViewport";
 import type { Ohlc } from "../shared/types";
+import { throwAppError } from "../../../../../shared/appError";
 
 //======================================================================================================
 // TYPES
@@ -151,7 +152,9 @@ export default function useCrosshair(
       }
     };
 
-    const considerOhlc = (ohlc: Ohlc): void => {
+    const considerOhlc = (ohlc: Ohlc | null): void => {
+      if (!ohlc) return;
+
       let candleX: number;
       try {
         candleX = viewport.timestampToPixel(ohlc.t);
@@ -159,29 +162,43 @@ export default function useCrosshair(
         return;
       }
 
-      const prices = [ohlc.o, ohlc.h, ohlc.l, ohlc.c];
-      for (let i = 0; i < prices.length; i += 1) {
-        let candleY: number;
-        try {
-          candleY = viewport.priceToPixel(prices[i]);
-        } catch {
-          continue;
-        }
-
-        consider(candleX, candleY);
-      }
+      try { consider(candleX, viewport.priceToPixel(ohlc.o)); } catch {}
+      try { consider(candleX, viewport.priceToPixel(ohlc.h)); } catch {}
+      try { consider(candleX, viewport.priceToPixel(ohlc.l)); } catch {}
+      try { consider(candleX, viewport.priceToPixel(ohlc.c)); } catch {}
     };
 
-    const all = candleData.getAll();
-    for (let i = 0; i < all.length; i += 1) {
-      considerOhlc(all[i]);
+    const view = viewport.getTransformedView();
+
+    const fromId = candleData.find(view.fromTs);
+    const toId = candleData.find(view.toTs);
+
+    if (fromId == null || toId == null) {
+      throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
     }
 
-    try {
-      considerOhlc(candleData.getLast());
-    } catch {
-      // ignore when no last candle is available
+    const data = candleData.getBinRange(fromId, toId - fromId + 1);
+
+    if (!data) {
+      throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
     }
+
+    for (let i = 0; i < data.t.length; i++) {
+      let candleX: number;
+
+      try {
+        candleX = viewport.timestampToPixel(Number(data.t[i]));
+      } catch {
+        continue;
+      }
+
+      try { consider(candleX, viewport.priceToPixel(Number(data.o[i]))); } catch {}
+      try { consider(candleX, viewport.priceToPixel(Number(data.h[i]))); } catch {}
+      try { consider(candleX, viewport.priceToPixel(Number(data.l[i]))); } catch {}
+      try { consider(candleX, viewport.priceToPixel(Number(data.c[i]))); } catch {}
+    }
+
+    considerOhlc(candleData.getLast());
 
     return bestPoint;
   };

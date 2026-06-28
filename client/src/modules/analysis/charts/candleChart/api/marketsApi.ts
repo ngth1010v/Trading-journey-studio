@@ -49,102 +49,134 @@ async function request<T>(url: string): Promise<T> {
   }
 }
 
+async function requestBinary(url: string): Promise<ArrayBuffer> {
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throwAppError(
+        String(response.status),
+        response.statusText || "Request failed",
+      );
+    }
+
+    return await response.arrayBuffer();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AppError") {
+      throw err;
+    }
+
+    throwAppError(
+      "NETWORK_ERROR",
+      err instanceof Error ? err.message : "Unknown error",
+    );
+  }
+}
+
+
+
+//================================================================================================
+// PUBLIC
+//================================================================================================
+/**
+ * GET /api/markets/
+ */
+async function getSymbols(): Promise<string[]> {
+  return request<string[]>(`${API_BASE}/`);
+}
+
 /**
  * GET /api/markets/:symbol
  */
-async function getSymbolData(symbol: string): Promise<SymbolData> {
+async function getSymbol(symbol: string): Promise<SymbolData> {
   return request<SymbolData>(
     `${API_BASE}/${encodeURIComponent(symbol)}`,
   );
 }
 
 /**
- * GET /api/markets/:symbol/:timeframe?fromTs=...&toTs=...
+ * GET /api/markets/:symbol/:timeframe/bin?fromTs=...&toTs=...
  */
-async function getOhlcs(
+async function getRange(
   symbol: string,
   timeframe: string,
   fromTs: number,
   toTs: number,
-): Promise<Ohlc[]> {
+): Promise<{
+  t: BigInt64Array;
+  o: BigInt64Array;
+  h: BigInt64Array;
+  l: BigInt64Array;
+  c: BigInt64Array;
+  v: BigInt64Array;
+}> {
   const params = new URLSearchParams({
     fromTs: String(fromTs),
     toTs: String(toTs),
   });
 
-  return request<Ohlc[]>(
-    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}?${params.toString()}`,
+  const buffer = await requestBinary(
+    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/bin?${params.toString()}`,
   );
+
+  const view = new DataView(buffer);
+
+  const count = Number(view.getBigInt64(0, true));
+
+  const offset = 8;
+  const bytesPerArray = count * 8;
+
+  return {
+    t: new BigInt64Array(buffer, offset + bytesPerArray * 0, count),
+    o: new BigInt64Array(buffer, offset + bytesPerArray * 1, count),
+    h: new BigInt64Array(buffer, offset + bytesPerArray * 2, count),
+    l: new BigInt64Array(buffer, offset + bytesPerArray * 3, count),
+    c: new BigInt64Array(buffer, offset + bytesPerArray * 4, count),
+    v: new BigInt64Array(buffer, offset + bytesPerArray * 5, count),
+  };
 }
 
 /**
- * GET /api/markets/:symbol/last
+ * GET /api/markets/:symbol/:timeframe/last
  */
-async function getLastOhlc(symbol: string, timeframe: string): Promise<Ohlc> {
+async function getLast(
+  symbol: string,
+  timeframe: string,
+): Promise<Ohlc> {
   return request<Ohlc>(
     `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/last`,
   );
 }
 
 /**
- * GET /api/markets/:symbol/last
+ * GET /api/markets/:symbol/:timeframe/first
  */
-async function getFirstOhlc(symbol: string, timeframe: string): Promise<Ohlc> {
+async function getFirst(
+  symbol: string,
+  timeframe: string,
+): Promise<Ohlc> {
   return request<Ohlc>(
     `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/first`,
   );
 }
 
 /**
- * GET /api/markets/:symbol/extend?fromTs=...&type=back
+ * GET /api/markets/:symbol/extend/:timestamp
  */
-async function callExtendBack(
+async function callExtend(
   symbol: string,
-  fromTs: number,
+  timestamp: number,
 ): Promise<void> {
-  const params = new URLSearchParams({
-    fromTs: String(fromTs),
-    type: "back",
-  });
-
   await request<unknown>(
-    `${API_BASE}/${encodeURIComponent(symbol)}/extend?${params.toString()}`,
-  );
-}
-
-/**
- * GET /api/markets/:symbol/extend/registerAuto
- */
-async function registerAutoExtend(
-  symbol: string,
-): Promise<{ key?: number } | null> {
-  return request<{ key?: number } | null>(
-    `${API_BASE}/${encodeURIComponent(symbol)}/extend/registerAuto`,
-  );
-}
-
-/**
- * GET /api/markets/:symbol/extend/unregisterAuto?key=...
- */
-async function unregisterAutoExtend(
-  symbol: string,
-  key: number,
-): Promise<void> {
-  const params = new URLSearchParams({
-    key: String(key),
-  });
-
-  await request<unknown>(
-    `${API_BASE}/${encodeURIComponent(symbol)}/extend/unregisterAuto?${params.toString()}`,
+    `${API_BASE}/${encodeURIComponent(symbol)}/extend/${timestamp}`,
   );
 }
 
 export const marketApi = {
-  getSymbolData,
-  getOhlcs,
-  getLastOhlc,
-  getFirstOhlc,
-  callExtendBack,
-  registerAutoExtend,
-  unregisterAutoExtend,
+  getSymbols,
+  getSymbol,
+  getRange,
+  getLast,
+  getFirst,
+  callExtend,
 };

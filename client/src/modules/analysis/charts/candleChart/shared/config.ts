@@ -2,8 +2,7 @@ export const CONFIG = {
 
     // Candle data
     CANDLE_DATA: {
-        CACHE_RATIO: 2, //[..2..,..1..,..data-render..,..1..,..2..]
-        RELOAD_RATIO: 1 //[..2..,..1..,..data-render..,..1..,..2..]
+        CACHE_EXTEND_RATIO: 1, //[..1..,..data-render..,..1..]
     },
 
     VIEWPORT: {
