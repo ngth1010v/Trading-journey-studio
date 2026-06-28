@@ -48,10 +48,19 @@ async function request<T>(url: string): Promise<T> {
     );
   }
 }
-
 async function requestBinary(url: string): Promise<ArrayBuffer> {
   try {
-    const response = await fetch(url);
+    // Thêm dấu hỏi hoặc dấu & tùy thuộc vào URL đã có query chưa
+    const separator = url.includes("?") ? "&" : "?";
+    const cacheBustedUrl = `${url}${separator}_t=${Date.now()}`;
+
+    const response = await fetch(cacheBustedUrl, {
+      cache: "no-store", // Đổi từ "reload" thành "no-store"
+      headers: {
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache"
+      }
+    });
 
     if (!response.ok) {
       throwAppError(
@@ -65,7 +74,6 @@ async function requestBinary(url: string): Promise<ArrayBuffer> {
     if (err instanceof Error && err.name === "AppError") {
       throw err;
     }
-
     throwAppError(
       "NETWORK_ERROR",
       err instanceof Error ? err.message : "Unknown error",
@@ -116,25 +124,34 @@ async function getRange(
   });
 
   const buffer = await requestBinary(
-    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/bin?${params.toString()}`,
+    `${API_BASE}/${encodeURIComponent(symbol)}/${encodeURIComponent(timeframe)}/bin?${params}`,
   );
 
-  const view = new DataView(buffer);
+  const count = Number(new DataView(buffer).getBigInt64(0, true));
 
-  const count = Number(view.getBigInt64(0, true));
+  let offset = 8;
+  const bytes = count * 8;
 
-  const offset = 8;
-  const bytesPerArray = count * 8;
+  const t = new BigInt64Array(buffer, offset, count);
+  offset += bytes;
 
-  return {
-    t: new BigInt64Array(buffer, offset + bytesPerArray * 0, count),
-    o: new BigInt64Array(buffer, offset + bytesPerArray * 1, count),
-    h: new BigInt64Array(buffer, offset + bytesPerArray * 2, count),
-    l: new BigInt64Array(buffer, offset + bytesPerArray * 3, count),
-    c: new BigInt64Array(buffer, offset + bytesPerArray * 4, count),
-    v: new BigInt64Array(buffer, offset + bytesPerArray * 5, count),
-  };
+  const o = new BigInt64Array(buffer, offset, count);
+  offset += bytes;
+
+  const h = new BigInt64Array(buffer, offset, count);
+  offset += bytes;
+
+  const l = new BigInt64Array(buffer, offset, count);
+  offset += bytes;
+
+  const c = new BigInt64Array(buffer, offset, count);
+  offset += bytes;
+
+  const v = new BigInt64Array(buffer, offset, count);
+
+  return { t, o, h, l, c, v };
 }
+
 
 /**
  * GET /api/markets/:symbol/:timeframe/last

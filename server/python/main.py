@@ -7,6 +7,7 @@ from threading import Thread
 
 import requests
 from flask import Flask, jsonify
+from flask_cors import CORS
 from werkzeug.serving import make_server
 
 from config import PORT, MT5_INIT_RETRY
@@ -20,6 +21,7 @@ import symbols
 import ohlcStorer 
 
 app = Flask(__name__)
+CORS(app)
 
 app.register_blueprint(symbols_bp)
 app.register_blueprint(base_bp)

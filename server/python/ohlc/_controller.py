@@ -100,34 +100,42 @@ def _resolve_last_open_timestamp(target_timeframe: str, last_ts: int) -> int | N
         return start_of_year_utc(last_ts)
     return None
 
+
 def _build_bin_from_numpy(data: np.ndarray) -> bytes:
     """
-    Binary layout:
-
-    int64 count
-    int64[count] t
-    int64[count] o
-    int64[count] h
-    int64[count] l
-    int64[count] c
-    int64[count] v
+    Tối ưu hóa hiệu suất bằng Vectorized Numpy (.tobytes()) thay thế cho vòng lặp thuần.
+    Cấu trúc layout nhị phân:
+    - int64 count (8 bytes)
+    - int64[count] t, o, h, l, c, v (mỗi mảng liên tục trong bộ nhớ)
     """
-    data = np.asarray(data, dtype=np.int64)
+    count = data.shape[0] if data.size > 0 else 0
+    
+    # 1. Khởi tạo header 8 bytes chứa độ dài count (Little-endian int64)
+    header = struct.pack("<q", count)
+    
+    if count == 0:
+        return header
 
-    count = data.shape[0]
+    # 2. Đảm bảo dữ liệu chắc chắn là kiểu int64 với thứ tự lưu trữ liên tục (C-order)
+    # và ép định dạng Byte-order sang Little-endian (<i8) để tương thích chính xác với Client
+    data_fixed = np.asarray(data, dtype="<i8", order="C")
+    
+    # 3. Sử dụng tính năng cắt mảng nâng cao (Slicing) kết hợp .tobytes() 
+    # Thao tác này chạy ở tầng C-level của Numpy, cực kỳ nhanh.
+    t_bytes = data_fixed[:, 0].tobytes()
+    o_bytes = data_fixed[:, 1].tobytes()
+    h_bytes = data_fixed[:, 2].tobytes()
+    l_bytes = data_fixed[:, 3].tobytes()
+    c_bytes = data_fixed[:, 4].tobytes()
+    v_bytes = data_fixed[:, 5].tobytes()
+    
+    # 4. Gộp toàn bộ các phân vùng bytes lại thành một chuỗi duy nhất
+    return header + t_bytes + o_bytes + h_bytes + l_bytes + c_bytes + v_bytes
 
-    parts = [
-        struct.pack("<q", count),
-    ]
 
-    for col in range(6):
-        parts.append(
-            np.ascontiguousarray(data[:, col]).tobytes()
-        )
-
-    return b"".join(parts)
-
-
+#=======================================================================================================================
+# PUBLIC
+#=======================================================================================================================
 def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
     timeframe = normalize_timeframe(timeframe)
     if not is_valid_timeframe(timeframe):
@@ -167,6 +175,7 @@ def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
         logger.error(_SECTION, f"Failed to get OHLCs for {symbol}/{timeframe}: {exc}")
         return _error("Internal error while loading OHLC data.", 500)
     
+
 def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
     timeframe = normalize_timeframe(timeframe)
 
@@ -204,12 +213,12 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
         if _is_empty_result(result):
             return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
         
-        print(result.shape)
-        print(result.dtype)
+        # Nếu result trả về không phải là numpy array trực tiếp (ví dụ list), ép kiểu về numpy array
+        if not isinstance(result, np.ndarray):
+            result = np.array(result, dtype=np.int64)
 
-        print(result[:3])
-
-        return _ok(_build_bin_from_numpy(result))
+        bin_data = _build_bin_from_numpy(result)
+        return _ok(bin_data)
 
     except Exception as exc:
         logger.error(

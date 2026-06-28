@@ -66,7 +66,7 @@ export default function CandleChart() {
     await candleData.setSrc(DEFAULT_DATA.symbol, DEFAULT_DATA.timeframe);
     await candleData.setRange(DEFAULT_DATA.fromTs, DEFAULT_DATA.toTs);
     candleData.setRealtime(false)
-    console.log(candleData.get(0))
+    console.log(candleData.getBinRange(0, candleData.getSize()))
       
 
     //==============================================================
