@@ -219,18 +219,22 @@ function useViewport(candleData: CandleData): Viewport {
     const transform = transformRef.current;
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
-    const realFromId = candleData.find(realFromTs)
+    let realFromId = candleData.find(realFromTs)
     const realToTs   = view.toTs * transform.scaleTs + transform.offsetTs;
-    const realToId   = candleData.find(realToTs)
+    let realToId   = candleData.find(realToTs)
 
-    if (!realFromId || !realToId){
-      throwAppError("INVAILD_RANGE_ID", "cannot find id from fromTs/toTs");
-    }
+    if (realFromId === null) realFromId = 0
+    if (realToId === null)   realToId = candleData.getSize()-1
+
     if (realToId - realFromId === 0) {
       throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
     }
     
-    const binCount = realToTs - realFromId + 1
+    const binCount = realToId - realFromId + 1
+    if (binCount < 0) {
+      throwAppError("INVALID_BIN_COUNT", "binCount must be greater than zero");
+    }
+
     const binOhlcs = candleData.getBinRange(realFromId, binCount);
     if (!binOhlcs) {
       throwAppError("NO_OHLC_DATA", "no OHLC data found in the target range");
@@ -261,6 +265,8 @@ function useViewport(candleData: CandleData): Viewport {
 
     transform.scalePrice = targetDeltaPrice / currentDeltaPrice;
     transform.offsetPrice = targetFromPrice - view.fromPrice * transform.scalePrice;
+
+    console.log("PASS", view, transform)
 
     triggerViewportChange();
   };
