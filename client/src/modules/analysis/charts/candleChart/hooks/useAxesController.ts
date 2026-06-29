@@ -55,7 +55,7 @@ const DEFAULT_STYLES: Required<AxesControllerStyles> = {
   priceAsix: true,
   timestampAsix: true,
 
-  crosshairFontSize: 12,
+  crosshairFontSize: 10,
   crosshairFontColor: [255, 255, 255],
   crosshairColor: [255, 50, 50, 50],
   crosshiarTimestampPadding: 10,
@@ -63,7 +63,7 @@ const DEFAULT_STYLES: Required<AxesControllerStyles> = {
   crosshiarPricePadding: 7,
   crosshiarPriceOffset: 2,
 
-  lastPriceFontSize: 12,
+  lastPriceFontSize: 10,
   lastPriceFontColor: [255, 255, 255],
   lastPriceColor: [255, 100, 150, 255],
   lastPricePadding: 7,

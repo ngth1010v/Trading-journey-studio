@@ -59,7 +59,7 @@ type CachedLabel = {
 //======================================================================================================
 
 const DEFAULT_STYLES: Required<AxesStyles> = {
-  fontSize: 12,
+  fontSize: 10,
   timestampPadding: 10,
   timestampOffset: 2,
   pricePadding: 7,

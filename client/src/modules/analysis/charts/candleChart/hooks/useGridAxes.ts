@@ -60,7 +60,7 @@ const DEFAULT_STYLE: Required<GridGridAxesStyles> = {
   spacing: 5,
   padding: 5,
   borderThickness: 2,
-  fontSize: 12,
+  fontSize: 10,
   color: [200, 22, 22, 24], // [a, r, g, b] based on 255
   fontColor: [150, 150, 150],
   borderColor: [255, 50, 50, 50], // [a, r, g, b] based on 255
