@@ -31,9 +31,9 @@ const DEFAULT_VIEW: ViewportSetViewArgs = {
 const DEFAULT_CURSOR_STYLE: CrosshairStyles = {
   type      : "dash",
   thickness : 1,
-  color     : [120, 120, 140],
-  dashWidth : 15,
-  dashSpace : 7,
+  color     : [100, 100, 100],
+  dashWidth : 10,
+  dashSpace : 5,
 }
 
 export default function CandleChart() {

@@ -114,8 +114,8 @@ export default function useCandleData(): CandleData {
     } finally {
       // Enqueue next tick recursive interval
       if (state.current._realtimeEnable) {
-        // state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 500);
-        state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 1000);
+        state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 500);
+        // state.current._loopTimeoutId = setTimeout(runRealtimeLoop, 1000);
       }
     }
   };
@@ -235,7 +235,7 @@ export default function useCandleData(): CandleData {
           if (unit === "D") unitMs *= 60 * 60 * 24;
 
           const step = value * unitMs;
-          diff = step - (now % step);
+          diff = step - (now % step) + 1000;
         } else {
           // Logic Calendar cho W, MN, Y dựa trên giờ UTC
           const date = new Date(now);

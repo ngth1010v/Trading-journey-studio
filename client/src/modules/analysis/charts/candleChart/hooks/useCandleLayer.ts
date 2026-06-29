@@ -629,9 +629,7 @@ export default function useCandleLayer(): CandleLayer {
       },
     };
 
-    // ==========================================
-    // ĐOẠN CODE FIX CHÍNH XÁC
-    // ==========================================
+
     let finalFlatOhlcs = flatOhlcs;
     let finalStart = visible.start;
     let finalEndExclusive = visible.endExclusive;
