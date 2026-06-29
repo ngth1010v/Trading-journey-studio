@@ -2,9 +2,17 @@ import express, { Request, Response } from 'express';
 
 import { Server } from 'node:http';
 import { logger } from './logger.js';
+
 import { marketServer } from './service-servers/markets-server.js';
 import { clientServer } from './service-servers/client-server.js';
 
+import { strategies } from './strategies/strategies/strategies.index.js';
+
+
+
+// =============================================================================================================
+// GLOBAL
+// =============================================================================================================
 const app = express();
 const PORT = process.env.PORT || 3000;
 const _SECTION = 'index.ts';
@@ -15,10 +23,13 @@ let isShuttingDown = false;
 // Middleware & Routes
 app.use(express.json());
 app.use(marketServer.router);
+app.use(strategies.router)
 
 app.get('/', (_req: Request, res: Response) => {
     res.send('Hello World!');
 });
+
+
 
 // =============================================================================================================
 // LOGIC STARTUP & SHUTDOWN 
@@ -26,12 +37,14 @@ app.get('/', (_req: Request, res: Response) => {
 function startup(): void {
     marketServer.init();
     clientServer.init();
+    strategies.init();
     logger.info(_SECTION, 'Start up done!');
 }
 
 async function shutdown(): Promise<void> {
     await marketServer.shutdown();
     await clientServer.shutdown();
+    await strategies.shutdown();
     logger.info(_SECTION, 'Shutdown done!');
 }
 
