@@ -247,8 +247,8 @@ function useViewport(candleData: CandleData): Viewport {
     let minPrice = binOhlcs.l[0];
 
     for (let i = 1; i < binCount; i += 1) {
-      if (binOhlcs.h[i] > maxPrice) maxPrice = binOhlcs.h[i];
-      if (binOhlcs.l[i] < minPrice) minPrice = binOhlcs.l[i];
+      if (binOhlcs.h[i] != BigInt(0) && binOhlcs.h[i]> maxPrice) maxPrice = binOhlcs.h[i];
+      if (binOhlcs.l[i] != BigInt(0) && binOhlcs.l[i] < minPrice) minPrice = binOhlcs.l[i];
     }
 
     const priceRange = Number(maxPrice - minPrice);
