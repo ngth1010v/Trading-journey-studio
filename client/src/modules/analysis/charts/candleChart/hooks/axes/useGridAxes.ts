@@ -8,10 +8,10 @@ import {
   Graphics,
   Text,
 } from "pixi.js";
-import { throwAppError } from "../../../../../shared/appError";
-import { CONFIG } from "../shared/config";
-import type { CandleData } from "./useCandleData";
-import type { Viewport } from "./useViewport";
+import { throwAppError } from "../../../../../../shared/appError";
+import { CONFIG } from "../../shared/config";
+import type { CandleData } from "../rawCandle/useCandleData";
+import type { Viewport } from "../viewport/useViewport";
 
 //======================================================================================================
 // PUBLIC

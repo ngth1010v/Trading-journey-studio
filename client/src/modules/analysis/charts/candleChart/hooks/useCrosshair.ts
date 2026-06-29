@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { Container, Graphics } from "pixi.js";
 import type { Application } from "pixi.js";
-import type { CandleData } from "./useCandleData";
-import type { Viewport } from "./useViewport";
+import type { CandleData } from "./rawCandle/useCandleData";
+import type { Viewport } from "./viewport/useViewport";
 import type { Ohlc } from "../shared/types";
 import { throwAppError } from "../../../../../shared/appError";
 

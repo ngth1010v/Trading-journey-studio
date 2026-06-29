@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
-import useCandleData from './hooks/useCandleData';
-import useViewport, { type ViewportSetViewArgs } from './hooks/useViewport';
-import useCandleLayer from './hooks/useCandleLayer';
-import useViewController from './hooks/useViewController';
+import useCandleData from './hooks/rawCandle/useCandleData';
+import useViewport, { type ViewportSetViewArgs } from './hooks/viewport/useViewport';
+import useCandleLayer from './hooks/rawCandle/useCandleLayer';
+import useViewController from './hooks/viewport/useViewController';
 import useCrosshair, {type CrosshairStyles} from './hooks/useCrosshair';
-import useGridAxes from './hooks/useGridAxes';
-import useAxes from './hooks/useAxes';
-import useAxesController from './hooks/useAxesController';
+import useGridAxes from './hooks/axes/useGridAxes';
+import useAxes from './hooks/axes/useAxes';
+import useAxesController from './hooks/axes/useAxesController';
 
 
 const DEFAULT_FROMTS = 1782432000000

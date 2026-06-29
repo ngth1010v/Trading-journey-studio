@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import { throwAppError } from "../../../../../shared/appError";
-import { CONFIG } from "../shared/config";
-import type { CandleData } from "./useCandleData";
+import { throwAppError } from "../../../../../../shared/appError";
+import { CONFIG } from "../../shared/config";
+import type { CandleData } from "../rawCandle/useCandleData";
 
 
 //======================================================================================================

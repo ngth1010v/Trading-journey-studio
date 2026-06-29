@@ -1,8 +1,8 @@
 import { useRef, useEffect } from "react";
-import { marketApi } from "../api/marketsApi";
-import { CONFIG } from "../shared/config";
-import { throwAppError } from "../../../../../shared/appError";
-import type { Ohlc } from "../shared/types";
+import { marketApi } from "../../api/marketsApi";
+import { CONFIG } from "../../shared/config";
+import { throwAppError } from "../../../../../../shared/appError";
+import type { Ohlc } from "../../shared/types";
 
 // Type definitions for internal data cache structure
 interface CacheData {

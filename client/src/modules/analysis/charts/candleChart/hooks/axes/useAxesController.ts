@@ -1,10 +1,10 @@
 import { useRef } from "react";
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { CONFIG } from "../shared/config";
-import type { CandleData } from "./useCandleData";
-import type { Viewport } from "./useViewport";
-import type { ViewController } from "./useViewController";
-import type { Crosshair } from "./useCrosshair";
+import { CONFIG } from "../../shared/config";
+import type { CandleData } from "../rawCandle/useCandleData";
+import type { Viewport } from "../viewport/useViewport";
+import type { ViewController } from "../viewport/useViewController";
+import type { Crosshair } from "../useCrosshair";
 import type { GridAxes, GridAxisRect } from "./useGridAxes";
 import type { Axes } from "./useAxes";
 

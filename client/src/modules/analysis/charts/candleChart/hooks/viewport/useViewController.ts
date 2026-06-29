@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { CONFIG } from "../shared/config";
+import { CONFIG } from "../../shared/config";
 import type { Viewport } from "./useViewport";
 
 export type ViewController = {

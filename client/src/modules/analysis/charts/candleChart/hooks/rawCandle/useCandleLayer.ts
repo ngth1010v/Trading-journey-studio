@@ -1,9 +1,9 @@
 import { useRef } from "react";
 import { Application, Container, Geometry, Mesh, Shader } from "pixi.js";
-import { throwAppError } from "../../../../../shared/appError";
+import { throwAppError } from "../../../../../../shared/appError";
 import type { CandleData } from "./useCandleData";
-import type { Viewport, ShaderWeights } from "./useViewport";
-import { CONFIG } from "../shared/config";
+import type { Viewport, ShaderWeights } from "../viewport/useViewport";
+import { CONFIG } from "../../shared/config";
 
 //======================================================================================================
 // PUBLIC

@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { SortedIndexedTimestampList, SortedIndexedPriceList } from "../shared/SortedIndexedList";
-import type { CandleData } from "./useCandleData";
-import type { Viewport } from "./useViewport";
+import { SortedIndexedTimestampList, SortedIndexedPriceList } from "../../shared/SortedIndexedList";
+import type { CandleData } from "../rawCandle/useCandleData";
+import type { Viewport } from "../viewport/useViewport";
 import type { GridAxes } from "./useGridAxes";
 
 //======================================================================================================
