@@ -36,6 +36,7 @@ export default function useViewController(viewport: Viewport): ViewController {
   const mousePos = useRef<Point>({ x: 0, y: 0 });
   const mouseDragging = useRef<boolean>(false);
   const pressingKey = useRef<Set<string>>(new Set<string>());
+  const wheelFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEnabled = useRef({
     scaleTimestamp: true,
     scalePrice: true,
@@ -165,7 +166,7 @@ export default function useViewController(viewport: Viewport): ViewController {
       const magnitude = Math.max(1, Math.abs(delta) / 120);
       const scaleFactor = Math.pow(baseStep, magnitude);
       const step = direction > 0 ? scaleFactor : 1 / scaleFactor;
-      
+
       if (
         isEnabled.current.scaleTimestamp &&
         !pressingKey.current.has("Alt")
@@ -179,8 +180,15 @@ export default function useViewController(viewport: Viewport): ViewController {
       ) {
         viewport.setScalePrice(step, y, true);
       }
-      
-      viewport.flush()
+
+      if (wheelFlushTimer.current !== null) {
+        clearTimeout(wheelFlushTimer.current);
+      }
+
+      wheelFlushTimer.current = setTimeout(() => {
+        wheelFlushTimer.current = null;
+        void viewport.flush();
+      }, CONFIG.VIEW_CONTROLLER.CLIENT_EVENT.WHEEL_DURATION);
     },
     [viewport],
   );

@@ -15,7 +15,8 @@ export const CONFIG = {
 
     VIEW_CONTROLLER: {
         CLIENT_EVENT: {
-            SCALE_RATIO: 1.1
+            SCALE_RATIO: 1.1,
+            WHEEL_DURATION: 100, //ms 
         }
     },
 
