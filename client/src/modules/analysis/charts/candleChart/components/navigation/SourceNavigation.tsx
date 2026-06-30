@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import styles from './SourceNavigation.module.css';
 
 import { type CandleData } from "../../hooks/rawCandle/useCandleData";
