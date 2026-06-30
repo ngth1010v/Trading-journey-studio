@@ -160,7 +160,6 @@ def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
     base_timeframe = get_base_timeframe(timeframe)
     if base_timeframe is None:
         return _error(f"Unsupported timeframe: {timeframe}")
-
     try:
         if base_timeframe == timeframe:
             result = ohlcStorer.getRange(symbol, timeframe, from_ts, to_ts)

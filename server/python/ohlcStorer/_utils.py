@@ -20,7 +20,7 @@ def get_sorted_files(symbol: str, timeframe: str) -> list[Path]:
             # Filter out temporary/random UUID filenames that are not digits
             name = f.stem
             if name.isdigit():
-                files.append((int(name), f))
+                files.append((float(name), f))
         except ValueError:
             continue
     # Sort files chronologically by their starting timestamp
