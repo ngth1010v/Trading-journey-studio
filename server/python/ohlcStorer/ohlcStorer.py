@@ -184,45 +184,58 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
             span_ms = period_to - period_from
 
             if span_ms % src_step_ms != 0:
-                _logger.error(_SECTION, f"Period [{period_from}, {period_to}) unaligned to step {src_step_ms}ms")
+                _logger.error(
+                    _SECTION,
+                    f"Period [{period_from}, {period_to}) unaligned to step {src_step_ms}ms",
+                )
                 return []
 
             expected_count = span_ms // src_step_ms
             matched_count = 0
-            
-            # Temporary holder: [t, o, h, l, c, v]
+            valid_count = 0
+
+            # [t, o, h, l, c, v]
             bar = [period_from, 0, 0, 0, 0, 0]
 
-            # Fast forward over leading source rows behind current tracking window boundary
             while j < src_count and source_rows[j, 0] < period_from:
                 j += 1
 
-            # Accumulate values falling neatly within the explicit period frame bounds
             while j < src_count and period_from <= source_rows[j, 0] < period_to:
-                t, o, h, l, c, v = source_rows[j]
-                if (not (o == h == l == c == v == 0)):
-                    if matched_count == 0:
-                        bar[1] = int(o)  # Open
-                        bar[2] = int(h)  # High
-                        bar[3] = int(l)  # Low
-                        bar[4] = int(c)  # Close
-                        bar[5] = int(v)  # Volume
-                    else:
-                        if h > bar[2]: bar[2] = int(h)
-                        if l < bar[3]: bar[3] = int(l)
-                        bar[4] = int(c)
-                        bar[5] += int(v)
+                _, o, h, l, c, v = source_rows[j]
 
                 matched_count += 1
+
+                # Ignore empty source bar
+                if o == h == l == c == v == 0:
+                    j += 1
+                    continue
+
+                if valid_count == 0:
+                    bar[1] = int(o)
+                    bar[2] = int(h)
+                    bar[3] = int(l)
+                    bar[4] = int(c)
+                    bar[5] = int(v)
+                else:
+                    if h > bar[2]:
+                        bar[2] = int(h)
+                    if l < bar[3]:
+                        bar[3] = int(l)
+                    bar[4] = int(c)
+                    bar[5] += int(v)
+
+                valid_count += 1
                 j += 1
 
             if matched_count != expected_count:
                 _logger.error(
-                    _SECTION, 
-                    f"Missing source data for period [{period_from}, {period_to}): expected {expected_count}, got {matched_count}"
+                    _SECTION,
+                    f"Missing source data for period [{period_from}, {period_to}): "
+                    f"expected {expected_count}, got {matched_count}",
                 )
                 return []
 
+            # Nếu toàn bộ source bar đều rỗng thì giữ nguyên bar = [t,0,0,0,0,0]
             result.append(bar)
 
         # 6. Perform simple chronological deduplication filter pass

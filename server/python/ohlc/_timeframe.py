@@ -155,6 +155,7 @@ def build_target_periods(from_ts: int, to_ts: int, timeframe: str) -> list[tuple
     current_open = aligned_open
     while current_open < to_ts:
         next_open = get_next_period_open(current_open, timeframe)
+        print(next_open - current_open)
         if next_open is None:
             break
         periods.append((current_open, min(next_open, to_ts)))

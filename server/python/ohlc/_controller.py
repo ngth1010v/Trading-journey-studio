@@ -149,6 +149,15 @@ def get_ohlcs(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any):
         return _error("fromTs and toTs must be non-negative.")
     if to_ts <= from_ts:
         return _error("toTs must be greater than fromTs.")
+    
+    aligned_from = align_timestamp_to_timeframe(from_ts, timeframe)
+    aligned_to = align_timestamp_to_timeframe(to_ts, timeframe)
+
+    if aligned_from is None or aligned_to is None:
+        return _error(f"Unable to align timestamps for timeframe: {timeframe}")
+
+    from_ts = aligned_from
+    to_ts = aligned_to
 
     base_timeframe = get_base_timeframe(timeframe)
     if base_timeframe is None:
@@ -193,6 +202,15 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
 
     if to_ts <= from_ts:
         return _error("toTs must be greater than fromTs.")
+    
+    aligned_from = align_timestamp_to_timeframe(from_ts, timeframe)
+    aligned_to = align_timestamp_to_timeframe(to_ts, timeframe)
+
+    if aligned_from is None or aligned_to is None:
+        return _error(f"Unable to align timestamps for timeframe: {timeframe}")
+
+    from_ts = aligned_from
+    to_ts = aligned_to
 
     base_timeframe = get_base_timeframe(timeframe)
 
@@ -200,25 +218,52 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
         return _error(f"Unsupported timeframe: {timeframe}")
 
     try:
-        if base_timeframe != timeframe:
-            return _error("Binary API currently supports only base timeframes.")
+        # =====================================================================
+        # Base timeframe -> đọc trực tiếp
+        # =====================================================================
+        if base_timeframe == timeframe:
+            result = ohlcStorer.getRange(
+                symbol,
+                timeframe,
+                from_ts,
+                to_ts,
+            )
 
-        result = ohlcStorer.getRange(
+            if _is_empty_result(result):
+                return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+
+            if not isinstance(result, np.ndarray):
+                result = np.asarray(result, dtype=np.int64)
+            else:
+                result = result.astype(np.int64, copy=False)
+
+            return _ok(_build_bin_from_numpy(result))
+
+        # =====================================================================
+        # Aggregate timeframe
+        # =====================================================================
+        periods = build_target_periods(from_ts, to_ts, timeframe)
+
+        if not periods:
+            return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+
+        logger.debug(
+            _SECTION,
+            f"GET aggregate BIN for {symbol}/{timeframe} from {symbol}/{base_timeframe}",
+        )
+
+        result = ohlcStorer.aggregate(
             symbol,
-            timeframe,
-            from_ts,
-            to_ts,
+            base_timeframe,
+            periods,
         )
 
         if _is_empty_result(result):
             return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
-        
-        # Nếu result trả về không phải là numpy array trực tiếp (ví dụ list), ép kiểu về numpy array
-        if not isinstance(result, np.ndarray):
-            result = np.array(result, dtype=np.int64)
 
-        bin_data = _build_bin_from_numpy(result)
-        return _ok(bin_data)
+        result = np.asarray(result, dtype=np.int64)
+
+        return _ok(_build_bin_from_numpy(result))
 
     except Exception as exc:
         logger.error(
