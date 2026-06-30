@@ -59,28 +59,6 @@ function distanceSquared(ax: number, ay: number, bx: number, by: number): number
   return dx * dx + dy * dy;
 }
 
-function projectToLine45(start: Point, current: Point): Point {
-  const dx = current.x - start.x;
-  const dy = current.y - start.y;
-  const t = (dx + dy) / 2;
-
-  return {
-    x: start.x + t,
-    y: start.y + t,
-  };
-}
-
-function projectToLineNeg45(start: Point, current: Point): Point {
-  const dx = current.x - start.x;
-  const dy = current.y - start.y;
-  const t = (dx - dy) / 2;
-
-  return {
-    x: start.x + t,
-    y: start.y - t,
-  };
-}
-
 function rgbToHex(color: [number, number, number]): number {
   const r = Math.max(0, Math.min(255, Math.round(color[0])));
   const g = Math.max(0, Math.min(255, Math.round(color[1])));
@@ -214,33 +192,34 @@ export default function useCrosshair(
       const dx = Math.abs(x - start.x);
       const dy = Math.abs(y - start.y);
 
+      // Mặc định ban đầu nếu chưa di chuyển
       if (dx === 0 && dy === 0) {
         return { x: start.x, y: start.y };
       }
 
-      if (dx === 0) {
-        return { x: start.x, y };
+      if (dx >= dy) {
+        // Di chuyển theo trục X chủ đạo -> Khóa trục Y theo start.y
+        let targetX = x;
+        if (magnetRef.current) {
+          // Tìm magnet dựa trên vị trí chuột hiện tại (x, y)
+          const magnetPoint = getMagnetPixel(x, y);
+          if (magnetPoint) {
+            targetX = magnetPoint.x;
+          }
+        }
+        return { x: targetX, y: start.y };
+      } else {
+        // Di chuyển theo trục Y chủ đạo -> Khóa trục X theo start.x
+        let targetY = y;
+        if (magnetRef.current) {
+          // Tìm magnet dựa trên vị trí chuột hiện tại (x, y)
+          const magnetPoint = getMagnetPixel(x, y);
+          if (magnetPoint) {
+            targetY = magnetPoint.y;
+          }
+        }
+        return { x: start.x, y: targetY };
       }
-
-      if (dy === 0) {
-        return { x, y: start.y };
-      }
-
-      if (dy / dx > 2.5) {
-        return { x: start.x, y };
-      }
-
-      if (dx / dy > 2.5) {
-        return { x, y: start.y };
-      }
-
-      const p45 = projectToLine45(start, { x, y });
-      const pn45 = projectToLineNeg45(start, { x, y });
-
-      const d45 = distanceSquared(x, y, p45.x, p45.y);
-      const dn45 = distanceSquared(x, y, pn45.x, pn45.y);
-
-      return d45 <= dn45 ? p45 : pn45;
     }
 
     if (magnetRef.current) {
@@ -411,9 +390,11 @@ export default function useCrosshair(
 
   const onKeyDown = (key: string): void => {
     if (key === "Shift" && !alignRef.current && onScreenRef.current) {
+      const currentSnappedPos = getPixel();
+      startAlignPosRef.current.x = currentSnappedPos.x;
+      startAlignPosRef.current.y = currentSnappedPos.y;
+      
       alignRef.current = true;
-      startAlignPosRef.current.x = CrosshairPosRef.current.x;
-      startAlignPosRef.current.y = CrosshairPosRef.current.y;
       refreshCrosshair();
     }
   };
