@@ -3,7 +3,7 @@ import { Strategy, StrategyTag } from './strategies.model.js';
 import { logger } from '../../logger.js';
 
 const _SECTION = "strategies";
-const DB_PATH = 'database/strategies.sqlite';
+const DB_PATH = 'database/strategies.db';
 
 let db: Database.Database;
 
@@ -13,10 +13,13 @@ function initDb(): void {
 
   // Create tags table
   db.prepare(`
-    CREATE TABLE IF NOT EXISTS tags (
+    CREATE TABLE IF NOT EXISTS strategies (
       name TEXT PRIMARY KEY,
+      tagNames TEXT NOT NULL,
       createdTimestamp INTEGER NOT NULL,
       desc TEXT NOT NULL,
+      favoriteSymbols TEXT NOT NULL,
+      favoriteTimeframes TEXT NOT NULL,
       themeColor TEXT NOT NULL
     )
   `).run();
@@ -91,6 +94,8 @@ function getAllStrategies(): Strategy[] {
     tagNames: JSON.parse(row.tagNames),
     createdTimestamp: Number(row.createdTimestamp),
     desc: row.desc,
+    favoriteSymbols: JSON.parse(row.favoriteSymbols),
+    favoriteTimeframes: JSON.parse(row.favoriteTimeframes),
     themeColor: JSON.parse(row.themeColor)
   }));
 }
@@ -103,18 +108,22 @@ function getStrategyByName(name: string): Strategy | null {
     tagNames: JSON.parse(row.tagNames),
     createdTimestamp: Number(row.createdTimestamp),
     desc: row.desc,
+    favoriteSymbols: JSON.parse(row.favoriteSymbols),
+    favoriteTimeframes: JSON.parse(row.favoriteTimeframes),
     themeColor: JSON.parse(row.themeColor)
   };
 }
 
 function saveStrategy(strategy: Strategy): void {
   const stmt = db.prepare(`
-    INSERT INTO strategies (name, tagNames, createdTimestamp, desc, themeColor)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO strategies (name, tagNames, createdTimestamp, desc, favoriteSymbols, favoriteTimeframes, themeColor)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
       tagNames = excluded.tagNames,
       createdTimestamp = excluded.createdTimestamp,
       desc = excluded.desc,
+      favoriteSymbols = excluded.favoriteSymbols,
+      favoriteTimeframes = excluded.favoriteTimeframes,
       themeColor = excluded.themeColor
   `);
   stmt.run(
@@ -122,6 +131,8 @@ function saveStrategy(strategy: Strategy): void {
     JSON.stringify(strategy.tagNames), 
     strategy.createdTimestamp, 
     strategy.desc, 
+    JSON.stringify(strategy.favoriteSymbols),
+    JSON.stringify(strategy.favoriteTimeframes),
     JSON.stringify(strategy.themeColor)
   );
 }

@@ -33,6 +33,12 @@ function validateStrategy(strategy: any): string | null {
   if (!isValidThemeColor(strategy.themeColor)) {
     return "Invalid request: 'themeColor' must be a list of [r, g, b] lists.";
   }
+  if (!Array.isArray(strategy.favoriteSymbols) || strategy.favoriteSymbols.some((s: any) => typeof s !== 'string')) {
+    return "Invalid request: 'favoriteSymbols' must be an array of strings.";
+  }
+  if (!Array.isArray(strategy.favoriteTimeframes) || strategy.favoriteTimeframes.some((t: any) => typeof t !== 'string')) {
+    return "Invalid request: 'favoriteTimeframes' must be an array of strings.";
+  }
   
   // Tag cross-validation
   if (!Array.isArray(strategy.tagNames)) {
