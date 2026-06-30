@@ -39,12 +39,12 @@ def _get_next_timeframe(target_timeframe: str) -> str:
     return _TIMEFRAME_LIST[idx + 1]
 
 
-def _timestamp_floor(timestamp: int, timeframe: str) -> int:
+def _timestamp_floor(timestamp: float, timeframe: str) -> float:
     step = TIMEFRAME_MAP[timeframe]
     return (timestamp // step) * step
 
 
-def _timestamp_ceil(timestamp: int, timeframe: str) -> int:
+def _timestamp_ceil(timestamp: float, timeframe: str) -> float:
     step = TIMEFRAME_MAP[timeframe]
     return ((timestamp + step - 1) // step) * step
 
@@ -52,7 +52,7 @@ def _timestamp_ceil(timestamp: int, timeframe: str) -> int:
 # ============================================================================================================
 # CORE WORKFLOW logic
 # ============================================================================================================
-def _build_ohlc_from_ohlc(start_batch_ts: int, batch_size: int, timeframe_step: int, batch_src: np.ndarray) -> np.ndarray:
+def _build_ohlc_from_ohlc(start_batch_ts: float, batch_size: int, timeframe_step: float, batch_src: np.ndarray) -> np.ndarray:
     """
     Downsamples a higher-resolution source OHLC NumPy array into a lower-resolution target OHLC matrix.
     Skips bars that contain no source metrics to save storage allocation space.
@@ -88,9 +88,9 @@ def _build_ohlc_from_ohlc(start_batch_ts: int, batch_size: int, timeframe_step: 
         temp_list.append(bar)
 
     if not temp_list:
-        return np.empty((0, 6), dtype=np.int64)
+        return np.empty((0, 6), dtype=np.float64)
         
-    return np.array(temp_list, dtype=np.int64)
+    return np.array(temp_list, dtype=np.float64)
 
 def triggerNextTimeframe(symbol: str, timeframe: str):
     # Refresh stage boundaries
@@ -136,7 +136,7 @@ def extendBack(symbol: str, timeframe: str) -> None:
         # Prepare
         startBatchTs = max(startTs, currentTs - config.OHLC_BATCH * timeframeStep)
         endBatchTs = currentTs
-        ohlcBatchSize = (endBatchTs - startBatchTs) // timeframeStep
+        ohlcBatchSize = int((endBatchTs - startBatchTs) // timeframeStep)
         
         # Get src matrix
         batchSrc = ohlcStorer.getRange(symbol, srcTimeframe, startBatchTs, endBatchTs)
@@ -180,7 +180,7 @@ def extendFront(symbol: str, timeframe: str) -> None:
         # Prepare
         startBatchTs = currentTs
         endBatchTs = min(endTs, currentTs + config.OHLC_BATCH * timeframeStep)
-        ohlcBatchSize = (endBatchTs - startBatchTs) // timeframeStep
+        ohlcBatchSize = int((endBatchTs - startBatchTs) // timeframeStep)
         
         # Get src matrix
         batchSrc = ohlcStorer.getRange(symbol, srcTimeframe, startBatchTs, endBatchTs)
@@ -248,8 +248,8 @@ def init(timeframe: str) -> None:
         first_ohlc = ohlcStorer.getFirst(symbol, timeframe)
         last_ohlc = ohlcStorer.getLast(symbol, timeframe)
 
-        first_t = int(first_ohlc[0, 0]) if first_ohlc.size > 0 else 0
-        last_t = (int(last_ohlc[0, 0]) + TIMEFRAME_MAP[timeframe]) if last_ohlc.size > 0 else 0
+        first_t = float(first_ohlc[0, 0]) if first_ohlc.size > 0 else 0
+        last_t = (float(last_ohlc[0, 0]) + TIMEFRAME_MAP[timeframe]) if last_ohlc.size > 0 else 0
 
         _stager.setFrom(timeframe, symbol, first_t)
         _stager.setTo(timeframe, symbol, last_t)

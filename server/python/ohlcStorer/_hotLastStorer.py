@@ -27,13 +27,13 @@ def _start(symbol: str, timeframe: str) -> None:
     filepath = directory / "last.bin"
     
     limit = config.OHLC_STORER_HOT_PREVENTION_LIMIT
-    data = np.zeros((limit, 6), dtype=np.int64)
+    data = np.zeros((limit, 6), dtype=np.float64)
     tail = None
     
     if filepath.exists():
         try:
             # Load raw binary data and reshape it
-            loaded_data = np.fromfile(str(filepath), dtype=np.int64).reshape(-1, 6)
+            loaded_data = np.fromfile(str(filepath), dtype=np.float64).reshape(-1, 6)
             loaded_len = loaded_data.shape[0]
             
             if loaded_len > 0:
@@ -48,7 +48,7 @@ def _start(symbol: str, timeframe: str) -> None:
             cache[symbol] = {}
             
         cache[symbol][timeframe] = {
-            "openTimestamp": int(time.time() * 1000),
+            "openTimestamp": float(time.time() * 1000),
             "data": data,
             "tail": tail,
             "lock": 0,
@@ -96,7 +96,7 @@ def _refresh(symbol: str, timeframe: str) -> dict:
         _start(symbol, timeframe)
 
     c = cache[symbol][timeframe]
-    c["openTimestamp"] = int(time.time() * 1000)
+    c["openTimestamp"] = float(time.time() * 1000)
     return c
 
 
@@ -149,7 +149,7 @@ def init() -> None:
     
     def _manager():
         while _manager_alive:
-            now_ms = int(time.time() * 1000)
+            now_ms = float(time.time() * 1000)
             targets_to_end = []
             
             with _global_lock:
@@ -208,7 +208,7 @@ def getLast(symbol: str, timeframe: str) -> np.ndarray | list:
     return c['data'][c['tail'] - 1].copy()
 
 
-def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray | list:
+def getRange(symbol: str, timeframe: str, fromTs: float, toTs: float) -> np.ndarray | list:
     """Returns an array of candles within the specified timeframe."""
     c = _refresh(symbol, timeframe)
     while c['lock'] == 2:

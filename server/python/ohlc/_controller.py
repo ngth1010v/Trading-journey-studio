@@ -21,13 +21,13 @@ from ._timeframe import (
 _SECTION = "ohlc/_controller.py"
 
 
-def _parse_timestamp(raw_value: Any) -> int | None:
+def _parse_timestamp(raw_value: Any) -> float | None:
     try:
         if raw_value is None:
             return None
         if isinstance(raw_value, bool):
             return None
-        return int(str(raw_value).strip())
+        return float(str(raw_value).strip())
     except Exception:
         return None
 
@@ -36,12 +36,12 @@ def _np_row_to_dict(row: np.ndarray) -> dict[str, Any]:
     if row is None or len(row) < 6:
         return {}
     return {
-        "t": int(row[0]),
-        "o": float(row[1]) if isinstance(row[1], float) else int(row[1]),
-        "h": float(row[2]) if isinstance(row[2], float) else int(row[2]),
-        "l": float(row[3]) if isinstance(row[3], float) else int(row[3]),
-        "c": float(row[4]) if isinstance(row[4], float) else int(row[4]),
-        "v": float(row[5]) if isinstance(row[5], float) else int(row[5]),
+        "t": float(row[0]),
+        "o": float(row[1]),
+        "h": float(row[2]),
+        "l": float(row[3]),
+        "c": float(row[4]),
+        "v": float(row[5]),
     }
 
 
@@ -49,12 +49,12 @@ def _list_row_to_dict(row: list[int | float]) -> dict[str, Any]:
     if not row or len(row) < 6:
         return {}
     return {
-        "t": int(row[0]),
-        "o": int(row[1]),
-        "h": int(row[2]),
-        "l": int(row[3]),
-        "c": int(row[4]),
-        "v": int(row[5]),
+        "t": float(row[0]),
+        "o": float(row[1]),
+        "h": float(row[2]),
+        "l": float(row[3]),
+        "c": float(row[4]),
+        "v": float(row[5]),
     }
 
 
@@ -77,7 +77,7 @@ def _ok(data: Any, code: int = 200):
     return data, code
 
 
-def _resolve_last_open_timestamp(target_timeframe: str, last_ts: int) -> int | None:
+def _resolve_last_open_timestamp(target_timeframe: str, last_ts: float) -> float | None:
     tf = normalize_timeframe(target_timeframe)
     if not is_valid_timeframe(tf):
         return None
@@ -106,22 +106,20 @@ def _build_bin_from_numpy(data: np.ndarray) -> bytes:
     Tối ưu hóa hiệu suất bằng Vectorized Numpy (.tobytes()) thay thế cho vòng lặp thuần.
     Cấu trúc layout nhị phân:
     - int64 count (8 bytes)
-    - int64[count] t, o, h, l, c, v (mỗi mảng liên tục trong bộ nhớ)
+    - float64[count] t, o, h, l, c, v (mỗi mảng liên tục trong bộ nhớ)
     """
     count = data.shape[0] if data.size > 0 else 0
     
-    # 1. Khởi tạo header 8 bytes chứa độ dài count (Little-endian int64)
+    # 1. Khởi tạo header 8 bytes chứa độ dài count (Little-endian int64 giữ nguyên)
     header = struct.pack("<q", count)
     
     if count == 0:
         return header
 
-    # 2. Đảm bảo dữ liệu chắc chắn là kiểu int64 với thứ tự lưu trữ liên tục (C-order)
-    # và ép định dạng Byte-order sang Little-endian (<i8) để tương thích chính xác với Client
-    data_fixed = np.asarray(data, dtype="<i8", order="C")
+    # 2. Đổi dtype từ "<i8" (int64) sang "<f8" (float64) để tương thích dữ liệu mới
+    data_fixed = np.asarray(data, dtype="<f8", order="C")
     
     # 3. Sử dụng tính năng cắt mảng nâng cao (Slicing) kết hợp .tobytes() 
-    # Thao tác này chạy ở tầng C-level của Numpy, cực kỳ nhanh.
     t_bytes = data_fixed[:, 0].tobytes()
     o_bytes = data_fixed[:, 1].tobytes()
     h_bytes = data_fixed[:, 2].tobytes()
@@ -218,9 +216,6 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
         return _error(f"Unsupported timeframe: {timeframe}")
 
     try:
-        # =====================================================================
-        # Base timeframe -> đọc trực tiếp
-        # =====================================================================
         if base_timeframe == timeframe:
             result = ohlcStorer.getRange(
                 symbol,
@@ -230,12 +225,12 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
             )
 
             if _is_empty_result(result):
-                return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+                return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.float64)))
 
             if not isinstance(result, np.ndarray):
-                result = np.asarray(result, dtype=np.int64)
+                result = np.asarray(result, dtype=np.float64)
             else:
-                result = result.astype(np.int64, copy=False)
+                result = result.astype(np.float64, copy=False)
 
             return _ok(_build_bin_from_numpy(result))
 
@@ -245,7 +240,7 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
         periods = build_target_periods(from_ts, to_ts, timeframe)
 
         if not periods:
-            return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+            return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.float64)))
 
         logger.debug(
             _SECTION,
@@ -259,9 +254,9 @@ def get_ohlcs_bin(symbol: str, timeframe: str, from_ts_raw: Any, to_ts_raw: Any)
         )
 
         if _is_empty_result(result):
-            return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.int64)))
+            return _ok(_build_bin_from_numpy(np.empty((0, 6), dtype=np.float64)))
 
-        result = np.asarray(result, dtype=np.int64)
+        result = np.asarray(result, dtype=np.float64)
 
         return _ok(_build_bin_from_numpy(result))
 
@@ -283,15 +278,14 @@ def get_last_ohlc(symbol: str, timeframe: str):
         if _is_empty_result(last_s1):
             return _ok([])
 
-        # last_s1 is an [N, 6] array; grab the first matching newest bar
         last_row = last_s1[0]
-        last_ts = int(last_row[0])
+        last_ts = float(last_row[0])  # Chuyển sang float
 
         open_ts = _resolve_last_open_timestamp(timeframe, last_ts)
         if open_ts is None:
             return _error(f"Unable to resolve open timestamp for timeframe: {timeframe}")
 
-        periods = [(open_ts, last_ts + 1000)]
+        periods = [(open_ts, last_ts + 1000.0)]
         result = ohlcStorer.aggregate(symbol, "1S", periods)
 
         if not _is_empty_result(result):

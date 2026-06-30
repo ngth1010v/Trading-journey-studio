@@ -27,7 +27,7 @@ def get_sorted_files(symbol: str, timeframe: str) -> list[Path]:
     files.sort(key=lambda x: x[0])
     return [f[1] for f in files]
 
-def binary_search_ts(data: np.ndarray, ts: int, find_first: bool = True) -> int:
+def binary_search_ts(data: np.ndarray, ts: float, find_first: bool = True) -> float:
     """
     Performs binary search on a 2D numpy array memory-map based on timestamps (column 0).
     If find_first is True, returns index of first row where row[0] >= ts.
@@ -36,7 +36,7 @@ def binary_search_ts(data: np.ndarray, ts: int, find_first: bool = True) -> int:
     timestamps = data[:, 0]
     if find_first:
         idx = np.searchsorted(timestamps, ts, side='left')
-        return int(idx)
+        return float(idx)
     else:
         idx = np.searchsorted(timestamps, ts, side='left') - 1
-        return int(idx)
+        return float(idx)

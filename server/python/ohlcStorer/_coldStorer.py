@@ -26,12 +26,12 @@ def write(symbol: str, timeframe: str, data: np.ndarray) -> None:
     temp_filename = f"{uuid.uuid4().hex}.bin"
     temp_filepath = directory / temp_filename
     
-    # Ensure explicit int64 formatting for saving data cleanly
-    data_to_write = data.astype(np.int64)
+    # Ensure explicit float64 formatting for saving data cleanly
+    data_to_write = data.astype(np.float64)
     data_to_write.tofile(str(temp_filepath))
     
     # Step 2: Safely rename to the first candle timestamp
-    first_ts = data_to_write[0, 0]
+    first_ts = float(data_to_write[0, 0])
     final_filepath = directory / f"{first_ts}.bin"
     
     try:
@@ -53,7 +53,7 @@ def getFirst(symbol: str, timeframe: str) -> np.ndarray | list:
     target_file = files[0]
     
     # Memory map the file to grab only the first row
-    mmap_data = np.memmap(str(target_file), dtype=np.int64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
+    mmap_data = np.memmap(str(target_file), dtype=np.float64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
     first_row = np.array(mmap_data[0])
     
     # Clean up memory map reference
@@ -71,7 +71,7 @@ def getLast(symbol: str, timeframe: str) -> np.ndarray | list:
     target_file = files[-1]
     
     # Memory map the file to grab only the last row
-    mmap_data = np.memmap(str(target_file), dtype=np.int64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
+    mmap_data = np.memmap(str(target_file), dtype=np.float64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
     last_row = np.array(mmap_data[-1])
     
     # Clean up memory map reference
@@ -80,35 +80,35 @@ def getLast(symbol: str, timeframe: str) -> np.ndarray | list:
 
 
 
-def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray:
+def getRange(symbol: str, timeframe: str, fromTs: float, toTs: float) -> np.ndarray:
     """
     Selects valid files within the timestamp boundaries and builds a single array output.
     Uses memory maps and binary searches to chunk outer files accurately.
     """
     files = get_sorted_files(symbol, timeframe)
     if not files:
-        return np.empty((0, 6), dtype=np.int64)
+        return np.empty((0, 6), dtype=np.float64)
         
     # Find targeted files including the boundary safety offset
     target_files = []
     for idx, f in enumerate(files):
-        file_ts = int(f.stem)
+        file_ts = float(f.stem)
         
         # Include file if its start fits the window criteria
         if fromTs <= file_ts < toTs:
             target_files.append(f)
         # Handle the overlap edge case: include previous file if requested range falls inside its data span
         elif file_ts < fromTs:
-            if idx == len(files) - 1 or int(files[idx + 1].stem) > fromTs:
+            if idx == len(files) - 1 or float(files[idx + 1].stem) > fromTs:
                 target_files.append(f)
 
     if not target_files:
-        return np.empty((0, 6), dtype=np.int64)
+        return np.empty((0, 6), dtype=np.float64)
         
     results = []
     
     # --- Process First Target File (Slice Start) ---
-    first_mmap = np.memmap(str(target_files[0]), dtype=np.int64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
+    first_mmap = np.memmap(str(target_files[0]), dtype=np.float64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
     start_row_id = binary_search_ts(first_mmap, fromTs, find_first=True)
     
     # If there is only one file targeted
@@ -126,17 +126,17 @@ def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray:
         # --- Process Middle Files (Complete Load) ---
         for f in target_files[1:-1]:
             # Simple standard block loading
-            middle_data = np.fromfile(str(f), dtype=np.int64).reshape(-1, 6)
+            middle_data = np.fromfile(str(f), dtype=np.float64).reshape(-1, 6)
             results.append(middle_data)
             
         # --- Process Last Target File (Slice End) ---
-        last_mmap = np.memmap(str(target_files[-1]), dtype=np.int64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
+        last_mmap = np.memmap(str(target_files[-1]), dtype=np.float64, mode='r', shape=(config.OHLC_STORER_HOT_LIMIT, 6))
         end_row_id = binary_search_ts(last_mmap, toTs, find_first=False)
         if end_row_id >= 0:
             results.append(np.array(last_mmap[: end_row_id + 1]))
         del last_mmap
 
     if not results:
-        return np.empty((0, 6), dtype=np.int64)
+        return np.empty((0, 6), dtype=np.float64)
         
     return np.concatenate(results, axis=0)

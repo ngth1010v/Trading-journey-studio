@@ -46,7 +46,7 @@ def extend(symbol: str, timestamp: int):
     if not timestamp:
         return jsonify({"status": "error", "msg": "Invalid or missing symbol"}), 400
 
-    _stager.putQueue("1S", {"symbol": symbol, "timestamp": int(timestamp)})
+    _stager.putQueue("1S", {"symbol": symbol, "timestamp": float(timestamp)})
 
     return jsonify({"status": "ok", "type": "queued"}), 200
 

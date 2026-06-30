@@ -15,17 +15,17 @@ from ._type import Tick
 _SECTION = "base/_collector.py"
 
 # Lưu offset theo giờ, mặc định ban đầu là 0
-_MT5_SERVER_OFFSET_HOURS: int = 0
+_MT5_SERVER_OFFSET_HOURS: float = 0
 _IS_INITIALIZED: bool = False
 
 
-def _ms_to_dt(ts_ms: int) -> datetime:
+def _ms_to_dt(ts_ms: float) -> datetime:
     return datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
 
 
-def _safe_int(value: Any, default: int = 0) -> int:
+def _safe_float(value: Any, default: float = 0) -> float:
     try:
-        return int(value)
+        return float(value)
     except Exception:
         return default
 
@@ -68,8 +68,8 @@ def init() -> bool:
             return _handle_market_closed(file_path)
 
         # Lấy timestamp giờ UTC và server (ms)
-        utc_now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-        server_now_ms = _safe_int(getattr(tick, "time_msc", 0))
+        utc_now_ms = float(datetime.now(timezone.utc).timestamp() * 1000)
+        server_now_ms = _safe_float(getattr(tick, "time_msc", 0))
         
         delta_ms = server_now_ms - utc_now_ms
         abs_delta_minutes = abs(delta_ms) / (1000 * 60)
@@ -77,7 +77,7 @@ def init() -> bool:
         # NẾU ABS(DELTA) <= 20 PHÚT
         if abs_delta_minutes <= 20:
             # Round delta theo giờ
-            offset_hours = int(round(delta_ms / (1000 * 60 * 60)))
+            offset_hours = float(round(delta_ms / (1000 * 60 * 60)))
             _MT5_SERVER_OFFSET_HOURS = offset_hours
             
             # Ghi offset xuống file json
@@ -105,7 +105,7 @@ def _handle_market_closed(file_path: Path) -> bool:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                _MT5_SERVER_OFFSET_HOURS = int(data.get("serverUtc", 0))
+                _MT5_SERVER_OFFSET_HOURS = float(data.get("serverUtc", 0))
             logger.warning(_SECTION, f"Market closed. Loaded existing offset from file: {_MT5_SERVER_OFFSET_HOURS} hours.")
             _IS_INITIALIZED = True
             return True
@@ -128,7 +128,7 @@ def _handle_market_closed(file_path: Path) -> bool:
     return False
 
 
-def _get_offset_ms() -> int:
+def _get_offset_ms() -> float:
     """Helper chuyển đổi offset giờ hiện tại sang mili giây dùng cho fetch"""
     # Đảm bảo đã chạy qua logic init ít nhất 1 lần
     if not _IS_INITIALIZED:
@@ -136,15 +136,15 @@ def _get_offset_ms() -> int:
     return _MT5_SERVER_OFFSET_HOURS * 60 * 60 * 1000
 
 
-def _utc_ms_to_mt5_ms(utc_ms: int) -> int:
-    return int(utc_ms + _get_offset_ms())
+def _utc_ms_to_mt5_ms(utc_ms: float) -> float:
+    return float(utc_ms + _get_offset_ms())
 
 
-def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.ndarray:
+def fetchTicksFromMt5(symbol: str, point: float, fromTs: float, toTs: float) -> np.ndarray:
     """
     Return numpy array:
         [
-            [t:int64, b:int64, v:int64],
+            [t:float64, b:float64, v:float64],
             ...
         ]
 
@@ -153,7 +153,7 @@ def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.nda
         b = bid * point
         v = real volume
     """
-    empty = np.empty((0, 3), dtype=np.int64)
+    empty = np.empty((0, 3), dtype=np.float64)
 
     try:
         symbol = (symbol or "").strip()
@@ -187,22 +187,22 @@ def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.nda
 
         # timestamp
         if "time_msc" in names:
-            t = raw["time_msc"].astype(np.int64)
+            t = raw["time_msc"].astype(np.float64)
         else:
-            t = raw["time"].astype(np.int64) * 1000
+            t = raw["time"].astype(np.float64) * 1000
 
         t -= offset_ms
 
         # bid
-        b = np.rint(raw["bid"].astype(np.float64) * point).astype(np.int64)
+        b = np.rint(raw["bid"].astype(np.float64) * point)
 
         # volume
         if "real_volume" in names:
-            v = raw["real_volume"].astype(np.int64)
+            v = raw["real_volume"].astype(np.float64)
         elif "volume" in names:
-            v = raw["volume"].astype(np.int64)
+            v = raw["volume"].astype(np.float64)
         else:
-            v = np.zeros(len(raw), dtype=np.int64)
+            v = np.zeros(len(raw), dtype=np.float64)
 
         # filter: fromTs <= t < toTs
         mask = (t >= fromTs) & (t < toTs)
@@ -210,7 +210,7 @@ def fetchTicksFromMt5(symbol: str, point: int, fromTs: int, toTs: int) -> np.nda
         if not np.any(mask):
             return empty
 
-        out = np.empty((mask.sum(), 3), dtype=np.int64)
+        out = np.empty((mask.sum(), 3), dtype=np.float64)
         out[:, 0] = t[mask]
         out[:, 1] = b[mask]
         out[:, 2] = v[mask]

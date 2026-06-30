@@ -48,7 +48,7 @@ def getLast(symbol: str, timeframe: str) -> np.ndarray:
     if last is not None and len(last) > 0:
         return np.atleast_2d(last)
 
-    return np.empty((0, 6), dtype=np.int64)
+    return np.empty((0, 6), dtype=np.float64)
 
 
 def getFirst(symbol: str, timeframe: str) -> np.ndarray:
@@ -71,10 +71,10 @@ def getFirst(symbol: str, timeframe: str) -> np.ndarray:
     if first is not None and len(first) > 0:
         return np.atleast_2d(first)
 
-    return np.empty((0, 6), dtype=np.int64)
+    return np.empty((0, 6), dtype=np.float64)
 
 
-def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray:
+def getRange(symbol: str, timeframe: str, fromTs: float, toTs: float) -> np.ndarray:
     """
     Queries across all tiers and builds a single consolidated chronologically 
     sorted array containing metrics bounding [fromTs, toTs).
@@ -92,7 +92,7 @@ def getRange(symbol: str, timeframe: str, fromTs: int, toTs: int) -> np.ndarray:
         results.append(np.atleast_2d(lastRange))
 
     if not results:
-        return np.empty((0, 6), dtype=np.int64)
+        return np.empty((0, 6), dtype=np.float64)
 
     # Concatenate all matching partitions together seamlessly
     return np.concatenate(results, axis=0)
@@ -111,7 +111,7 @@ def getAvailableSymbols() -> list[str]:
 # ==============================================================================
 # AGGREGATE COMMANDS
 # ==============================================================================
-def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int]]) -> list[list[int]]:
+def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[float, float]]) -> list[list[float]]:
     """
     Aggregate source OHLC numpy array rows from `srcTimeframe` into requested target periods.
     Returns a nested list structure: [[t, o, h, l, c, v], ...] or [] if empty/invalid.
@@ -132,10 +132,10 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
         src_step_ms = mapping[tf]
 
         # 2. Validate and clean period inputs
-        periods: list[tuple[int, int]] = []
+        periods: list[tuple[float, float]] = []
         for period in targetPeriods or []:
             try:
-                p_from, p_to = int(period[0]), int(period[1])
+                p_from, p_to = float(period[0]), float(period[1])
                 if p_to > p_from:
                     periods.append((p_from, p_to))
             except (ValueError, TypeError, IndexError):
@@ -152,8 +152,8 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
         if first_src.size == 0 or last_src.size == 0:
             return []
 
-        first_src_ts = int(first_src[0, 0])
-        last_src_ts  = int(last_src[0, 0])
+        first_src_ts = float(first_src[0, 0])
+        last_src_ts  = float(last_src[0, 0])
         
         source_first_boundary = first_src_ts
         source_last_boundary  = last_src_ts + src_step_ms
@@ -176,7 +176,7 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
             return []
 
         # 5. Process continuous sequential aggregation
-        result: list[list[int]] = []
+        result: list[list[float]] = []
         j = 0
         src_count = source_rows.shape[0]
 
@@ -211,18 +211,18 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
                     continue
 
                 if valid_count == 0:
-                    bar[1] = int(o)
-                    bar[2] = int(h)
-                    bar[3] = int(l)
-                    bar[4] = int(c)
-                    bar[5] = int(v)
+                    bar[1] = float(o)
+                    bar[2] = float(h)
+                    bar[3] = float(l)
+                    bar[4] = float(c)
+                    bar[5] = float(v)
                 else:
                     if h > bar[2]:
-                        bar[2] = int(h)
+                        bar[2] = float(h)
                     if l < bar[3]:
-                        bar[3] = int(l)
-                    bar[4] = int(c)
-                    bar[5] += int(v)
+                        bar[3] = float(l)
+                    bar[4] = float(c)
+                    bar[5] += float(v)
 
                 valid_count += 1
                 j += 1
@@ -239,8 +239,8 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[int, int
             result.append(bar)
 
         # 6. Perform simple chronological deduplication filter pass
-        unique_result: list[list[int]] = []
-        last_ts: int | None = None
+        unique_result: list[list[float]] = []
+        last_ts: float | None = None
         for ohlc in result:
             if last_ts == ohlc[0]:
                 continue
@@ -264,7 +264,7 @@ def append(symbol: str, timeframe: str, data: np.ndarray) -> None:
     the trailing right boundary hot-cache block safely.
     """
     # Force alignment into 2D structural numpy components safely
-    np_data = np.atleast_2d(data).astype(np.int64)
+    np_data = np.atleast_2d(data).astype(np.float64)
     if np_data.shape[1] != 6:
         raise ValueError("Invalid OHLC block shape. Expected [N, 6] array framework layout.")
 
@@ -278,7 +278,7 @@ def prepend(symbol: str, timeframe: str, data: np.ndarray) -> None:
     the leading left boundary hot-cache block safely.
     """
     # Force alignment into 2D structural numpy components safely
-    np_data = np.atleast_2d(data).astype(np.int64)
+    np_data = np.atleast_2d(data).astype(np.float64)
     if np_data.shape[1] != 6:
         raise ValueError("Invalid OHLC block shape. Expected [N, 6] array framework layout.")
 

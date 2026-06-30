@@ -85,19 +85,19 @@ def timeframe_milliseconds(timeframe: str) -> int | None:
     return info.multiplier * TIMESTAMP_MAP[info.unit]
 
 
-def _floor_timestamp_by_ms(timestamp_ms: int, size_ms: int) -> int:
-    return (timestamp_ms // size_ms) * size_ms
+def _floor_timestamp_by_ms(timestamp_ms: float, size_ms: int) -> float:
+    return float((timestamp_ms // size_ms) * size_ms)
 
 
-def _to_utc_datetime(timestamp_ms: int) -> datetime:
+def _to_utc_datetime(timestamp_ms: float) -> datetime:
     return datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
 
 
-def _to_timestamp_ms(dt: datetime) -> int:
-    return int(dt.timestamp() * 1000)
+def _to_timestamp_ms(dt: datetime) -> float:
+    return float(dt.timestamp() * 1000)
 
 
-def align_timestamp_to_timeframe(timestamp_ms: int, timeframe: str) -> int | None:
+def align_timestamp_to_timeframe(timestamp_ms: float, timeframe: str) -> float | None:
     info = parse_timeframe(timeframe)
     if info is None:
         return None
@@ -123,13 +123,13 @@ def align_timestamp_to_timeframe(timestamp_ms: int, timeframe: str) -> int | Non
     return None
 
 
-def get_next_period_open(open_timestamp_ms: int, timeframe: str) -> int | None:
+def get_next_period_open(open_timestamp_ms: float, timeframe: str) -> float | None:
     info = parse_timeframe(timeframe)
     if info is None:
         return None
 
     if info.unit in TIMESTAMP_MAP:
-        return open_timestamp_ms + (info.multiplier * TIMESTAMP_MAP[info.unit])
+        return float(open_timestamp_ms + (info.multiplier * TIMESTAMP_MAP[info.unit]))
 
     dt = _to_utc_datetime(open_timestamp_ms)
     if info.unit == "W":
@@ -145,9 +145,9 @@ def get_next_period_open(open_timestamp_ms: int, timeframe: str) -> int | None:
     return None
 
 
-def build_target_periods(from_ts: int, to_ts: int, timeframe: str) -> list[tuple[int, int]]:
+def build_target_periods(from_ts: float, to_ts: float, timeframe: str) -> list[tuple[float, float]]:
     """Build half-open periods [open, close) for a target timeframe in UTC."""
-    periods: list[tuple[int, int]] = []
+    periods: list[tuple[float, float]] = []
     aligned_open = align_timestamp_to_timeframe(from_ts, timeframe)
     if aligned_open is None:
         return periods
@@ -155,7 +155,6 @@ def build_target_periods(from_ts: int, to_ts: int, timeframe: str) -> list[tuple
     current_open = aligned_open
     while current_open < to_ts:
         next_open = get_next_period_open(current_open, timeframe)
-        print(next_open - current_open)
         if next_open is None:
             break
         periods.append((current_open, min(next_open, to_ts)))
@@ -163,13 +162,13 @@ def build_target_periods(from_ts: int, to_ts: int, timeframe: str) -> list[tuple
     return periods
 
 
-def start_of_week_utc(timestamp_ms: int) -> int | None:
+def start_of_week_utc(timestamp_ms: float) -> float | None:
     return align_timestamp_to_timeframe(timestamp_ms, "1W")
 
 
-def start_of_month_utc(timestamp_ms: int) -> int | None:
+def start_of_month_utc(timestamp_ms: float) -> float | None:
     return align_timestamp_to_timeframe(timestamp_ms, "1MN")
 
 
-def start_of_year_utc(timestamp_ms: int) -> int | None:
+def start_of_year_utc(timestamp_ms: float) -> float | None:
     return align_timestamp_to_timeframe(timestamp_ms, "1Y")

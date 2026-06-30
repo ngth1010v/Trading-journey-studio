@@ -26,9 +26,9 @@ def _checkTimeframe(timeframe: str) -> None:
         raise ValueError(f"Invalid timeframe: {timeframe}")
 
 
-def _checkInt(value: int, name: str) -> None:
-    if type(value) is not int:
-        raise TypeError(f"{name} must be int")
+def _checkFloat(value: float, name: str) -> None:
+    if not isinstance(value, (int, float)):
+        raise TypeError(f"{name} must be float or int")
 
 
 def _checkSymbol(symbol: str) -> None:
@@ -55,21 +55,21 @@ def _getSymbolStage(timeframe: str, symbol: str) -> dict:
 # Stage
 # =============================================================================
 
-def getFrom(timeframe: str, symbol: str) -> int:
+def getFrom(timeframe: str, symbol: str) -> float:
     return _getSymbolStage(timeframe, symbol)["from"]
 
 
-def getTo(timeframe: str, symbol: str) -> int:
+def getTo(timeframe: str, symbol: str) -> float:
     return _getSymbolStage(timeframe, symbol)["to"]
 
 
-def setFrom(timeframe: str, symbol: str, fromTs: int) -> None:
-    _checkInt(fromTs, "fromTs")
+def setFrom(timeframe: str, symbol: str, fromTs: float) -> None:
+    _checkFloat(fromTs, "fromTs")
     _getSymbolStage(timeframe, symbol)["from"] = fromTs
 
 
-def setTo(timeframe: str, symbol: str, toTs: int) -> None:
-    _checkInt(toTs, "toTs")
+def setTo(timeframe: str, symbol: str, toTs: float) -> None:
+    _checkFloat(toTs, "toTs")
     _getSymbolStage(timeframe, symbol)["to"] = toTs
 
 

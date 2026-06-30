@@ -17,18 +17,18 @@ _SECTION = "base/_baseWorker.py"
 # ==============================================================================
 # Helper Functions
 # ==============================================================================
-def _floor_sec(ts_ms: int) -> int:
-    return (int(ts_ms) // 1000) * 1000
+def _floor_sec(ts_ms: float) -> float:
+    return (float(ts_ms) // 1000) * 1000
 
 
-def _now_utc_ms() -> int:
-    return int(datetime.now(timezone.utc).timestamp() * 1000)
+def _now_utc_ms() -> float:
+    return float(datetime.now(timezone.utc).timestamp() * 1000)
 
 
-def _symbol_point(symbol: str) -> int:
+def _symbol_point(symbol: str) -> float:
     try:
         point = symbols._reader.getSymbol(symbol).point
-        return int(point)
+        return float(point)
     except Exception as exc:
         logger.error(_SECTION, f"Failed to read digits/point for {symbol!r}: {exc}")
         return 1
@@ -37,12 +37,12 @@ def _symbol_point(symbol: str) -> int:
 # ==============================================================================
 # Core Workflow
 # ==============================================================================
-def _build_ohlc_from_ticks(start_batch_ts: int, batch_size: int, batch_ticks) -> np.ndarray:
+def _build_ohlc_from_ticks(start_batch_ts: float, batch_size: int, batch_ticks) -> np.ndarray:
     """
     Builds an OHLC NumPy array of shape (batch_size, 6) from a sequential list of ticks.
     Each row matches the structure: [t, o, h, l, c, v]
     """
-    ohlc_matrix = np.zeros((batch_size, 6), dtype=np.int64)
+    ohlc_matrix = np.zeros((batch_size, 6), dtype=np.float64)
     j = np.searchsorted(batch_ticks[:, 0], start_batch_ts, side="left")
     tick_count = len(batch_ticks)
 
@@ -82,7 +82,7 @@ def triggerNextTimeframe(symbol: str):
     })
 
 
-def extendBack(symbol: str, fromTs: int) -> None:
+def extendBack(symbol: str, fromTs: float) -> None:
     point = _symbol_point(symbol)
     startTs = _floor_sec(fromTs)
     endTs = _stager.getFrom("1S", symbol)
@@ -236,13 +236,13 @@ def init() -> None:
 
         first_ohlc = ohlcStorer.getFirst(symbol, "1S")
         if first_ohlc.size > 0:
-            _stager.setFrom("1S", symbol, int(first_ohlc[0, 0]))
+            _stager.setFrom("1S", symbol, float(first_ohlc[0, 0]))
         else:
             _stager.setFrom("1S", symbol, 0)
         
         last_ohlc = ohlcStorer.getLast(symbol, "1S")
         if last_ohlc.size > 0:
-            _stager.setTo("1S", symbol, int(last_ohlc[0, 0]) + 1000)
+            _stager.setTo("1S", symbol, float(last_ohlc[0, 0]) + 1000)
         else:
             _stager.setTo("1S", symbol, 0)
 
