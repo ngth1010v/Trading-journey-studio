@@ -6,12 +6,12 @@ import type { Ohlc } from "../../shared/types";
 
 // Type definitions for internal data cache structure
 interface CacheData {
-  t: BigInt64Array;
-  o: BigInt64Array;
-  h: BigInt64Array;
-  l: BigInt64Array;
-  c: BigInt64Array;
-  v: BigInt64Array;
+  t: Float64Array;
+  o: Float64Array;
+  h: Float64Array;
+  l: Float64Array;
+  c: Float64Array;
+  v: Float64Array;
 }
 
 export interface CandleData {
@@ -139,6 +139,7 @@ export default function useCandleData(): CandleData {
         
         const deltaTs = (toTs - fromTs) * CONFIG.CANDLE_DATA.CACHE_EXTEND_RATIO;
         const predata = await marketApi.getRange(symbol, timeframe, fromTs - deltaTs, toTs + deltaTs);
+        console.log("ttest")
         
         state.current._cache = predata;
         state.current.onDataChangeListeners.forEach((cb) => cb());
@@ -181,6 +182,7 @@ export default function useCandleData(): CandleData {
 
         const deltaTs = (toTs - fromTs) * CONFIG.CANDLE_DATA.CACHE_EXTEND_RATIO;
         const predata = await marketApi.getRange(symbol, timeframe, fromTs - deltaTs, toTs + deltaTs);
+
 
         state.current._cache = predata;
         state.current.onDataChangeListeners.forEach((cb) => cb());

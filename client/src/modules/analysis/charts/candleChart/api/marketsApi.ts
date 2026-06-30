@@ -107,12 +107,12 @@ async function getRange(
   fromTs: number,
   toTs: number,
 ): Promise<{
-  t: BigInt64Array;
-  o: BigInt64Array;
-  h: BigInt64Array;
-  l: BigInt64Array;
-  c: BigInt64Array;
-  v: BigInt64Array;
+  t: Float64Array;
+  o: Float64Array;
+  h: Float64Array;
+  l: Float64Array;
+  c: Float64Array;
+  v: Float64Array;
 }> {
   const params = new URLSearchParams({
     fromTs: String(fromTs),
@@ -128,22 +128,22 @@ async function getRange(
   let offset = 8;
   const bytes = count * 8;
 
-  const t = new BigInt64Array(buffer, offset, count);
+  const t = new Float64Array(buffer, offset, count);
   offset += bytes;
 
-  const o = new BigInt64Array(buffer, offset, count);
+  const o = new Float64Array(buffer, offset, count);
   offset += bytes;
 
-  const h = new BigInt64Array(buffer, offset, count);
+  const h = new Float64Array(buffer, offset, count);
   offset += bytes;
 
-  const l = new BigInt64Array(buffer, offset, count);
+  const l = new Float64Array(buffer, offset, count);
   offset += bytes;
 
-  const c = new BigInt64Array(buffer, offset, count);
+  const c = new Float64Array(buffer, offset, count);
   offset += bytes;
 
-  const v = new BigInt64Array(buffer, offset, count);
+  const v = new Float64Array(buffer, offset, count);
 
   return { t, o, h, l, c, v };
 }

@@ -539,12 +539,11 @@ export default function useCandleLayer(): CandleLayer {
 
     for (let i = 0; i < size; i += 1) {
       const base = i * FLOATS_PER_OHLC;
-      // Convert BigInt to Number & subtract offsets directly
-      flat[base + 0] = Number(binOhlcs.t[i]) - timestampOffset;
-      flat[base + 1] = Number(binOhlcs.o[i]) - priceOffset;
-      flat[base + 2] = Number(binOhlcs.h[i]) - priceOffset;
-      flat[base + 3] = Number(binOhlcs.l[i]) - priceOffset;
-      flat[base + 4] = Number(binOhlcs.c[i]) - priceOffset;
+      flat[base + 0] = binOhlcs.t[i] - timestampOffset;
+      flat[base + 1] = binOhlcs.o[i] - priceOffset;
+      flat[base + 2] = binOhlcs.h[i] - priceOffset;
+      flat[base + 3] = binOhlcs.l[i] - priceOffset;
+      flat[base + 4] = binOhlcs.c[i] - priceOffset;
     }
 
     flatOhlcsRef.current = flat;
