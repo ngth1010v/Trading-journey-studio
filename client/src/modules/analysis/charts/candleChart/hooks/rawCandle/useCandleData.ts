@@ -128,30 +128,30 @@ export default function useCandleData(): CandleData {
 
         const symData = await marketApi.getSymbol(symbol);
         state.current._point = symData.point;
-
+        
         const fromTs = state.current._fromTs;
         const toTs = state.current._toTs;
-
+        
         if (fromTs === null || toTs === null) {
           return 
           throw new Error("Active range boundaries (fromTs/toTs) must be initialized prior to calling setSrc.");
         }
-
+        
         const deltaTs = (toTs - fromTs) * CONFIG.CANDLE_DATA.CACHE_EXTEND_RATIO;
         const predata = await marketApi.getRange(symbol, timeframe, fromTs - deltaTs, toTs + deltaTs);
-
+        
         state.current._cache = predata;
         state.current.onDataChangeListeners.forEach((cb) => cb());
       } catch (err) {
         throwAppError("CANDLE_DATA_ERROR", err instanceof Error ? err.message : String(err));
       }
     },
-
+    
     setRealtime(enable: boolean = false): void {
       try {
         const currentlyEnabled = state.current._realtimeEnable;
         state.current._realtimeEnable = enable;
-
+        
         if (enable && !currentlyEnabled) {
           // Fire recursive runtime sequence
           runRealtimeLoop();
@@ -166,7 +166,7 @@ export default function useCandleData(): CandleData {
         throwAppError("CANDLE_DATA_ERROR", err instanceof Error ? err.message : String(err));
       }
     },
-
+    
     async setRange(fromTs: number, toTs: number): Promise<void> {
       try {
         const symbol = state.current._symbol;

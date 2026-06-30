@@ -8,6 +8,8 @@ import type { CandleData } from "../rawCandle/useCandleData";
 // PUBLIC
 //======================================================================================================
 export type Viewport = {
+  init                        ()                                                            : void;
+  destroy                     ()                                                            : void;
   clean                       ()                                                            : void;
   setCanvasSize               (args: ViewportSetCanvasSizeArgs)                             : void;
 
@@ -92,6 +94,7 @@ function isPositiveNumber(value: unknown): value is number {
 // LOGIC
 //======================================================================================================
 function useViewport(candleData: CandleData): Viewport {
+  const oldSymbol = useRef<string>("")
   const canvasSizeRef = useRef<CanvasSize>({
     w: 0,
     h: 0,
@@ -132,6 +135,23 @@ function useViewport(candleData: CandleData): Viewport {
       }
     });
   };
+
+  const init = (): void => {
+    candleData.addOnDataChange("viewport/init", ()=>{
+      const newSymbol = candleData.getSymbol()
+      console.log(oldSymbol.current, newSymbol)
+      if (oldSymbol.current != newSymbol){
+        oldSymbol.current = newSymbol
+        setAutoPrice()
+      }
+    })
+  };
+
+  const destroy = (): void => {
+    candleData.removeOnDataChange("viewport/init")
+    };
+
+
 
   const clean = (): void => {
     transformRef.current.offsetTs = 0;
@@ -538,6 +558,8 @@ function useViewport(candleData: CandleData): Viewport {
 
   if (!apiRef.current) {
     apiRef.current = {
+      init,
+      destroy,
       clean,
       setCanvasSize,
       setView,

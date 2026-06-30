@@ -9,13 +9,15 @@ import useGridAxes from './hooks/axes/useGridAxes';
 import useAxes from './hooks/axes/useAxes';
 import useAxesController from './hooks/axes/useAxesController';
 
+import Navigation from './components/navigation/Navigation';
+
 
 const DEFAULT_FROMTS = 1782432000000
 const DEFAULT_TOTS   = 1782439200000
 
 const DEFAULT_DATA = {
   symbol: "NAS100",
-  timeframe: "1M",
+  timeframe: "15M",
   realtime: true,
   fromTs: DEFAULT_FROMTS,
   toTs:   DEFAULT_TOTS
@@ -94,6 +96,7 @@ export default function CandleChart() {
     //==============================================================
     // Viewport
     //==============================================================
+    viewport.init();
     viewport.setCanvasSize({ width, height });
     viewport.setView(DEFAULT_VIEW);
     viewport.setAutoPrice();
@@ -131,6 +134,7 @@ export default function CandleChart() {
   
   const destroy = async () => {
     if (pixiAppRef.current) {
+      viewport.destroy()
       pixiAppRef.current.destroy(true, { children: true, texture: true });
       candleLayer.cleanup()
       crosshair.destroy()
@@ -167,9 +171,6 @@ export default function CandleChart() {
   }
   const onMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
-    const x = e.nativeEvent.offsetX;
-    const y = e.nativeEvent.offsetY;
-    viewController.onMouseLeave(x,y,e.button);
     crosshair.onMouseEnter()
   }
   const onMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -281,30 +282,43 @@ export default function CandleChart() {
   // Return
   //=============================================================================================
   return (
-    <div 
-      ref={containerRef} 
-      tabIndex={0}
-      style={{ 
-        width: '90vw', 
-        height: '90vh', 
-        margin: '5vh auto', 
-        backgroundColor: '#141823', 
-        overflow: 'hidden',
-        position: 'relative',
-        outline: 'none',
-        cursor: browserCursor as React.CSSProperties['cursor'],
-      }}
-      onMouseDown={onMouseDown} 
-      onMouseEnter={(e) => {
-        onMouseEnter(e)
-        if (containerRef.current) containerRef.current.focus();
-      }}
-      onMouseUp={onMouseUp} 
-      onMouseMove={onMouseMove} 
-      onMouseLeave={(e) => {
-        onMouseLeave(e)
-        if (containerRef.current) containerRef.current.blur();
-      }}
-    />
+    <div style={{
+      width: '100vw', 
+      height: '100vh', 
+      backgroundColor: '#141823', 
+      overflow: 'hidden',
+      position: 'absolute',
+      outline: 'none',   
+      inset: 0   
+    }}>
+      <div 
+        ref={containerRef} 
+        tabIndex={0}
+        style={{ 
+          width: '100vw', 
+          height: '100vh', 
+          backgroundColor: '#141823', 
+          overflow: 'hidden',
+          position: 'absolute',
+          outline: 'none',
+          top: 0,
+          left: 0,
+          cursor: browserCursor as React.CSSProperties['cursor'],
+        }}
+        onMouseDown={onMouseDown} 
+        onMouseEnter={(e) => {
+          onMouseEnter(e)
+          if (containerRef.current) containerRef.current.focus();
+        }}
+        onMouseUp={onMouseUp} 
+        onMouseMove={onMouseMove} 
+        onMouseLeave={(e) => {
+          onMouseLeave(e)
+          if (containerRef.current) containerRef.current.blur();
+        }}
+      />      
+      <Navigation candleData={candleData}/>
+    </div>
+
   );
 }

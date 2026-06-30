@@ -50,16 +50,12 @@ async function request<T>(url: string): Promise<T> {
 }
 async function requestBinary(url: string): Promise<ArrayBuffer> {
   try {
-    // Thêm dấu hỏi hoặc dấu & tùy thuộc vào URL đã có query chưa
-    const separator = url.includes("?") ? "&" : "?";
-    const cacheBustedUrl = `${url}${separator}_t=${Date.now()}`;
-
-    const response = await fetch(cacheBustedUrl, {
-      cache: "no-store", // Đổi từ "reload" thành "no-store"
+    const response = await fetch(url, {
+      cache: "no-store",
       headers: {
         "Cache-Control": "no-cache",
-        "Pragma": "no-cache"
-      }
+        "Pragma": "no-cache",
+      },
     });
 
     if (!response.ok) {
