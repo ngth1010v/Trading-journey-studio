@@ -278,7 +278,8 @@ def get_last_ohlc(symbol: str, timeframe: str):
             return _ok([])
 
         last_row = last_s1[0]
-        last_ts = float(last_row[0])  # Chuyển sang float
+        last_ts = last_row[0]  
+
 
         open_ts = _resolve_last_open_timestamp(timeframe, last_ts)
         if open_ts is None:

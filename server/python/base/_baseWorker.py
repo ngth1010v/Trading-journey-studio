@@ -42,6 +42,7 @@ def _build_ohlc_from_ticks(start_batch_ts: float, batch_size: int, batch_ticks) 
     Builds an OHLC NumPy array of shape (batch_size, 6) from a sequential list of ticks.
     Each row matches the structure: [t, o, h, l, c, v]
     """
+    batch_size = int(batch_size)
     ohlc_matrix = np.zeros((batch_size, 6), dtype=np.float64)
     j = np.searchsorted(batch_ticks[:, 0], start_batch_ts, side="left")
     tick_count = len(batch_ticks)
