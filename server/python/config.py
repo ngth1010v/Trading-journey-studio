@@ -24,8 +24,8 @@ OHLC_MT5_EXTEND_PART = 20
 #==========================================================================
 # OHLC STORER
 #==========================================================================
-OHLC_STORER_HOT_LIMIT            = 1_000_000
-OHLC_STORER_HOT_PREVENTION_LIMIT = 1_100_000
+OHLC_STORER_HOT_LIMIT            = 4_000_000
+OHLC_STORER_HOT_PREVENTION_LIMIT = 16_000_000
 OHLC_STORER_HOT_WAIT_DURATION    = 1000 * 60 * 5  #5 min
 
 
