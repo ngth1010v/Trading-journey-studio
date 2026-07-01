@@ -24,16 +24,8 @@ export type CandleLayer = {
   cleanup     ()                                                            : Promise<void>;
 };
 
-//======================================================================================================
-// TYPE
-//======================================================================================================
-type MeshLike = {
-  destroy?: (options?: any) => void;
-};
-
-type ContainerLike = Container & {
-  removeChildren: () => ContainerLike[];
-};
+type MeshLike = { destroy?: (options?: any) => void; };
+type ContainerLike = Container & { removeChildren: () => ContainerLike[]; };
 
 //======================================================================================================
 // CONSTANT
@@ -62,17 +54,14 @@ const FLOATS_PER_CANDLE_CORNERS = VERTICES_PER_CANDLE * 2;
 //======================================================================================================
 // HELPER
 //======================================================================================================
-function isValidNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
 
 function cloneStyles(styles: CandleStyles): CandleStyles {
   return {
     outlineThickness: styles.outlineThickness,
-    upOutlineColor: [styles.upOutlineColor[0], styles.upOutlineColor[1], styles.upOutlineColor[2]],
-    upBodyColor: [styles.upBodyColor[0], styles.upBodyColor[1], styles.upBodyColor[2]],
-    downOutlineColor: [styles.downOutlineColor[0], styles.downOutlineColor[1], styles.downOutlineColor[2]],
-    downBodyColor: [styles.downBodyColor[0], styles.downBodyColor[1], styles.downBodyColor[2]],
+    upOutlineColor: [...styles.upOutlineColor],
+    upBodyColor: [...styles.upBodyColor],
+    downOutlineColor: [...styles.downOutlineColor],
+    downBodyColor: [...styles.downBodyColor],
   };
 }
 
@@ -85,25 +74,14 @@ function rgbToVec3(rgb: [number, number, number]): [number, number, number] {
 }
 
 function getScreenSize(app: Application): { width: number; height: number } {
-  const anyApp = app as unknown as {
-    screen?: { width: number; height: number };
-    renderer?: { screen?: { width: number; height: number } };
-  };
-
+  const anyApp = app as any;
   return anyApp.screen ?? anyApp.renderer?.screen ?? { width: 0, height: 0 };
 }
 
 function safeDestroy(value: MeshLike | Geometry | Shader | Container | null | undefined): void {
-  try {
-    (value as any)?.destroy?.();
-  } catch {
-    // ignore
-  }
+  try { (value as any)?.destroy?.(); } catch {}
 }
 
-function createMesh(geometry: Geometry, shader: Shader): Mesh {
-  return new Mesh({ geometry, shader } as any);
-}
 
 function buildShader(
   styles: CandleStyles,
@@ -275,120 +253,75 @@ void main(void) {
     },
   });
 }
-
-function buildGeometryFromRange(
-  flatOhlcs: Float32Array,
-  startIndex: number,
-  endExclusive: number,
-): Geometry {
-  const candleCount = Math.max(0, endExclusive - startIndex);
-
-  const corners = new Float32Array(candleCount * FLOATS_PER_CANDLE_CORNERS);
-  const timestamps = new Float32Array(candleCount * VERTICES_PER_CANDLE);
-  const opens = new Float32Array(candleCount * VERTICES_PER_CANDLE);
-  const highs = new Float32Array(candleCount * VERTICES_PER_CANDLE);
-  const lows = new Float32Array(candleCount * VERTICES_PER_CANDLE);
-  const closes = new Float32Array(candleCount * VERTICES_PER_CANDLE);
-
-  for (let i = 0; i < candleCount; i += 1) {
-    const src = (startIndex + i) * FLOATS_PER_OHLC;
-    const dstVertex = i * VERTICES_PER_CANDLE;
-    const dstCorner = i * FLOATS_PER_CANDLE_CORNERS;
-
-    const t = flatOhlcs[src + 0];
-    const o = flatOhlcs[src + 1];
-    const h = flatOhlcs[src + 2];
-    const l = flatOhlcs[src + 3];
-    const c = flatOhlcs[src + 4];
-
-    for (let v = 0; v < VERTICES_PER_CANDLE; v += 1) {
-      const vIndex = dstVertex + v;
-
-      timestamps[vIndex] = t;
-      opens[vIndex] = o;
-      highs[vIndex] = h;
-      lows[vIndex] = l;
-      closes[vIndex] = c;
-
-      corners[dstCorner + (v * 2)] = CANDLE_VERTEX_CORNERS[v * 2];
-      corners[dstCorner + (v * 2) + 1] = CANDLE_VERTEX_CORNERS[(v * 2) + 1];
-    }
-  }
-
-  const geometry = new Geometry();
-  geometry.addAttribute("aPosition", { buffer: corners, size: 2 });
-  geometry.addAttribute("aTimestamp", { buffer: timestamps, size: 1 });
-  geometry.addAttribute("aOpen", { buffer: opens, size: 1 });
-  geometry.addAttribute("aHigh", { buffer: highs, size: 1 });
-  geometry.addAttribute("aLow", { buffer: lows, size: 1 });
-  geometry.addAttribute("aClose", { buffer: closes, size: 1 });
-
-  return geometry;
-}
-
-function toPixelTimestamp(viewport: Viewport, timestamp: number): number {
-  return viewport.timestampToPixel(timestamp);
-}
-
-function toPixelFlatTimestamp(
-  viewport: Viewport,
-  flatTimestamp: number,
-  timestampOffset: number,
-): number {
-  return toPixelTimestamp(viewport, flatTimestamp + timestampOffset);
+function toPixelFlatTimestamp(viewport: Viewport, flatTimestamp: number, timestampOffset: number): number {
+  return viewport.timestampToPixel(flatTimestamp + timestampOffset);
 }
 
 function findVisibleRange(
   viewport: Viewport,
   flatOhlcs: Float32Array,
+  candleCount: number, // Truyền trực tiếp số lượng nến hiện có
   timestampOffset: number,
   candleWidth: number,
   canvasWidth: number,
 ): { start: number; endExclusive: number } {
-  const candleCount = Math.floor(flatOhlcs.length / FLOATS_PER_OHLC);
-
-  if (candleCount <= 0) {
-    return { start: 0, endExclusive: 0 };
-  }
+  if (candleCount <= 0) return { start: 0, endExclusive: 0 };
 
   const halfWidth = candleWidth * 0.5;
-
-  let left = 0;
-  let right = candleCount;
+  let left = 0, right = candleCount;
 
   while (left < right) {
     const mid = (left + right) >> 1;
     const x = toPixelFlatTimestamp(viewport, flatOhlcs[mid * FLOATS_PER_OHLC], timestampOffset);
-
-    if ((x + halfWidth) < 0) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
+    if ((x + halfWidth) < 0) left = mid + 1;
+    else right = mid;
   }
-
   const start = left;
 
   left = start;
   right = candleCount;
-
   while (left < right) {
     const mid = (left + right) >> 1;
     const x = toPixelFlatTimestamp(viewport, flatOhlcs[mid * FLOATS_PER_OHLC], timestampOffset);
-
-    if ((x - halfWidth) <= canvasWidth) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
+    if ((x - halfWidth) <= canvasWidth) left = mid + 1;
+    else right = mid;
   }
-
   const endExclusive = left;
 
   return {
     start: Math.max(0, start - 1),
     endExclusive: Math.min(candleCount, endExclusive + 1),
   };
+}
+
+// Hàm hỗ trợ copy 1 cây nến vào mảng pre-allocate
+function copyCandleToGeometryBuffers(
+  flatOhlcs: Float32Array,
+  srcCandleIndex: number,
+  gState: any,
+  dstCandleIndex: number
+) {
+  const src = srcCandleIndex * FLOATS_PER_OHLC;
+  const t = flatOhlcs[src + 0];
+  const o = flatOhlcs[src + 1];
+  const h = flatOhlcs[src + 2];
+  const l = flatOhlcs[src + 3];
+  const c = flatOhlcs[src + 4];
+
+  const dstCorner = dstCandleIndex * FLOATS_PER_CANDLE_CORNERS;
+  const dstVertex = dstCandleIndex * VERTICES_PER_CANDLE;
+
+  for (let v = 0; v < VERTICES_PER_CANDLE; v += 1) {
+    const vIdx = dstVertex + v;
+    gState.timestamps[vIdx] = t;
+    gState.opens[vIdx] = o;
+    gState.highs[vIdx] = h;
+    gState.lows[vIdx] = l;
+    gState.closes[vIdx] = c;
+
+    gState.corners[dstCorner + (v * 2)] = CANDLE_VERTEX_CORNERS[v * 2];
+    gState.corners[dstCorner + (v * 2) + 1] = CANDLE_VERTEX_CORNERS[(v * 2) + 1];
+  }
 }
 
 //======================================================================================================
@@ -399,19 +332,32 @@ export default function useCandleLayer(): CandleLayer {
   const candleDataRef = useRef<CandleData | null>(null);
   const viewportRef = useRef<Viewport | null>(null);
 
-  const flatOhlcsRef = useRef<Float32Array>(new Float32Array());
   const stylesRef = useRef<CandleStyles>(cloneStyles(DEFAULT_STYLES));
-
   const layerRef = useRef<ContainerLike | null>(null);
   const meshRef = useRef<MeshLike | null>(null);
   const geometryRef = useRef<Geometry | null>(null);
   const shaderRef = useRef<Shader | null>(null);
 
-  //DEBUG
-  {
+  // 1. POOLING: Quản lý data gốc 
+  const dataStateRef = useRef({
+    flatOhlcs: new Float32Array(0),
+    count: 0,
+    capacity: 0,
+  });
 
-  }
-  //DEBUG
+  // 2. POOLING: Quản lý mảng Geometry để tránh khởi tạo mảng ở mỗi frame
+  const geomStateRef = useRef({
+    corners: new Float32Array(0),
+    timestamps: new Float32Array(0),
+    opens: new Float32Array(0),
+    highs: new Float32Array(0),
+    lows: new Float32Array(0),
+    closes: new Float32Array(0),
+    capacity: 0,
+    lastStart: -1,
+    lastEnd: -1,
+  });
+
 
   const buildOrUpdatePipeline = (
     app: Application,
@@ -458,37 +404,199 @@ export default function useCandleLayer(): CandleLayer {
     }
   };
 
-  const setMesh = (geometry: Geometry, shader: Shader): void => {
-    const layer = layerRef.current;
-    if (!layer) {
-      return;
-    }
-
-    if (meshRef.current) {
-      layer.removeChildren();
-      safeDestroy(meshRef.current);
-      meshRef.current = null;
-    }
-
-    const mesh = createMesh(geometry, shader) as unknown as MeshLike;
-    meshRef.current = mesh;
-    layer.addChild(mesh as any);
-  };
-
   const cleanupMeshOnly = (): void => {
-    const layer = layerRef.current;
-    if (layer) {
-      layer.removeChildren();
-    }
-
+    if (layerRef.current) layerRef.current.removeChildren();
     safeDestroy(meshRef.current);
     meshRef.current = null;
     safeDestroy(geometryRef.current);
     geometryRef.current = null;
-    safeDestroy(shaderRef.current);
-    shaderRef.current = null;
+    geomStateRef.current.lastStart = -1; // Reset để force rebuild nếu có vẽ lại
   };
 
+  const updateData = (): void => {
+    const candleData = candleDataRef.current;
+    if (!candleData) throwAppError("NOT_INITIALIZED", "candleData is not initialized");
+
+    const size = candleData.getSize();
+    const binOhlcs = candleData.getBinRange(0, size);
+
+    if (!binOhlcs) {
+      dataStateRef.current.count = 0;
+      return;
+    }
+
+    const tOffset = viewportRef.current?.getTimestampToPixelWeights()?.offset ?? 0;
+    const pOffset = viewportRef.current?.getPriceToPixelWeights()?.offset ?? 0;
+
+    const neededSize = size * FLOATS_PER_OHLC;
+    // Tối ưu: Cấp phát dư 2000 nến để không phải reallocate liên tục khi data nhồi vào
+    if (dataStateRef.current.capacity < neededSize) {
+      const newCapacity = neededSize + 2000 * FLOATS_PER_OHLC;
+      dataStateRef.current.flatOhlcs = new Float32Array(newCapacity);
+      dataStateRef.current.capacity = newCapacity;
+    }
+
+    const flat = dataStateRef.current.flatOhlcs;
+    for (let i = 0; i < size; i += 1) {
+      const base = i * FLOATS_PER_OHLC;
+      flat[base + 0] = binOhlcs.t[i] - tOffset;
+      flat[base + 1] = binOhlcs.o[i] - pOffset;
+      flat[base + 2] = binOhlcs.h[i] - pOffset;
+      flat[base + 3] = binOhlcs.l[i] - pOffset;
+      flat[base + 4] = binOhlcs.c[i] - pOffset;
+    }
+
+    dataStateRef.current.count = size;
+    geomStateRef.current.lastStart = -1; // Đánh dấu dirty
+  };
+
+  const draw = async (): Promise<void> => {
+    const app = appRef.current;
+    const viewport = viewportRef.current;
+    if (!app || !viewport) return;
+
+    const screen = getScreenSize(app);
+    viewport.getTransformedView();
+
+    const tWeights = viewport.getTimestampToPixelWeights();
+    const pWeights = viewport.getPriceToPixelWeights();
+    const dState = dataStateRef.current;
+
+    if (dState.count <= 0) {
+      cleanupMeshOnly();
+      return;
+    }
+
+    // 1. Xử lý nến cuối trực tiếp trên mảng flatOhlcs hiện tại
+    const lastOhlc = candleDataRef.current?.getLast();
+    if (lastOhlc) {
+      const lastIndex = dState.count - 1;
+      const lastT = dState.flatOhlcs[lastIndex * FLOATS_PER_OHLC] + tWeights.offset;
+
+      if (lastOhlc.t === lastT) {
+        // Ghi đè in-place, KHÔNG tạo Float32Array mới
+        const base = lastIndex * FLOATS_PER_OHLC;
+        dState.flatOhlcs[base + 1] = lastOhlc.o - pWeights.offset;
+        dState.flatOhlcs[base + 2] = lastOhlc.h - pWeights.offset;
+        dState.flatOhlcs[base + 3] = lastOhlc.l - pWeights.offset;
+        dState.flatOhlcs[base + 4] = lastOhlc.c - pWeights.offset;
+      } else if (lastOhlc.t > lastT) {
+        // Thêm nến mới
+        if ((dState.count + 1) * FLOATS_PER_OHLC > dState.capacity) {
+          const newCap = dState.capacity + 2000 * FLOATS_PER_OHLC;
+          const newArr = new Float32Array(newCap);
+          newArr.set(dState.flatOhlcs);
+          dState.flatOhlcs = newArr;
+          dState.capacity = newCap;
+        }
+        const base = dState.count * FLOATS_PER_OHLC;
+        dState.flatOhlcs[base + 0] = lastOhlc.t - tWeights.offset;
+        dState.flatOhlcs[base + 1] = lastOhlc.o - pWeights.offset;
+        dState.flatOhlcs[base + 2] = lastOhlc.h - pWeights.offset;
+        dState.flatOhlcs[base + 3] = lastOhlc.l - pWeights.offset;
+        dState.flatOhlcs[base + 4] = lastOhlc.c - pWeights.offset;
+        dState.count++;
+      }
+    }
+
+    // 2. Tính toán vùng nhìn thấy
+    let candleWidth = 1;
+    if (dState.count >= 2) {
+      const x0 = toPixelFlatTimestamp(viewport, dState.flatOhlcs[0], tWeights.offset);
+      const x1 = toPixelFlatTimestamp(viewport, dState.flatOhlcs[FLOATS_PER_OHLC], tWeights.offset);
+      candleWidth = Math.max(1, Math.abs(x1 - x0) - CONFIG.CANDLE_LAYER.CANDLE_SPACING);
+    }
+
+    const visible = findVisibleRange(viewport, dState.flatOhlcs, dState.count, tWeights.offset, candleWidth, screen.width);
+    const visibleCount = visible.endExclusive - visible.start;
+
+    if (visibleCount <= 0) {
+      cleanupMeshOnly();
+      return;
+    }
+
+    // 3. Quản lý Geometry Buffers
+    const gState = geomStateRef.current;
+    let needsFullRefill = false;
+    let needsMeshRebuild = false;
+
+    // Expand buffer nếu số nến hiển thị vượt quá capacity của geometry arrays
+    if (visibleCount > gState.capacity) {
+      const newCap = visibleCount + 500; // Dư ra 500 nến để pan/zoom không bị giật
+      gState.corners = new Float32Array(newCap * FLOATS_PER_CANDLE_CORNERS);
+      gState.timestamps = new Float32Array(newCap * VERTICES_PER_CANDLE);
+      gState.opens = new Float32Array(newCap * VERTICES_PER_CANDLE);
+      gState.highs = new Float32Array(newCap * VERTICES_PER_CANDLE);
+      gState.lows = new Float32Array(newCap * VERTICES_PER_CANDLE);
+      gState.closes = new Float32Array(newCap * VERTICES_PER_CANDLE);
+      gState.capacity = newCap;
+      needsFullRefill = true;
+      needsMeshRebuild = true;
+    }
+
+    // Nếu vùng nhìn đổi, ta phải fill lại toàn bộ dữ liệu visible
+    if (visible.start !== gState.lastStart || visible.endExclusive !== gState.lastEnd) {
+      needsFullRefill = true;
+    }
+
+    const prevVisibleCount = gState.lastEnd - gState.lastStart;
+    if (visibleCount !== prevVisibleCount) {
+      needsMeshRebuild = true;
+    }
+
+    // THỰC THI REFILL HOẶC PARTIAL UPDATE
+    if (needsFullRefill) {
+      for (let i = 0; i < visibleCount; i++) {
+        copyCandleToGeometryBuffers(dState.flatOhlcs, visible.start + i, gState, i);
+      }
+      gState.lastStart = visible.start;
+      gState.lastEnd = visible.endExclusive;
+    } else {
+      // PARTIAL UPDATE: Vùng nhìn không đổi, chỉ có nến cuối thay đổi!
+      // Tiết kiệm tối đa CPU/RAM
+      const lastVisibleIndex = visible.endExclusive - 1;
+      copyCandleToGeometryBuffers(dState.flatOhlcs, lastVisibleIndex, gState, visibleCount - 1);
+    }
+
+    // 4. Update Geometry Object
+    buildOrUpdatePipeline(app, candleWidth, { 
+      timestampShaderWeights: { offset: 0, multiplication: tWeights.multiplication, addition: tWeights.addition },
+      priceShaderWeights: { offset: 0, multiplication: pWeights.multiplication, addition: pWeights.addition }
+    });
+
+    if (!geometryRef.current || needsMeshRebuild) {
+      // Nếu số lượng nến khác, phải rebuild Geometry object để mapping đúng kích thước subarray
+      if (geometryRef.current) safeDestroy(geometryRef.current);
+      
+      const geometry = new Geometry();
+      geometry.addAttribute("aPosition", { buffer: gState.corners.subarray(0, visibleCount * FLOATS_PER_CANDLE_CORNERS), size: 2 });
+      geometry.addAttribute("aTimestamp", { buffer: gState.timestamps.subarray(0, visibleCount * VERTICES_PER_CANDLE), size: 1 });
+      geometry.addAttribute("aOpen", { buffer: gState.opens.subarray(0, visibleCount * VERTICES_PER_CANDLE), size: 1 });
+      geometry.addAttribute("aHigh", { buffer: gState.highs.subarray(0, visibleCount * VERTICES_PER_CANDLE), size: 1 });
+      geometry.addAttribute("aLow", { buffer: gState.lows.subarray(0, visibleCount * VERTICES_PER_CANDLE), size: 1 });
+      geometry.addAttribute("aClose", { buffer: gState.closes.subarray(0, visibleCount * VERTICES_PER_CANDLE), size: 1 });
+      
+      geometryRef.current = geometry;
+      
+      if (meshRef.current) {
+        layerRef.current?.removeChildren();
+        safeDestroy(meshRef.current);
+      }
+      meshRef.current = new Mesh({ geometry, shader: shaderRef.current } as any) as any;
+      layerRef.current?.addChild(meshRef.current as any);
+      
+    } else {
+      // FIX CỰC KỲ QUAN TRỌNG: 
+      // Nếu viewport không đổi và không có nến mới, chỉ push data đã modify lên GPU 
+      // mà không đụng chạm đến cấp phát bộ nhớ.
+      const buffers = geometryRef.current.buffers;
+      if (buffers) {
+        buffers.forEach((b: any) => b.update?.());
+      }
+    }
+  };
+
+  
   const init = async (
     app: Application,
     candleData: CandleData,
@@ -515,40 +623,6 @@ export default function useCandleLayer(): CandleLayer {
     viewportRef.current.addOnViewportChange("candleLayer/init", draw);
   };
 
-  const updateData = (): void => {
-    const candleData = candleDataRef.current;
-    if (!candleData) {
-      throwAppError("NOT_INITIALIZED", "candleData is not initialized");
-    }
-
-    const size = candleData.getSize();
-    const binOhlcs = candleData.getBinRange(0, size);
-
-    if (!binOhlcs) {
-      flatOhlcsRef.current = new Float32Array();
-      return;
-    }
-
-    const timestampWeightsResult = viewportRef.current?.getTimestampToPixelWeights();
-    const timestampOffset = timestampWeightsResult ? timestampWeightsResult.offset : 0;
-
-    const priceWeightsResult = viewportRef.current?.getPriceToPixelWeights();
-    const priceOffset = priceWeightsResult ? priceWeightsResult.offset : 0;
-
-    const flat = new Float32Array(size * FLOATS_PER_OHLC);
-
-    for (let i = 0; i < size; i += 1) {
-      const base = i * FLOATS_PER_OHLC;
-      flat[base + 0] = binOhlcs.t[i] - timestampOffset;
-      flat[base + 1] = binOhlcs.o[i] - priceOffset;
-      flat[base + 2] = binOhlcs.h[i] - priceOffset;
-      flat[base + 3] = binOhlcs.l[i] - priceOffset;
-      flat[base + 4] = binOhlcs.c[i] - priceOffset;
-    }
-
-    flatOhlcsRef.current = flat;
-  };
-
   const setStyles = (candleStyles: CandleStyles): void => {
     stylesRef.current = cloneStyles(candleStyles);
 
@@ -564,162 +638,6 @@ export default function useCandleLayer(): CandleLayer {
         candleUniforms.uDownBodyColor = rgbToVec3(candleStyles.downBodyColor);
       }
     }
-  };
-
-  const draw = async (): Promise<void> => {
-    const app = appRef.current;
-    const viewport = viewportRef.current;
-
-    if (!app || !viewport) {
-      throwAppError("NOT_INITIALIZED", "candle layer is not initialized");
-    }
-
-    const screen = getScreenSize(app);
-    if (!isValidNumber(screen.width) || !isValidNumber(screen.height) || screen.width <= 0 || screen.height <= 0) {
-      throwAppError("INVALID_CANVAS_SIZE", "canvas size must be set before draw()");
-    }
-
-    viewport.getTransformedView();
-
-    const timestampWeights = viewport.getTimestampToPixelWeights();
-    const priceWeights = viewport.getPriceToPixelWeights();
-
-    const flatOhlcs = flatOhlcsRef.current;
-    const candleCount = Math.floor(flatOhlcs.length / FLOATS_PER_OHLC);
-
-    if (candleCount <= 0) {
-      cleanupMeshOnly();
-      return;
-    }
-
-    const timestampOffset = timestampWeights.offset;
-
-    let candleWidth = 1;
-    if (candleCount >= 2) {
-      const x0 = toPixelFlatTimestamp(viewport, flatOhlcs[0], timestampOffset);
-      const x1 = toPixelFlatTimestamp(viewport, flatOhlcs[FLOATS_PER_OHLC], timestampOffset);
-      candleWidth = Math.max(1, Math.abs(x1 - x0) - CONFIG.CANDLE_LAYER.CANDLE_SPACING);
-    }
-
-    const visible = findVisibleRange(
-      viewport,
-      flatOhlcs,
-      timestampOffset,
-      candleWidth,
-      screen.width,
-    );
-    const visibleCount = Math.max(0, visible.endExclusive - visible.start);
-
-    if (visibleCount <= 0) {
-      cleanupMeshOnly();
-      return;
-    }
-
-    const adjustedWeights = {
-      timestampShaderWeights: {
-        offset: 0,
-        multiplication: timestampWeights.multiplication,
-        addition: timestampWeights.addition,
-      },
-      priceShaderWeights: {
-        offset: 0,
-        multiplication: priceWeights.multiplication,
-        addition: priceWeights.addition,
-      },
-    };
-
-
-    let finalFlatOhlcs = flatOhlcs;
-    let finalStart = visible.start;
-    let finalEndExclusive = visible.endExclusive;
-
-    const lastOhlc = candleDataRef.current?.getLast();
-
-    if (lastOhlc) {
-      const timestampWeights = viewport.getTimestampToPixelWeights();
-      const priceWeights = viewport.getPriceToPixelWeights();
-
-      const tOffset = timestampWeights.offset;
-      const pOffset = priceWeights.offset;
-
-      const totalCandles = Math.floor(flatOhlcs.length / FLOATS_PER_OHLC);
-
-      if (totalCandles > 0) {
-        const lastFlatIndex = totalCandles - 1;
-        const lastFlatT = flatOhlcs[lastFlatIndex * FLOATS_PER_OHLC + 0] + tOffset;
-
-        const sameTimestamp = lastOhlc.t === lastFlatT;
-
-        // THAY ĐỔI Ở CUỐI: ghi đè candle cuối thay vì bỏ qua
-        if (sameTimestamp) {
-          const currentVisibleLength = (visible.endExclusive - visible.start) * FLOATS_PER_OHLC;
-          const injectedBuffer = new Float32Array(currentVisibleLength);
-
-          const srcOffset = visible.start * FLOATS_PER_OHLC;
-          injectedBuffer.set(
-            flatOhlcs.subarray(srcOffset, srcOffset + currentVisibleLength),
-            0
-          );
-
-          // ghi đè candle cuối cùng trong buffer visible
-          const dst = currentVisibleLength - FLOATS_PER_OHLC;
-          injectedBuffer[dst + 0] = lastOhlc.t - tOffset;
-          injectedBuffer[dst + 1] = lastOhlc.o - pOffset;
-          injectedBuffer[dst + 2] = lastOhlc.h - pOffset;
-          injectedBuffer[dst + 3] = lastOhlc.l - pOffset;
-          injectedBuffer[dst + 4] = lastOhlc.c - pOffset;
-
-          finalFlatOhlcs = injectedBuffer;
-          finalStart = 0;
-          finalEndExclusive = currentVisibleLength / FLOATS_PER_OHLC;
-        }
-        // THÊM BAR MỚI Ở CUỐI
-        else if (lastOhlc.t > lastFlatT) {
-          const currentVisibleLength = (visible.endExclusive - visible.start) * FLOATS_PER_OHLC;
-          const injectedBuffer = new Float32Array(currentVisibleLength + FLOATS_PER_OHLC);
-
-          const srcOffset = visible.start * FLOATS_PER_OHLC;
-          injectedBuffer.set(
-            flatOhlcs.subarray(srcOffset, srcOffset + currentVisibleLength),
-            0
-          );
-
-          injectedBuffer[currentVisibleLength + 0] = lastOhlc.t - tOffset;
-          injectedBuffer[currentVisibleLength + 1] = lastOhlc.o - pOffset;
-          injectedBuffer[currentVisibleLength + 2] = lastOhlc.h - pOffset;
-          injectedBuffer[currentVisibleLength + 3] = lastOhlc.l - pOffset;
-          injectedBuffer[currentVisibleLength + 4] = lastOhlc.c - pOffset;
-
-          finalFlatOhlcs = injectedBuffer;
-          finalStart = 0;
-          finalEndExclusive = (currentVisibleLength / FLOATS_PER_OHLC) + 1;
-        }
-      }
-    }
-    const geometry = buildGeometryFromRange(finalFlatOhlcs, finalStart, finalEndExclusive);
-
-    // FIX TẠI ĐÂY: Gọi update() trên mảng buffers nội bộ của Geometry (Chuẩn PixiJS v8)
-    if (finalFlatOhlcs !== flatOhlcs) {
-      if (geometry.buffers) {
-        geometry.buffers.forEach((buffer: any) => {
-          buffer.update?.();
-        });
-      }
-    }
-    // ==========================================
-
-    buildOrUpdatePipeline(app, candleWidth, adjustedWeights);
-
-    if (!shaderRef.current) {
-      throwAppError("SHADER_BUILD_FAILED", "failed to build candle shader");
-    }
-
-    if (geometryRef.current) {
-      safeDestroy(geometryRef.current);
-    }
-    geometryRef.current = geometry;
-
-    setMesh(geometry, shaderRef.current);
   };
 
   const cleanup = async (): Promise<void> => {
@@ -743,11 +661,12 @@ export default function useCandleLayer(): CandleLayer {
     appRef.current = null;
     candleDataRef.current = null;
     viewportRef.current = null;
-    flatOhlcsRef.current = new Float32Array();
   };
 
-  const apiRef = useRef<CandleLayer | null>(null);
 
+  // ... (Paste lại init, setStyles, cleanup cũ)
+
+  const apiRef = useRef<CandleLayer | null>(null);
   if (!apiRef.current) {
     apiRef.current = { init, updateData, setStyles, draw, cleanup };
   }
