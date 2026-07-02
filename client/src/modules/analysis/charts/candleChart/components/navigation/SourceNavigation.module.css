@@ -1,9 +1,19 @@
 /* Container positioned exactly on the absolute top-left chart corner */
 .navigation {
     height: 100%;
+    overflow: visible;
     display: flex;
-    align-items: center;
     position: relative;
+}
+
+.buttonContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    position: relative;
+    align-items: start;
+    justify-content: start;
+    height: fit-content;
 }
 
 
@@ -15,7 +25,6 @@
     cursor: pointer;
     color: #fff;
     padding: 8px 15px;
-    position: relative;
     box-sizing: border-box;
 }
 
@@ -34,6 +43,7 @@
 }
 
 .spliter {
+    margin: 6px 0;
     height: 60%;
     width: 1px;
     background-color: rgb(100, 100, 100);
@@ -43,10 +53,6 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 5px;
     background-color: rgba(22, 22, 24, 1);
     border: 1px solid rgb(50, 50, 50);
     border-radius: 4px;
@@ -61,6 +67,8 @@
     padding: 8px;
     width: 100%;
     box-sizing: border-box;
+    color: white;
+    cursor: pointer;
 }
 .popupItem:hover {
     background-color: rgba(40, 40, 45, 1);
