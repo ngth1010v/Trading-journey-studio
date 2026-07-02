@@ -10,6 +10,7 @@ import useAxes from './hooks/axes/useAxes';
 import useAxesController from './hooks/axes/useAxesController';
 import useLineLayer from './hooks/shape/raw/useLineLayer';
 import useTriangleLayer from './hooks/shape/raw/useTriangleLayer';
+import useTextLayer from './hooks/shape/raw/useTextLayer';
 
 import Navigation from './components/navigation/Navigation';
 
@@ -52,6 +53,7 @@ export default function CandleChart() {
   const candleLayer       = useCandleLayer();
   const lineLayer         = useLineLayer(); 
   const triangleLayer     = useTriangleLayer();
+  const textLayer         = useTextLayer();
   const viewController    = useViewController(viewport);
   const crosshair         = useCrosshair(candleData, viewport)
   const gridAxes          = useGridAxes(viewport, candleData)
@@ -118,6 +120,8 @@ export default function CandleChart() {
     //==============================================================
     lineLayer.init(app, viewport);
     triangleLayer.init(app, viewport);
+    await textLayer.init(app, viewport);
+
 
     //==============================================================
     // Crosshair
@@ -185,13 +189,26 @@ export default function CandleChart() {
     lineLayer.flush();
     lineLayer.draw();
     
-    triangleLayer.add({
-      color    : [255, 255, 255, 255],
-      timestamp: [DEFAULT_FROMTS, (DEFAULT_FROMTS + DEFAULT_TOTS)/2, DEFAULT_TOTS],
-      price    : [2943000, 2940000, 2943000]
+    // triangleLayer.add({
+    //   color    : [255, 255, 255, 255],
+    //   timestamp: [DEFAULT_FROMTS, (DEFAULT_FROMTS + DEFAULT_TOTS)/2, DEFAULT_TOTS],
+    //   price    : [2943000, 2940000, 2943000]
+    // });
+    // triangleLayer.flush();
+    // triangleLayer.draw();
+    
+    textLayer.clean();
+    textLayer.add({
+      text: "This is a text",
+      timestamp: (DEFAULT_FROMTS + DEFAULT_TOTS)/2,
+      price: 2948000,
+      color: [255, 255, 255],
+      size: 12,
+      alignX: "center",
+      alignY: "center" 
     });
-    triangleLayer.flush();
-    triangleLayer.draw();
+    textLayer.flush();
+    textLayer.draw();
   }
   
   const destroy = async () => {
@@ -325,9 +342,6 @@ export default function CandleChart() {
 
 
 
-
-
-
   //=============================================================================================
   // Return
   //=============================================================================================
@@ -372,3 +386,7 @@ export default function CandleChart() {
 
   );
 }
+
+
+
+

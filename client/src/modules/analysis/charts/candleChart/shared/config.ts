@@ -30,12 +30,14 @@ export const CONFIG = {
     },
 
     LINES_LAYER: {
-        MAX_LINES       : 100000,
-        EXTRA_LINE_SPACE: 2000
+        MAX_LINES           : 100000
     },
 
     TRIANGLE_LAYER: {
-        MAX_TRIANGLES       : 100000,
-        EXTRA_TRIANGLE_SPACE: 2000
+        MAX_TRIANGLES       : 100000
+    },
+
+    TEXT_LAYER: {
+        MAX_TEXTS_CHAR      : 100000
     }
 }
