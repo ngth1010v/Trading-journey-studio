@@ -27,5 +27,15 @@ export const CONFIG = {
 
     AXES_CONTROLLER: {
         SCALE_RATIO: 1.5,
+    },
+
+    LINES_LAYER: {
+        MAX_LINES       : 100000,
+        EXTRA_LINE_SPACE: 2000
+    },
+
+    TRIANGLE_LAYER: {
+        MAX_TRIANGLES       : 100000,
+        EXTRA_TRIANGLE_SPACE: 2000
     }
 }

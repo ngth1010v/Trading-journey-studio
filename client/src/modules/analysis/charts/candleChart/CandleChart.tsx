@@ -8,6 +8,8 @@ import useCrosshair, {type CrosshairStyles} from './hooks/useCrosshair';
 import useGridAxes from './hooks/axes/useGridAxes';
 import useAxes from './hooks/axes/useAxes';
 import useAxesController from './hooks/axes/useAxesController';
+import useLineLayer from './hooks/shape/raw/useLineLayer';
+import useTriangleLayer from './hooks/shape/raw/useTriangleLayer';
 
 import Navigation from './components/navigation/Navigation';
 
@@ -48,6 +50,8 @@ export default function CandleChart() {
   const candleData        = useCandleData();
   const viewport          = useViewport(candleData);
   const candleLayer       = useCandleLayer();
+  const lineLayer         = useLineLayer(); 
+  const triangleLayer     = useTriangleLayer();
   const viewController    = useViewController(viewport);
   const crosshair         = useCrosshair(candleData, viewport)
   const gridAxes          = useGridAxes(viewport, candleData)
@@ -110,6 +114,12 @@ export default function CandleChart() {
     await candleLayer.draw();
     
     //==============================================================
+    // Raw shape
+    //==============================================================
+    lineLayer.init(app, viewport);
+    triangleLayer.init(app, viewport);
+
+    //==============================================================
     // Crosshair
     //==============================================================
     crosshair.init(app);
@@ -130,6 +140,58 @@ export default function CandleChart() {
     //==============================================================
     axesController.init(app, setBrowserCursor);
     axesController.draw()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    //==============================================================
+    // TEST
+    //==============================================================
+    axes.setTimestampLabel({
+      id: "open-time1",
+      timestamp: DEFAULT_FROMTS,
+      color: [255, 150, 150, 150],
+      fontColor: [255, 255, 255],
+    });
+    axes.setTimestampLabel({
+      id: "open-time2",
+      timestamp: DEFAULT_TOTS,
+      color: [255, 150, 150, 150],
+      fontColor: [255, 255, 255],
+    });
+    axes.setPriceLabel({
+      id: "current-price",
+      price: 2944000,
+      color: [255, 150, 150, 150],
+      fontColor: [255, 255, 255],
+    });   
+    
+    
+    lineLayer.add({
+      thickness: 2,
+      color: [255, 255, 255, 255],
+      timestamp1: DEFAULT_FROMTS,
+      timestamp2: DEFAULT_TOTS,
+      price1: 2944000,
+      price2: 2944000
+    });
+    lineLayer.flush();
+    lineLayer.draw();
+    
+    triangleLayer.add({
+      color    : [255, 255, 255, 255],
+      timestamp: [DEFAULT_FROMTS, (DEFAULT_FROMTS + DEFAULT_TOTS)/2, DEFAULT_TOTS],
+      price    : [2943000, 2940000, 2943000]
+    });
+    triangleLayer.flush();
+    triangleLayer.draw();
   }
   
   const destroy = async () => {
@@ -139,6 +201,8 @@ export default function CandleChart() {
       candleLayer.cleanup()
       crosshair.destroy()
       axesController.destroy()
+      lineLayer.destroy() 
+      triangleLayer.destroy()
     }
   }
   
@@ -147,7 +211,7 @@ export default function CandleChart() {
     inited.current = true
     init()
     return ()=>{destroy()}
-  })
+  },[])
   
   
   
@@ -238,6 +302,8 @@ export default function CandleChart() {
         
         // 3. Render lại các layer (nếu viewport/candleLayer của bạn cần trigger vẽ lại)
         candleLayer.draw(); 
+        lineLayer.draw(); 
+        triangleLayer.draw();
         gridAxes.draw();
         axes.draw();
       }
@@ -260,23 +326,7 @@ export default function CandleChart() {
 
 
 
-  //TEST=================
-  useEffect(()=>{
-    axes.setTimestampLabel({
-      id: "open-time",
-      timestamp: DEFAULT_FROMTS,
-      color: [255, 150, 150, 150],
-      fontColor: [255, 255, 255],
-    });
-    axes.setPriceLabel({
-      id: "current-price",
-      price: 2957500,
-      color: [255, 150, 150, 150],
-      fontColor: [255, 255, 255],
-    });    
-  }, [])
 
-  //TEST=================
 
   //=============================================================================================
   // Return
