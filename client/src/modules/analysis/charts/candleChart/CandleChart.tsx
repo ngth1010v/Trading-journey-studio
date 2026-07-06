@@ -11,6 +11,7 @@ import useAxesController from './hooks/axes/useAxesController';
 import useLineLayer from './hooks/shape/raw/useLineLayer';
 import useTriangleLayer from './hooks/shape/raw/useTriangleLayer';
 import useTextLayer from './hooks/shape/raw/useTextLayer';
+import useStrateryData from './hooks/useStrateryData';
 
 import Navigation from './components/navigation/Navigation';
 
@@ -49,6 +50,8 @@ export default function CandleChart() {
   const [browserCursor, setBrowserCursor] = useState<string>('crosshair');
   
   const candleData        = useCandleData();
+  const strateryData      = useStrateryData();
+    
   const viewport          = useViewport(candleData);
   const candleLayer       = useCandleLayer();
   const lineLayer         = useLineLayer(); 
@@ -74,7 +77,9 @@ export default function CandleChart() {
     await candleData.setSrc(DEFAULT_DATA.symbol, DEFAULT_DATA.timeframe);
     await candleData.setRange(DEFAULT_DATA.fromTs, DEFAULT_DATA.toTs);
     candleData.setRealtime(true)
-    
+
+    await strateryData.set("Default")
+
       
 
     //==============================================================
@@ -381,7 +386,7 @@ export default function CandleChart() {
           if (containerRef.current) containerRef.current.blur();
         }}
       />      
-      <Navigation candleData={candleData}/>
+      <Navigation candleData={candleData} strateryData={strateryData}/>
     </div>
 
   );

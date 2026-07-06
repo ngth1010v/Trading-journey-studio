@@ -1,6 +1,7 @@
 export interface Strategy {
   name              : string; // primary key
   tagNames          : string[]; // in database, tagNames is saved as json
+  status            : "live" | "end" | "backtest";
   createdTimestamp  : number;
   desc              : string;
   favoriteSymbols   : string[];

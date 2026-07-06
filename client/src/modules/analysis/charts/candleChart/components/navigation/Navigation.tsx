@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styles from './Navigation.module.css';
 
 import { type CandleData } from '../../hooks/rawCandle/useCandleData';
+import { type StrateryData } from '../../hooks/useStrateryData';
 
 import SourceNavigation from './SourceNavigation';
 
@@ -13,10 +14,12 @@ import DrawIcon from '../../../../../../assets/icons/pencil.svg?react';
 export default function Navigation(
   {
     candleData,
+    strateryData,
     onMouseEnter,
     onMouseLeave
   }: {
     candleData: CandleData
+    strateryData: StrateryData
     onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>)=> void
     onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>)=> void
   }
@@ -88,7 +91,7 @@ export default function Navigation(
         {/* SOURCE */}
         {openChildren[0] && (
           <div className={styles.childWrapper}>
-            <SourceNavigation candleData={candleData}/>
+            <SourceNavigation candleData={candleData} strateryData={strateryData}/>
           </div>
         )}
 

@@ -26,6 +26,7 @@
     color: #fff;
     padding: 8px 15px;
     box-sizing: border-box;
+    gap: 8px; /* Added spacing between status dot and text */
 }
 
 /* GIỮ LẠI HOVER THEO YÊU CẦU */
@@ -61,10 +62,11 @@
     overflow-x: hidden;
     width: 100%;
     box-sizing: border-box;
+    z-index: 10;
 }
 
 .popupItem {
-    padding: 8px;
+    padding: 5px 8px;
     width: 100%;
     box-sizing: border-box;
     color: white;
@@ -72,4 +74,41 @@
 }
 .popupItem:hover {
     background-color: rgba(40, 40, 45, 1);
+}
+
+/* Strategy items inside popup supporting status dots */
+.popupItemStratery {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    color: white;
+    cursor: pointer;
+    gap: 8px;
+}
+.popupItemStratery:hover {
+    background-color: rgba(40, 40, 45, 1);
+}
+
+/* Base status dot element */
+.statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Status colors configuration */
+.dotLive {
+    background-color: #22c55e; /* Green */
+}
+
+.dotBacktest {
+    background-color: #eab308; /* Yellow */
+}
+
+.dotEnd {
+    background-color: #9ca3af; /* Grey */
 }
