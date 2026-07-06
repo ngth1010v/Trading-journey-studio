@@ -15,6 +15,7 @@ function initDb(): void {
   db.prepare(`
     CREATE TABLE IF NOT EXISTS strategies (
       name TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
       tagNames TEXT NOT NULL,
       createdTimestamp INTEGER NOT NULL,
       desc TEXT NOT NULL,
@@ -91,6 +92,7 @@ function getAllStrategies(): Strategy[] {
   const rows = stmt.all() as any[];
   return rows.map(row => ({
     name: row.name,
+    status: row.status,
     tagNames: JSON.parse(row.tagNames),
     createdTimestamp: Number(row.createdTimestamp),
     desc: row.desc,
@@ -105,6 +107,7 @@ function getStrategyByName(name: string): Strategy | null {
   if (!row) return null;
   return {
     name: row.name,
+    status: row.status,
     tagNames: JSON.parse(row.tagNames),
     createdTimestamp: Number(row.createdTimestamp),
     desc: row.desc,
@@ -116,9 +119,10 @@ function getStrategyByName(name: string): Strategy | null {
 
 function saveStrategy(strategy: Strategy): void {
   const stmt = db.prepare(`
-    INSERT INTO strategies (name, tagNames, createdTimestamp, desc, favoriteSymbols, favoriteTimeframes, themeColor)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO strategies (name, status, tagNames, createdTimestamp, desc, favoriteSymbols, favoriteTimeframes, themeColor)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
+      status = excluded.status,
       tagNames = excluded.tagNames,
       createdTimestamp = excluded.createdTimestamp,
       desc = excluded.desc,
@@ -128,6 +132,7 @@ function saveStrategy(strategy: Strategy): void {
   `);
   stmt.run(
     strategy.name, 
+    strategy.status,
     JSON.stringify(strategy.tagNames), 
     strategy.createdTimestamp, 
     strategy.desc, 

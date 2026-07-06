@@ -27,6 +27,9 @@ function validateStrategy(strategy: any): string | null {
   if (!strategy.name || typeof strategy.name !== 'string' || strategy.name.trim() === '') {
     return "Invalid request: 'name' cannot be empty.";
   }
+  if (!['live', 'end', 'backtest'].includes(strategy.status)) {
+    return "Invalid request: 'status' must be either 'live', 'end', or 'backtest'.";
+  }
   if (strategy.createdTimestamp === undefined || strategy.createdTimestamp === null || typeof strategy.createdTimestamp !== 'number') {
     return "Invalid request: 'createdTimestamp' cannot be empty and must be a number.";
   }
