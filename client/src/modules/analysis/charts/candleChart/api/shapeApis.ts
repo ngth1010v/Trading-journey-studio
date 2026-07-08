@@ -1,13 +1,5 @@
 import { throwAppError } from "../../../../../shared/appError";
-
-export interface Shape {
-  id?: number;
-  type: string;
-  fromTs: number;
-  toTs: number;
-  data: string;
-  styles: string;
-}
+import type { Shape } from "../shared/types";
 
 const API_BASE = "/api/strateries";
 
