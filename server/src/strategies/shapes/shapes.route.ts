@@ -39,7 +39,7 @@ router.get(
   }
 );
 
-// POST: Add multiple shapes to the database (replaces if existed)
+// POST: Add multiple shapes to the database (replaces if existed, auto-creates ID if missing)
 router.post(
   '/api/strateries/:strateryName/:symbol/shapes',
   async (req: Request, res: Response): Promise<void> => {
@@ -47,7 +47,9 @@ router.post(
       const { strateryName, symbol } = req.params;
       const shapes: Shape[] = req.body;
 
-      if (Array.isArray(strateryName) || Array.isArray(symbol)) { throw new Error('Invalid route parameters'); }
+      if (Array.isArray(strateryName) || Array.isArray(symbol)) { 
+        throw new Error('Invalid route parameters'); 
+      }
 
       if (!Array.isArray(shapes)) {
         res.status(400).json({ error: 'Payload must be an array of shapes' });
@@ -62,35 +64,24 @@ router.post(
   }
 );
 
-// DELETE: Delete all shapes starting with a specific ID (or all if ID is empty)
-// Note: Optional param '?' allows '/startWith/' or '/startWith' to match as empty ID
-router.delete(
-  '/api/strateries/:strateryName/:symbol/shapes/startWith/:id?',
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { strateryName, symbol } = req.params;
-      const idStartWith = req.params.id || ''; // Fallback to empty string for full deletion
-
-      if (Array.isArray(strateryName) || Array.isArray(symbol) || Array.isArray(idStartWith)) { throw new Error('Invalid route parameters'); }
-
-      await ShapesService.deleteShapesStartWith(strateryName, symbol, idStartWith);
-      res.status(200).json({ message: 'Shapes deleted successfully' });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Internal Server Error' });
-    }
-  }
-);
-
-// DELETE: Delete a specific shape by ID
+// DELETE: Delete a specific shape by numeric ID
 router.delete(
   '/api/strateries/:strateryName/:symbol/shapes/:id',
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { strateryName, symbol, id } = req.params;
 
-      if (Array.isArray(strateryName) || Array.isArray(symbol) || Array.isArray(id)) { throw new Error('Invalid route parameters'); }
+      if (Array.isArray(strateryName) || Array.isArray(symbol) || Array.isArray(id)) { 
+        throw new Error('Invalid route parameters'); 
+      }
 
-      await ShapesService.deleteShape(strateryName, symbol, id);
+      const numericId = Number(id);
+      if (isNaN(numericId)) {
+        res.status(400).json({ error: 'ID must be a valid number' });
+        return;
+      }
+
+      await ShapesService.deleteShape(strateryName, symbol, numericId);
       res.status(200).json({ message: 'Shape deleted successfully' });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Internal Server Error' });

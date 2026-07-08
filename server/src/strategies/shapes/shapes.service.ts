@@ -6,7 +6,7 @@ export class ShapesService {
   public static async saveShapes(strateryName: string, symbol: string, shapes: Shape[]): Promise<void> {
     const db = ShapesRepository.getConnection(strateryName, symbol);
     
-    // SQLite upsert: Insert new or overwrite existing based on primary key
+    // SQLite upsert: if ID is provided and conflicts, update. If null, it generates an autoincrement ID.
     const stmt = db.prepare(`
       INSERT INTO shapes (id, type, fromTs, toTs, data, styles)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -20,20 +20,22 @@ export class ShapesService {
 
     const transaction = db.transaction((shapesList: Shape[]) => {
       for (const shape of shapesList) {
-        // Enforce full field requirement for every payload item
+        // Enforce structural fields check (excluding optional id field)
         if (
-          shape.id === undefined ||
           shape.type === undefined ||
           shape.fromTs === undefined ||
           shape.toTs === undefined ||
           shape.data === undefined ||
           shape.styles === undefined
         ) {
-          throw new Error(`Cannot save shape: Missing required fields. ID: ${shape.id || 'undefined'}`);
+          throw new Error('Cannot save shape: Missing required fields.');
         }
 
+        // Pass null if shape.id is missing or undefined to trigger AUTOINCREMENT
+        const bindId = shape.id !== undefined && shape.id !== null ? shape.id : null;
+
         stmt.run(
-          shape.id,
+          bindId,
           shape.type,
           shape.fromTs,
           shape.toTs,
@@ -47,7 +49,7 @@ export class ShapesService {
     transaction(shapes);
   }
 
-  public static async getShape(strateryName: string, symbol: string, id: string): Promise<Shape | null> {
+  public static async getShape(strateryName: string, symbol: string, id: number): Promise<Shape | null> {
     const db = ShapesRepository.getConnection(strateryName, symbol);
     const row: any = db.prepare('SELECT * FROM shapes WHERE id = ?').get(id);
     if (!row) return null;
@@ -55,21 +57,9 @@ export class ShapesService {
     return this.mapRowToShape(row);
   }
 
-  public static async getShapesStartWith(strateryName: string, symbol: string, idStartWith: string): Promise<Shape[]> {
-    const db = ShapesRepository.getConnection(strateryName, symbol);
-    const rows = db.prepare('SELECT * FROM shapes WHERE id LIKE ?').all(`${idStartWith}%`);
-    return rows.map((row: any) => this.mapRowToShape(row));
-  }
-
-  public static async deleteShape(strateryName: string, symbol: string, id: string): Promise<void> {
+  public static async deleteShape(strateryName: string, symbol: string, id: number): Promise<void> {
     const db = ShapesRepository.getConnection(strateryName, symbol);
     db.prepare('DELETE FROM shapes WHERE id = ?').run(id);
-  }
-
-  public static async deleteShapesStartWith(strateryName: string, symbol: string, idStartWith: string): Promise<void> {
-    const db = ShapesRepository.getConnection(strateryName, symbol);
-    // If idStartWith is "", `${idStartWith}%` resolves to "%", deleting everything
-    db.prepare('DELETE FROM shapes WHERE id LIKE ?').run(`${idStartWith}%`);
   }
 
   /**

@@ -32,10 +32,10 @@ export class ShapesRepository {
 
     const db = new Database(dbPath);
     
-    // Initialize standard table structure safely
+    // Initialize standard table structure safely with AUTOINCREMENT for numeric IDs
     db.exec(`
       CREATE TABLE IF NOT EXISTS shapes (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT,
         fromTs INTEGER,
         toTs INTEGER,
