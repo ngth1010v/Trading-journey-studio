@@ -4,7 +4,7 @@ import styles from './Navigation.module.css';
 import { type CandleData } from '../../hooks/rawCandle/useCandleData';
 import { type StrateryData } from '../../hooks/useStrateryData';
 
-import SourceNavigation from './SourceNavigation';
+import SourceBar from './bars/SourceBar';
 
 import HouseIcon from '../../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon from '../../../../../../assets/icons/git-branch.svg?react';
@@ -91,7 +91,7 @@ export default function Navigation(
         {/* SOURCE */}
         {openChildren[0] && (
           <div className={styles.childWrapper}>
-            <SourceNavigation candleData={candleData} strateryData={strateryData}/>
+            <SourceBar candleData={candleData} strateryData={strateryData}/>
           </div>
         )}
 

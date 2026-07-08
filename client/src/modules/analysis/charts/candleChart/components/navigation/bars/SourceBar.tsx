@@ -1,12 +1,12 @@
-import styles from './SourceNavigation.module.css';
+import styles from './SourceBar.module.css';
 import { useState, useEffect } from 'react';
 
-import { type CandleData } from "../../hooks/rawCandle/useCandleData";
-import { type StrateryData } from '../../hooks/useStrateryData';
-import { strategiesApi } from '../../../../../../shared/api/strategiesApi';
-import { type Strategy } from '../../../../../../shared/types/strategies.type';
+import { type CandleData } from "../../../hooks/rawCandle/useCandleData";
+import { type StrateryData } from '../../../hooks/useStrateryData';
+import { strategiesApi } from '../../../../../../../shared/api/strategiesApi';
+import { type Strategy } from '../../../../../../../shared/types/strategies.type';
 
-export default function SourceNavigation(
+export default function SourceBar(
     {
         candleData,
         strateryData
