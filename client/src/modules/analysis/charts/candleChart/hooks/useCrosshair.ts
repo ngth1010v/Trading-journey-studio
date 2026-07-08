@@ -183,7 +183,7 @@ export default function useCrosshair(
     return bestPoint;
   };
 
-  const getPixel = (): Point => {
+  const calculatePixelValue = (): Point => {
     const x = CrosshairPosRef.current.x;
     const y = CrosshairPosRef.current.y;
 
@@ -192,16 +192,13 @@ export default function useCrosshair(
       const dx = Math.abs(x - start.x);
       const dy = Math.abs(y - start.y);
 
-      // Mặc định ban đầu nếu chưa di chuyển
       if (dx === 0 && dy === 0) {
         return { x: start.x, y: start.y };
       }
 
       if (dx >= dy) {
-        // Di chuyển theo trục X chủ đạo -> Khóa trục Y theo start.y
         let targetX = x;
         if (magnetRef.current) {
-          // Tìm magnet dựa trên vị trí chuột hiện tại (x, y)
           const magnetPoint = getMagnetPixel(x, y);
           if (magnetPoint) {
             targetX = magnetPoint.x;
@@ -209,10 +206,8 @@ export default function useCrosshair(
         }
         return { x: targetX, y: start.y };
       } else {
-        // Di chuyển theo trục Y chủ đạo -> Khóa trục X theo start.x
         let targetY = y;
         if (magnetRef.current) {
-          // Tìm magnet dựa trên vị trí chuột hiện tại (x, y)
           const magnetPoint = getMagnetPixel(x, y);
           if (magnetPoint) {
             targetY = magnetPoint.y;
@@ -302,7 +297,6 @@ export default function useCrosshair(
   };
 
   const refreshCrosshair = (): void => {
-    calculatedCrosshairPos.current = getPixel();
     redrawGraphics();
   };
 
@@ -320,6 +314,7 @@ export default function useCrosshair(
     containerRef.current = container;
     graphicsRef.current = graphics;
 
+    calculatedCrosshairPos.current = calculatePixelValue();
     refreshCrosshair();
   };
 
@@ -372,6 +367,7 @@ export default function useCrosshair(
 
   const onMouseEnter = (): void => {
     onScreenRef.current = true;
+    calculatedCrosshairPos.current = calculatePixelValue();
     refreshCrosshair();
   };
 
@@ -385,16 +381,20 @@ export default function useCrosshair(
     if (isValidNumber(x)) CrosshairPosRef.current.x = x;
     if (isValidNumber(y)) CrosshairPosRef.current.y = y;
 
+    // Calculate pixel and save it to local ref cache
+    calculatedCrosshairPos.current = calculatePixelValue();
+
     refreshCrosshair();
   };
 
   const onKeyDown = (key: string): void => {
     if (key === "Shift" && !alignRef.current && onScreenRef.current) {
-      const currentSnappedPos = getPixel();
+      const currentSnappedPos = calculatedCrosshairPos.current;
       startAlignPosRef.current.x = currentSnappedPos.x;
       startAlignPosRef.current.y = currentSnappedPos.y;
       
       alignRef.current = true;
+      calculatedCrosshairPos.current = calculatePixelValue();
       refreshCrosshair();
     }
   };
@@ -402,6 +402,7 @@ export default function useCrosshair(
   const onKeyUp = (key: string): void => {
     if (key === "Shift" && alignRef.current) {
       alignRef.current = false;
+      calculatedCrosshairPos.current = calculatePixelValue();
       refreshCrosshair();
     }
   };
@@ -409,9 +410,16 @@ export default function useCrosshair(
   const setMagnet = (enable: boolean = true, distance: number = 50): void => {
     magnetRef.current = enable;
     magnetDistancePixelRef.current = isValidNumber(distance) && distance >= 0 ? distance : 50;
+    calculatedCrosshairPos.current = calculatePixelValue();
     refreshCrosshair();
   };
 
+  // Only returns the already available calculated position
+  const getPixel = (): Point => {
+    return calculatedCrosshairPos.current;
+  };
+
+  // Only converts and returns from the already available calculated position
   const get = (): { timestamp: number; price: number } => {
     const { x, y } = calculatedCrosshairPos.current;
 
