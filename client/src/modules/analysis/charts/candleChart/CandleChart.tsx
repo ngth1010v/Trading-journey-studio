@@ -14,6 +14,7 @@ import useTextLayer from './hooks/shape/raw/useTextLayer';
 import useStrateryData from './hooks/useStrateryData';
 
 import Navigation from './components/navigation/Navigation';
+import { PI_2 } from 'pixi.js';
 
 
 const DEFAULT_FROMTS = 1782432000000
@@ -207,6 +208,7 @@ export default function CandleChart() {
       text: "This is a text",
       timestamp: (DEFAULT_FROMTS + DEFAULT_TOTS)/2,
       price: 2948000,
+      rotation: PI_2 / 4,
       color: [255, 255, 255],
       size: 12,
       alignX: "center",
