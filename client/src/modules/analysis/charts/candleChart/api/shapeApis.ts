@@ -1,6 +1,18 @@
 import { throwAppError } from "../../../../../shared/appError";
 import type { Shape } from "../shared/types";
 
+/**
+ * Intermediate type representing the raw format incoming/outgoing from the server
+ */
+interface RawServerShape {
+  id?: number;
+  type: Shape["type"];
+  fromTs: number;
+  toTs: number;
+  data: string;   // Server stores this as a raw JSON string
+  styles: string; // Server stores this as a raw JSON string
+}
+
 const API_BASE = "/api/strateries";
 
 /**
@@ -49,7 +61,22 @@ async function getShapes(
     url += `?${params}`;
   }
 
-  return request<Shape[]>(url);
+  const rawShapes = await request<RawServerShape[]>(url);
+
+  // Parse server JSON strings back into live JS types
+  return rawShapes.map((shape) => {
+    let parsedData = shape.data;
+    let parsedStyles = shape.styles;
+
+    try { if (typeof shape.data === "string") parsedData = JSON.parse(shape.data); } catch { /* Fallback if already parsed or corrupt */ }
+    try { if (typeof shape.styles === "string") parsedStyles = JSON.parse(shape.styles); } catch { /* Fallback if already parsed or corrupt */ }
+
+    return {
+      ...shape,
+      data: parsedData,
+      styles: parsedStyles,
+    };
+  });
 }
 
 /**
@@ -62,12 +89,19 @@ async function saveShapes(
 ): Promise<{ message: string }> {
   const url = `${API_BASE}/${encodeURIComponent(strategyName)}/${encodeURIComponent(symbol)}/shapes`;
   
+  // Transform live JS fields into the raw JSON strings required by the backend
+  const payload: RawServerShape[] = shapes.map((shape) => ({
+    ...shape,
+    data: typeof shape.data === "string" ? shape.data : JSON.stringify(shape.data),
+    styles: typeof shape.styles === "string" ? shape.styles : JSON.stringify(shape.styles),
+  }));
+
   return request<{ message: string }>(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(shapes),
+    body: JSON.stringify(payload),
   });
 }
 
