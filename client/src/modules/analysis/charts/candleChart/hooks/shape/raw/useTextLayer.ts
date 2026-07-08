@@ -15,6 +15,7 @@ export type Text = {
   size: number;
   alignX: "left" | "center" | "right";
   alignY: "top" | "center" | "bottom";
+  rotation: number; // radians
 };
 
 export type TextLayer = {
@@ -91,7 +92,6 @@ function buildTextShader(viewport: Viewport, texture: any): Shader {
     },
     resources: {
       uTextUniforms: {
-        // Removed the hardcoded uProjectionMatrix so Pixi handles it naturally
         uTimestampShaderWeights: { value: [tWeights.multiplication, tWeights.addition], type: "vec2<f32>" },
         uPriceShaderWeights: { value: [pWeights.multiplication, pWeights.addition], type: "vec2<f32>" },
       },
@@ -144,7 +144,7 @@ export default function useTextLayer(): TextLayer {
     viewportRef.current.addOnViewportChange("textLayer/draw", draw);
   };
 
-const add = (textObj: Text): void => {
+  const add = (textObj: Text): void => {
     const viewport = viewportRef.current;
     const font = fontDataRef.current;
     if (!viewport || !font) return;
@@ -194,6 +194,10 @@ const add = (textObj: Text): void => {
     const atlasWidth = baseTextureSource.width;
     const atlasHeight = baseTextureSource.height;
 
+    // Precalculate rotation values
+    const cosR = Math.cos(textObj.rotation);
+    const sinR = Math.sin(textObj.rotation);
+
     for (let i = 0; i < len; i++) {
       const charData = font.chars[str[i]] || font.chars[" "];
       if (!charData || !charData.texture) continue;
@@ -212,28 +216,40 @@ const add = (textObj: Text): void => {
       const u1 = (frame.x + charWidth) / atlasWidth;
       const v1 = (frame.y + charHeight) / atlasHeight;
 
-      // CHỈ GHI 4 ĐỈNH DUY NHẤT (Tiết kiệm bộ nhớ, WebGL map chuẩn đét)
-      
-      // Đỉnh 0: Top-Left
-      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = x0; arr[ptr++] = y0;
+      // Apply 2D rotation matrix centered on the alignment anchor point (0, 0)
+      const rx0 = x0 * cosR - y0 * sinR;
+      const ry0 = x0 * sinR + y0 * cosR;
+
+      const rx1 = x1 * cosR - y0 * sinR;
+      const ry1 = x1 * sinR + y0 * cosR;
+
+      const rx2 = x1 * cosR - y1 * sinR;
+      const ry2 = x1 * sinR + y1 * cosR;
+
+      const rx3 = x0 * cosR - y1 * sinR;
+      const ry3 = x0 * sinR + y1 * cosR;
+
+      // Top-Left
+      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = rx0; arr[ptr++] = ry0;
       arr[ptr++] = u0; arr[ptr++] = v0; arr[ptr++] = rf; arr[ptr++] = gf; arr[ptr++] = bf;
 
-      // Đỉnh 1: Top-Right
-      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = x1; arr[ptr++] = y0;
+      // Top-Right
+      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = rx1; arr[ptr++] = ry1;
       arr[ptr++] = u1; arr[ptr++] = v0; arr[ptr++] = rf; arr[ptr++] = gf; arr[ptr++] = bf;
 
-      // Đỉnh 2: Bottom-Right
-      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = x1; arr[ptr++] = y1;
+      // Bottom-Right
+      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = rx2; arr[ptr++] = ry2;
       arr[ptr++] = u1; arr[ptr++] = v1; arr[ptr++] = rf; arr[ptr++] = gf; arr[ptr++] = bf;
 
-      // Đỉnh 3: Bottom-Left
-      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = x0; arr[ptr++] = y1;
+      // Bottom-Left
+      arr[ptr++] = baseTimestamp; arr[ptr++] = basePrice; arr[ptr++] = rx3; arr[ptr++] = ry3;
       arr[ptr++] = u0; arr[ptr++] = v1; arr[ptr++] = rf; arr[ptr++] = gf; arr[ptr++] = bf;
 
       currentX += charData.xAdvance * fontScale;
       charCountRef.current++;
     }
-};
+  };
+
   const flush = (): void => {
     if (geometryRef.current) {
       geometryRef.current.destroy();
@@ -241,7 +257,7 @@ const add = (textObj: Text): void => {
     }
   };
 
-const draw = (): void => {
+  const draw = (): void => {
     const app = appRef.current;
     const viewport = viewportRef.current;
     const count = charCountRef.current;
@@ -276,7 +292,7 @@ const draw = (): void => {
       }
     }
 
-const activeDataSlice = new Float32Array(interleavedArrayRef.current.buffer, 0, count * FLOATS_PER_CHAR);
+    const activeDataSlice = new Float32Array(interleavedArrayRef.current.buffer, 0, count * FLOATS_PER_CHAR);
 
     if (!geometryRef.current) {
       pixiBufferRef.current = new Buffer({ 
@@ -285,8 +301,6 @@ const activeDataSlice = new Float32Array(interleavedArrayRef.current.buffer, 0, 
         shrinkToFit: false 
       });
 
-      // TẠO INDEX BUFFER: Bắt buộc WebGL vẽ 2 tam giác từ 4 đỉnh theo quy tắc:
-      // Tam giác 1: [0, 1, 2], Tam giác 2: [0, 2, 3]
       const indices = new Uint16Array(count * 6);
       for (let i = 0; i < count; i++) {
         const vIdx = i * 4;
@@ -305,7 +319,6 @@ const activeDataSlice = new Float32Array(interleavedArrayRef.current.buffer, 0, 
           aUV:             { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 16 },
           aColor:          { buffer: pixiBufferRef.current, size: 3, stride: STRIDE_BYTES, offset: 24 }
         },
-        // Đưa mảng index vào chỉ định vẽ trong Pixi v8
         indexBuffer: new Buffer({ data: indices, usage: BufferUsage.INDEX }) 
       });
 
@@ -329,8 +342,7 @@ const activeDataSlice = new Float32Array(interleavedArrayRef.current.buffer, 0, 
         pixiBufferRef.current.update(activeDataSlice.byteLength); 
       }
     }
-};
-
+  };
 
   const clean = (): void => {
     charCountRef.current = 0;
