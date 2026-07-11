@@ -141,7 +141,6 @@ export default function useTextLayer(): TextLayer {
 
     const mockTexture = fontDataRef.current?.pages?.[0]?.texture || (app.renderer as any).whiteTexture;
     shaderRef.current = buildTextShader(viewport, mockTexture);
-    viewportRef.current.addOnViewportChange("textLayer/draw", draw);
   };
 
   const add = (textObj: Text): void => {
@@ -173,11 +172,11 @@ export default function useTextLayer(): TextLayer {
 
     let offsetX = 0;
     if (textObj.alignX === "center") offsetX = -totalWidth / 2;
-    else if (textObj.alignX === "right") offsetX = -totalWidth;
+    else if (textObj.alignX === "left") offsetX = -totalWidth;
 
     let offsetY = 0;
     if (textObj.alignY === "center") offsetY = -baseLineHeight / 2;
-    else if (textObj.alignY === "bottom") offsetY = -baseLineHeight;
+    else if (textObj.alignY === "top") offsetY = -baseLineHeight;
 
     const [r, g, b] = textObj.color;
     const rf = r / 255, gf = g / 255, bf = b / 255;
@@ -349,8 +348,6 @@ export default function useTextLayer(): TextLayer {
   };
 
   const destroy = (): void => {
-    viewportRef.current?.removeOnViewportChange("textLayer/draw");
-
     if (meshRef.current) { meshRef.current.destroy(); meshRef.current = null; }
     if (geometryRef.current) { geometryRef.current.destroy(); geometryRef.current = null; }
     if (shaderRef.current) { shaderRef.current.destroy(); shaderRef.current = null; }

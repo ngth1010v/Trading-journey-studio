@@ -79,7 +79,9 @@ async function getShapes(
   }
 
   const rawShapes = await request<RawServerShape[]>(url);
-  return rawShapes.map(mapRawToShape);
+  const res = rawShapes.map(mapRawToShape)
+  console.log(res)
+  return res;
 }
 
 /**

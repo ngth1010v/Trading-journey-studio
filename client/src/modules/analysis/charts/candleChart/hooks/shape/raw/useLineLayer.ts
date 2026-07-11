@@ -9,7 +9,7 @@ import { CONFIG } from "../../../shared/config";
 //======================================================================================================
 export type Line = {
   thickness   ?: number;
-  color       ?: [number, number, number, number]; // argb
+  color       ?: [number, number, number, number]; // rgba
   timestamp1  ?: number;
   timestamp2  ?: number;
   price1      ?: number;
@@ -139,7 +139,6 @@ export default function useLineLayer(): LineLayer {
     interleavedArrayRef.current = new Float32Array(maxLines * FLOATS_PER_LINE);
 
     shaderRef.current = buildLineShader(viewport);
-    viewportRef.current.addOnViewportChange("lineLayer/draw", draw);
   };
 
   const add = (line: Line): void => {
@@ -169,7 +168,7 @@ export default function useLineLayer(): LineLayer {
     const t2 = line.timestamp2 - tWeights.offset;
     const p2 = line.price2 - pWeights.offset;
 
-    const [a, r, g, b] = line.color;
+    const [r, g, b, a] = line.color;
     const rf = r / 255, gf = g / 255, bf = b / 255, af = a / 255;
 
     const arr = interleavedArrayRef.current;
@@ -265,8 +264,6 @@ export default function useLineLayer(): LineLayer {
   };
 
   const destroy = (): void => {
-    viewportRef.current?.removeOnViewportChange("lineLayer/draw");
-
     if (meshRef.current) { meshRef.current.destroy(); meshRef.current = null; }
     if (geometryRef.current) { geometryRef.current.destroy(); geometryRef.current = null; }
     if (shaderRef.current) { shaderRef.current.destroy(); shaderRef.current = null; }

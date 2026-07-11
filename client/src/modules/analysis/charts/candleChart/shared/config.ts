@@ -39,5 +39,17 @@ export const CONFIG = {
 
     TEXT_LAYER: {
         MAX_TEXTS_CHAR      : 100000
+    },
+
+    SHAPES: {
+        CACHE_EXTEND_RATIO: 1, //[..1..,..data-render..,..1..]
+        TOLERANCE         : 10, //px
+        TEXT_PADDING      : 5,  //px
+        EDIT_BUTTON: {
+            SIZE            : 10,                   //px
+            COLOR           : [10,10,20,255],       //rgba 
+            BORDER_WIDTH    : 2,                    //px
+            BORDER_COLOR    : [200,200,200,255]     //rgba   
+        }
     }
 }

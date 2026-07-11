@@ -8,17 +8,16 @@ import useCrosshair, {type CrosshairStyles} from './hooks/useCrosshair';
 import useGridAxes from './hooks/axes/useGridAxes';
 import useAxes from './hooks/axes/useAxes';
 import useAxesController from './hooks/axes/useAxesController';
-import useLineLayer from './hooks/shape/raw/useLineLayer';
-import useTriangleLayer from './hooks/shape/raw/useTriangleLayer';
-import useTextLayer from './hooks/shape/raw/useTextLayer';
 import useStrateryData from './hooks/useStrateryData';
 
+// Import the new shape controller hook
+import useShapeController from './hooks/shape/useShapeController';
+
 import Navigation from './components/navigation/Navigation';
-import { PI_2 } from 'pixi.js';
 
 
-const DEFAULT_FROMTS = 1782432000000
-const DEFAULT_TOTS   = 1782439200000
+const DEFAULT_FROMTS = 1782432000000;
+const DEFAULT_TOTS   = 1782439200000;
 
 const DEFAULT_DATA = {
   symbol: "NAS100",
@@ -41,12 +40,12 @@ const DEFAULT_CURSOR_STYLE: CrosshairStyles = {
   color     : [100, 100, 100],
   dashWidth : 10,
   dashSpace : 5,
-}
+};
 
 export default function CandleChart() {
   const containerRef  = useRef<HTMLDivElement>(null);
   const pixiAppRef    = useRef<Application | null>(null);
-  const inited        = useRef(false)
+  const inited        = useRef(false);
 
   const [browserCursor, setBrowserCursor] = useState<string>('crosshair');
   
@@ -55,16 +54,12 @@ export default function CandleChart() {
     
   const viewport          = useViewport(candleData);
   const candleLayer       = useCandleLayer();
-  const lineLayer         = useLineLayer(); 
-  const triangleLayer     = useTriangleLayer();
-  const textLayer         = useTextLayer();
   const viewController    = useViewController(viewport);
-  const crosshair         = useCrosshair(candleData, viewport)
-  const gridAxes          = useGridAxes(viewport, candleData)
+  const crosshair         = useCrosshair(candleData, viewport);
+  const gridAxes          = useGridAxes(viewport, candleData);
   const axes              = useAxes(candleData, viewport, gridAxes);
-  const axesController    = useAxesController(candleData,viewport,viewController, crosshair, gridAxes, axes)
-
-
+  const axesController    = useAxesController(candleData, viewport, viewController, crosshair, gridAxes, axes);
+  const shapeController   = useShapeController(viewport, crosshair,viewController);
 
   //=============================================================================================
   // Init / destroy
@@ -77,11 +72,9 @@ export default function CandleChart() {
     //==============================================================
     await candleData.setSrc(DEFAULT_DATA.symbol, DEFAULT_DATA.timeframe);
     await candleData.setRange(DEFAULT_DATA.fromTs, DEFAULT_DATA.toTs);
-    candleData.setRealtime(true)
+    candleData.setRealtime(true);
 
-    await strateryData.set("Default")
-
-      
+    await strateryData.set("Default");
 
     //==============================================================
     // Pixi-app
@@ -103,7 +96,6 @@ export default function CandleChart() {
     if (app.canvas) {
       containerRef.current.appendChild(app.canvas);
     }
-    
 
     //==============================================================
     // Viewport
@@ -120,14 +112,14 @@ export default function CandleChart() {
     await candleLayer.init(app, candleData, viewport);
     candleLayer.updateData();
     await candleLayer.draw();
-    
-    //==============================================================
-    // Raw shape
-    //==============================================================
-    lineLayer.init(app, viewport);
-    triangleLayer.init(app, viewport);
-    await textLayer.init(app, viewport);
 
+
+    //==============================================================
+    // Shape Controller Initialization & Initial Refresh Data Setup
+    //==============================================================
+    await shapeController.init(app);
+    // Triggers initial fetch and begins the 0.5s remote polling loop
+    await shapeController.updateData(DEFAULT_DATA.symbol, "Default");
 
     //==============================================================
     // Crosshair
@@ -149,17 +141,7 @@ export default function CandleChart() {
     // Axes controller
     //==============================================================
     axesController.init(app, setBrowserCursor);
-    axesController.draw()
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    axesController.draw();
     
     //==============================================================
     // TEST
@@ -182,108 +164,86 @@ export default function CandleChart() {
       color: [255, 150, 150, 150],
       fontColor: [255, 255, 255],
     });   
-    
-    
-    lineLayer.add({
-      thickness: 2,
-      color: [255, 255, 255, 255],
-      timestamp1: DEFAULT_FROMTS,
-      timestamp2: DEFAULT_TOTS,
-      price1: 2944000,
-      price2: 2944000
-    });
-    lineLayer.flush();
-    lineLayer.draw();
-    
-    // triangleLayer.add({
-    //   color    : [255, 255, 255, 255],
-    //   timestamp: [DEFAULT_FROMTS, (DEFAULT_FROMTS + DEFAULT_TOTS)/2, DEFAULT_TOTS],
-    //   price    : [2943000, 2940000, 2943000]
-    // });
-    // triangleLayer.flush();
-    // triangleLayer.draw();
-    
-    textLayer.clean();
-    textLayer.add({
-      text: "This is a text",
-      timestamp: (DEFAULT_FROMTS + DEFAULT_TOTS)/2,
-      price: 2948000,
-      rotation: PI_2 / 4,
-      color: [255, 255, 255],
-      size: 12,
-      alignX: "center",
-      alignY: "center" 
-    });
-    textLayer.flush();
-    textLayer.draw();
-  }
+
+  };
   
   const destroy = async () => {
     if (pixiAppRef.current) {
-      viewport.destroy()
+      viewport.destroy();
       pixiAppRef.current.destroy(true, { children: true, texture: true });
-      candleLayer.cleanup()
-      crosshair.destroy()
-      axesController.destroy()
-      lineLayer.destroy() 
-      triangleLayer.destroy()
+      candleLayer.cleanup();
+      crosshair.destroy();
+      axesController.destroy();
     }
-  }
+  };
   
   useEffect(() => {
-    if (inited.current) return
-    inited.current = true
-    init()
-    return ()=>{destroy()}
-  },[])
-  
-  
+    if (inited.current) return;
+    inited.current = true;
+    init();
+    return () => { destroy(); };
+  }, []);
   
   //=============================================================================================
-  // Event
+  // Event Handlers
   //=============================================================================================
-  // React event
   const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
-    axesController.onMouseDown(x,y,e.button);
-    viewController.onMouseDown(x,y,e.button);
-  }
+    axesController.onMouseDown(x, y, e.button);
+    viewController.onMouseDown(x, y, e.button);
+    
+    // Inject down parameters to controller for drawing placement or selection
+    // shapeController.onMouseDown(x, y, e.button);
+    shapeController.onMouseDown(x,y,e.button);
+  };
+
   const onMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     axesController.onMouseUp();
-    viewController.onMouseUp(x,y,e.button);
-  }
+    viewController.onMouseUp(x, y, e.button);
+    
+    // Forward up action to save placement data
+    shapeController.onMouseUp(e.button);
+  };
+
   const onMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    crosshair.onMouseEnter()
-  }
+    e.preventDefault();
+    crosshair.onMouseEnter();
+  };
+
   const onMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
     axesController.onMouseLeave();
-    viewController.onMouseLeave(x,y,e.button);
-    crosshair.onMouseLeave()
-  }
+    viewController.onMouseLeave(x, y, e.button);
+    crosshair.onMouseLeave();
+    
+    // Clean interactive drafts if mouse snaps off boundary
+    shapeController.onMouseLeave();
+  };
+
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
-    axesController.onMouseMove(x,y);
-    viewController.onMouseMove(x,y);
-    crosshair.onMouseMove(x,y);
-  }
+    axesController.onMouseMove(x, y);
+    viewController.onMouseMove(x, y);
+    crosshair.onMouseMove(x, y);
+    
+    // Sync creation tracking and interactive node drag coordinate calculations
+    shapeController.onMouseMove();
+  };
 
-  // Html event
+  // Html events (Keyboard/Wheel)
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
 
-    // Wheel
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = element.getBoundingClientRect();
@@ -295,59 +255,48 @@ export default function CandleChart() {
     };
     element.addEventListener('wheel', handleWheel, { passive: false });
     
-    // Key down
     const handleKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
+      // Allow key events if target element is typing/editing elsewhere, otherwise catch standard canvas tools
       viewController.onKeyDown(e.key);
-      crosshair.onKeyDown(e.key)
+      crosshair.onKeyDown(e.key);
+
+      // Trigger line configuration blueprint creation when 's' key is pressed
+      if (e.key === 's' || e.key === 'S') {
+        shapeController.create("line");
+      }
     };
     element.addEventListener('keydown', handleKeyDown);
     
-    // Key up
     const handleKeyUp = (e: KeyboardEvent) => {
-      e.preventDefault();
       viewController.onKeyUp(e.key);
-      crosshair.onKeyUp(e.key)
+      crosshair.onKeyUp(e.key);
     };
     element.addEventListener('keyup', handleKeyUp);
 
-    // Resize
+    // Resize tracking
     const resizeObserver = new ResizeObserver((entries) => {
       if (!pixiAppRef.current) return;
       
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
 
-        // 1. Resize Pixi Application
         pixiAppRef.current.renderer.resize(width, height);
-
-        // 2. Cập nhật lại kích thước Viewport
         viewport.setCanvasSize({ width, height });
         
-        // 3. Render lại các layer (nếu viewport/candleLayer của bạn cần trigger vẽ lại)
         candleLayer.draw(); 
-        lineLayer.draw(); 
-        triangleLayer.draw();
         gridAxes.draw();
         axes.draw();
       }
     });
     resizeObserver.observe(element);
 
-
-
-    // Dọn dẹp event listener
     return () => {
       element.removeEventListener('wheel', handleWheel);
       element.removeEventListener('keydown', handleKeyDown);
       element.removeEventListener('keyup', handleKeyUp);
       resizeObserver.disconnect();
     };
-  }, [viewController]); 
-
-
-
-
+  }, [viewController, shapeController]); 
 
   //=============================================================================================
   // Return
@@ -378,22 +327,17 @@ export default function CandleChart() {
         }}
         onMouseDown={onMouseDown} 
         onMouseEnter={(e) => {
-          onMouseEnter(e)
+          onMouseEnter(e);
           if (containerRef.current) containerRef.current.focus();
         }}
         onMouseUp={onMouseUp} 
         onMouseMove={onMouseMove} 
         onMouseLeave={(e) => {
-          onMouseLeave(e)
+          onMouseLeave(e);
           if (containerRef.current) containerRef.current.blur();
         }}
       />      
       <Navigation candleData={candleData} strateryData={strateryData}/>
     </div>
-
   );
 }
-
-
-
-

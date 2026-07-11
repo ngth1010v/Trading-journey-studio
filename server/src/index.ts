@@ -7,7 +7,7 @@ import { marketServer } from './service-servers/markets-server.js';
 import { clientServer } from './service-servers/client-server.js';
 
 import { strategies } from './strategies/strategies/strategies.index.js';
-
+import { shapes } from './strategies/shapes/shapes.index.js';
 
 
 // =============================================================================================================
@@ -24,6 +24,7 @@ let isShuttingDown = false;
 app.use(express.json());
 app.use(marketServer.router);
 app.use(strategies.router)
+app.use(shapes.router)
 
 app.get('/', (_req: Request, res: Response) => {
     res.send('Hello World!');

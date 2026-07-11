@@ -8,7 +8,7 @@ import { CONFIG } from "../../../shared/config";
 // PUBLIC TYPES
 //======================================================================================================
 export type Triangle = {
-  color     : [number, number, number, number]; // argb 
+  color     : [number, number, number, number]; // rgba 
   timestamp : [number, number, number];         // point1, point2, point3
   price     : [number, number, number];         // point1, point2, point3
 };
@@ -116,7 +116,6 @@ export default function useTriangleLayer(): TriangleLayer {
     interleavedArrayRef.current = new Float32Array(maxTriangles * FLOATS_PER_TRIANGLE);
 
     shaderRef.current = buildTriangleShader(viewport);
-    viewportRef.current.addOnViewportChange("triangleLayer/draw", draw);
   };
 
   const add = (triangle: Triangle): void => {
@@ -139,7 +138,7 @@ export default function useTriangleLayer(): TriangleLayer {
     const tWeights = viewport.getTimestampToPixelWeights();
     const pWeights = viewport.getPriceToPixelWeights();
 
-    const [a, r, g, b] = triangle.color;
+    const [r, g, b, a] = triangle.color;
     const rf = r / 255, gf = g / 255, bf = b / 255, af = a / 255;
 
     const arr = interleavedArrayRef.current;
@@ -222,7 +221,6 @@ export default function useTriangleLayer(): TriangleLayer {
   };
 
   const destroy = (): void => {
-    viewportRef.current?.removeOnViewportChange("triangleLayer/draw");
 
     if (meshRef.current) { meshRef.current.destroy(); meshRef.current = null; }
     if (geometryRef.current) { geometryRef.current.destroy(); geometryRef.current = null; }

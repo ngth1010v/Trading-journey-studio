@@ -37,6 +37,8 @@ export type Viewport = {
   // Event
   addOnViewportChange(id: string, callback: (view: View) => void): void;
   removeOnViewportChange(id: string): void;
+  addOnViewportFlush(id: string, callback: () => void): void;
+  removeOnViewportFlush(id: string): void;
 };
 
 export type CanvasSize = {
@@ -115,6 +117,7 @@ function useViewport(candleData: CandleData): Viewport {
   });
 
   const listenersRef = useRef<Map<string, (view: View) => void>>(new Map());
+  const flushListenersRef = useRef<Map<string, () => void>>(new Map());
 
   const triggerViewportChange = (): void => {
     const view = viewRef.current;
@@ -232,6 +235,9 @@ function useViewport(candleData: CandleData): Viewport {
     );
 
     triggerViewportChange();
+    flushListenersRef.current.forEach((callback) => {
+      try { callback(); } catch (err) { console.error(err); }
+    });
   };
 
   const setAutoPrice = (): void => {
@@ -554,6 +560,20 @@ function useViewport(candleData: CandleData): Viewport {
     listenersRef.current.delete(id);
   };
 
+  const addOnViewportFlush = (id: string, callback: () => void): void => {
+    if (flushListenersRef.current.has(id)) {
+      throwAppError("DUPLICATE_ID", `Flush listener with id "${id}" already exists.`);
+    }
+    flushListenersRef.current.set(id, callback);
+  };
+
+  const removeOnViewportFlush = (id: string): void => {
+    if (!flushListenersRef.current.has(id)) {
+      throwAppError("NOT_FOUND", `Flush listener with id "${id}" does not exist.`);
+    }
+    flushListenersRef.current.delete(id);
+  };
+
   const apiRef = useRef<Viewport | null>(null);
 
   if (!apiRef.current) {
@@ -579,6 +599,8 @@ function useViewport(candleData: CandleData): Viewport {
       setScalePrice,
       addOnViewportChange,
       removeOnViewportChange,
+      addOnViewportFlush,
+      removeOnViewportFlush,
     };
   }
 

@@ -1,5 +1,6 @@
 import { Shape } from './shapes.model.js';
 import { ShapesService } from './shapes.service.js';
+import { shapesRouter } from './shapes.route.js';
 
 // Auto-close connections if inactive for 5 minutes
 export const CONNECTION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -34,4 +35,6 @@ export const shapes = {
   async delete(strateryName: string, symbol: string, id: number): Promise<void> {
     await ShapesService.deleteShape(strateryName, symbol, id);
   },
+
+  router: shapesRouter
 };
