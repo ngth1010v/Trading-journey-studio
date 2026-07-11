@@ -40,10 +40,12 @@ const STRIDE_BYTES = FLOATS_PER_VERTEX * 4; // 24 bytes
 function buildTriangleShader(viewport: Viewport): Shader {
   const tWeights = viewport.getTimestampToPixelWeights();
   const pWeights = viewport.getPriceToPixelWeights();
+  const uid = Math.random().toString(36).substring(2, 15);
 
   return Shader.from({
     gl: {
       vertex: `
+        // UID: ${uid}
         precision mediump float;
         attribute vec2 aPosition;
         attribute vec4 aColor;
@@ -162,9 +164,13 @@ export default function useTriangleLayer(): TriangleLayer {
       geometryRef.current.destroy();
       geometryRef.current = null;
     }
+    if (pixiBufferRef.current) {
+      pixiBufferRef.current.destroy();
+      pixiBufferRef.current = null;
+    }
   };
 
-  const draw = (): void => {
+const draw = (): void => {
     const app = appRef.current;
     const viewport = viewportRef.current;
     const count = triangleCountRef.current;
@@ -194,9 +200,11 @@ export default function useTriangleLayer(): TriangleLayer {
       }
     }
 
+    // Hoisted slice
+    const activeDataSlice = interleavedArrayRef.current.subarray(0, count * FLOATS_PER_TRIANGLE);
+
     if (!geometryRef.current) {
-      const activeDataSlice = interleavedArrayRef.current.subarray(0, count * FLOATS_PER_TRIANGLE);
-      pixiBufferRef.current = new Buffer({ data: activeDataSlice,usage: BufferUsage.VERTEX, shrinkToFit: false });
+      pixiBufferRef.current = new Buffer({ data: activeDataSlice, usage: BufferUsage.VERTEX, shrinkToFit: false });
 
       const geometry = new Geometry();
       geometry.addAttribute("aPosition", { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 0 * 4 });
@@ -212,7 +220,11 @@ export default function useTriangleLayer(): TriangleLayer {
       meshRef.current = new Mesh({ geometry, shader: shaderRef.current } as any);
       layerRef.current?.addChild(meshRef.current);
     } else {
-      pixiBufferRef.current?.update();
+      // Corrected fast path
+      if (pixiBufferRef.current) {
+        pixiBufferRef.current.data = activeDataSlice;
+        pixiBufferRef.current.update(activeDataSlice.byteLength);
+      }
     }
   };
 

@@ -41,6 +41,7 @@ export function renderShapeToLayers(shape: Shape, layers: RenderLayers) {
         if (renderItem.type === "line") {
             const [t1, p1] = parsePosition(renderItem.pos[0], shape.data);
             const [t2, p2] = parsePosition(renderItem.pos[1], shape.data);
+
             layers.lineLayer.add({
                 timestamp1: t1, price1: p1, timestamp2: t2, price2: p2,
                 color: style.color || [255, 255, 255, 255],

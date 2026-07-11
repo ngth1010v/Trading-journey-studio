@@ -46,7 +46,7 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
     const lineLayer = useLineLayer();
     const triangleLayer = useTriangleLayer();
     const textLayer = useTextLayer();
-
+    
     // Active/Edit Foreground Layers (Isolates active shape updates)
     const activeLineLayer = useLineLayer();
     const activeTriangleLayer = useTriangleLayer();
@@ -209,7 +209,7 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         lineLayer.init(app, viewport);
         triangleLayer.init(app, viewport);
         await textLayer.init(app, viewport);
-
+        
         activeLineLayer.init(app, viewport);
         activeTriangleLayer.init(app, viewport);
         await activeTextLayer.init(app, viewport);

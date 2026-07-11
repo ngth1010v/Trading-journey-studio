@@ -43,10 +43,12 @@ const STRIDE_BYTES = FLOATS_PER_VERTEX * 4;
 function buildTextShader(viewport: Viewport, texture: any): Shader {
   const tWeights = viewport.getTimestampToPixelWeights();
   const pWeights = viewport.getPriceToPixelWeights();
+  const uid = Math.random().toString(36).substring(2, 15);
 
   return Shader.from({
     gl: {
       vertex: `
+        // UID: ${uid}
         precision mediump float;
         attribute vec4 aPositionOffset; 
         attribute vec2 aUV;
@@ -253,6 +255,10 @@ export default function useTextLayer(): TextLayer {
     if (geometryRef.current) {
       geometryRef.current.destroy();
       geometryRef.current = null;
+    }
+    if (pixiBufferRef.current) {
+      pixiBufferRef.current.destroy();
+      pixiBufferRef.current = null;
     }
   };
 

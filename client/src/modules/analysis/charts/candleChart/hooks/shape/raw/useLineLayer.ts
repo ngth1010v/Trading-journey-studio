@@ -49,10 +49,12 @@ const CORNERS = [
 function buildLineShader(viewport: Viewport): Shader {
   const tWeights = viewport.getTimestampToPixelWeights();
   const pWeights = viewport.getPriceToPixelWeights();
+  const uid = Math.random().toString(36).substring(2, 15);
 
   return Shader.from({
     gl: {
       vertex: `
+        // UID: ${uid}
         precision mediump float;
         attribute vec2 aCorner;
         attribute float aThickness;
@@ -193,13 +195,16 @@ export default function useLineLayer(): LineLayer {
   };
 
   const flush = (): void => {
-    // Structural layout changes flag triggers recreation path safely
     if (geometryRef.current) {
       geometryRef.current.destroy();
       geometryRef.current = null;
     }
+    if (pixiBufferRef.current) {
+      pixiBufferRef.current.destroy();
+      pixiBufferRef.current = null;
+    }
   };
-
+// 3. UPDATE: draw() - Fix the buffer fast path
   const draw = (): void => {
     const app = appRef.current;
     const viewport = viewportRef.current;
@@ -230,11 +235,10 @@ export default function useLineLayer(): LineLayer {
       }
     }
 
+    // Hoisted slice for both creation and update paths
+    const activeDataSlice = interleavedArrayRef.current.subarray(0, count * FLOATS_PER_LINE);
+
     if (!geometryRef.current) {
-      // Create slice reference targeting active elements directly
-      const activeDataSlice = interleavedArrayRef.current.subarray(0, count * FLOATS_PER_LINE);
-      
-      // Instantiate single continuous GPU buffer element context
       pixiBufferRef.current = new Buffer({ data: activeDataSlice, usage: BufferUsage.VERTEX, shrinkToFit: false });
 
       const geometry = new Geometry();
@@ -254,8 +258,11 @@ export default function useLineLayer(): LineLayer {
       meshRef.current = new Mesh({ geometry, shader: shaderRef.current } as any);
       layerRef.current?.addChild(meshRef.current);
     } else {
-      // Fast path: CPU work is 0. Just tell PixiJS data is updated for GPU pipeline.
-      pixiBufferRef.current?.update();
+      // Corrected fast path
+      if (pixiBufferRef.current) {
+        pixiBufferRef.current.data = activeDataSlice;
+        pixiBufferRef.current.update(activeDataSlice.byteLength);
+      }
     }
   };
 
