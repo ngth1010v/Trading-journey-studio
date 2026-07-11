@@ -69,19 +69,15 @@ export function renderShapeToLayers(shape: Shape, layers: RenderLayers) {
                 price,
 
                 color:
-                    style.text?.color ??
                     style.color?.slice?.(1, 4) ??
                     [255, 255, 255],
 
-                size: style.text?.size ?? 14,
+                size: style.size ?? 14,
                 alignX: style.alignX ?? "left",
                 alignY: style.alignY ?? "top",
 
                 rotation:
-                    (style.rotation ??
-                        style.text?.rotation ??
-                        style.text?.orientation ??
-                        0) *
+                    (style?.rotation ?? style?.orientation ?? 0) *
                     Math.PI /
                     180,
             });

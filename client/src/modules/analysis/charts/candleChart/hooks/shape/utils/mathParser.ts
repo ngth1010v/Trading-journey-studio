@@ -4,7 +4,7 @@
  * Caches the compiled RPN for maximum real-time performance.
  */
 
-type Token = string | number | { isVar: boolean; name: string };
+// type Token = string | number | { isVar: boolean; name: string };
 const cache = new Map<string, any[]>();
 
 function tokenize(expr: string): string[] {
