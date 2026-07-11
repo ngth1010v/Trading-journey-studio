@@ -42,6 +42,23 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 /**
+ * Helper to parse raw server shape data and styles fields back into live JS types
+ */
+function mapRawToShape(shape: RawServerShape): Shape {
+  let parsedData = shape.data;
+  let parsedStyles = shape.styles;
+
+  try { if (typeof shape.data === "string") parsedData = JSON.parse(shape.data); } catch { /* Fallback if already parsed or corrupt */ }
+  try { if (typeof shape.styles === "string") parsedStyles = JSON.parse(shape.styles); } catch { /* Fallback if already parsed or corrupt */ }
+
+  return {
+    ...shape,
+    data: parsedData,
+    styles: parsedStyles,
+  };
+}
+
+/**
  * GET /api/strateries/:strategyName/:symbol/shapes
  * Optionally filters by fromTs and toTs query parameters
  */
@@ -62,21 +79,30 @@ async function getShapes(
   }
 
   const rawShapes = await request<RawServerShape[]>(url);
+  return rawShapes.map(mapRawToShape);
+}
 
-  // Parse server JSON strings back into live JS types
-  return rawShapes.map((shape) => {
-    let parsedData = shape.data;
-    let parsedStyles = shape.styles;
-
-    try { if (typeof shape.data === "string") parsedData = JSON.parse(shape.data); } catch { /* Fallback if already parsed or corrupt */ }
-    try { if (typeof shape.styles === "string") parsedStyles = JSON.parse(shape.styles); } catch { /* Fallback if already parsed or corrupt */ }
-
-    return {
-      ...shape,
-      data: parsedData,
-      styles: parsedStyles,
-    };
+/**
+ * GET /api/strateries/:strategyName/:symbol/shapes/changed
+ * Fetches shapes tracking specific update versions inside a time window
+ */
+async function getChangedShapes(
+  strategyName: string,
+  symbol: string,
+  lastUpdateTs: number,
+  fromTs: number,
+  toTs: number
+): Promise<Shape[]> {
+  const params = new URLSearchParams({
+    lastUpdateTs: String(lastUpdateTs),
+    fromTs: String(fromTs),
+    toTs: String(toTs),
   });
+
+  const url = `${API_BASE}/${encodeURIComponent(strategyName)}/${encodeURIComponent(symbol)}/shapes/changed?${params}`;
+
+  const rawShapes = await request<RawServerShape[]>(url);
+  return rawShapes.map(mapRawToShape);
 }
 
 /**
@@ -122,6 +148,7 @@ async function deleteShape(
 
 export const shapeApis = {
   getShapes,
+  getChangedShapes,
   saveShapes,
   deleteShape,
 };
