@@ -5,17 +5,19 @@ export class ShapesService {
   
   public static async saveShapes(strateryName: string, symbol: string, shapes: Shape[]): Promise<void> {
     const db = ShapesRepository.getConnection(strateryName, symbol);
+    const currentTimestamp = Date.now();
     
-    // SQLite upsert: if ID is provided and conflicts, update. If null, it generates an autoincrement ID.
+    // SQLite upsert: updates existing fields and sets the automated internal timestamp on modification
     const stmt = db.prepare(`
-      INSERT INTO shapes (id, type, fromTs, toTs, data, styles)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO shapes (id, type, fromTs, toTs, data, styles, lastModifyTimestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         fromTs = excluded.fromTs,
         toTs = excluded.toTs,
         data = excluded.data,
-        styles = excluded.styles
+        styles = excluded.styles,
+        lastModifyTimestamp = excluded.lastModifyTimestamp
     `);
 
     const transaction = db.transaction((shapesList: Shape[]) => {
@@ -40,7 +42,8 @@ export class ShapesService {
           shape.fromTs,
           shape.toTs,
           shape.data,
-          shape.styles
+          shape.styles,
+          currentTimestamp
         );
       }
     });
@@ -83,6 +86,29 @@ export class ShapesService {
     return rows.map((row: any) => this.mapRowToShape(row));
   }
 
+  /**
+   * Fetches shapes that intersect with [fromTs, toTs] AND have been modified since lastUpdateTs
+   */
+  public static async getChangedShapes(
+    strateryName: string,
+    symbol: string,
+    lastUpdateTs: number,
+    fromTs: number,
+    toTs: number
+  ): Promise<Shape[]> {
+    const db = ShapesRepository.getConnection(strateryName, symbol);
+
+    const query = `
+      SELECT * FROM shapes
+      WHERE lastModifyTimestamp >= ?
+        AND ? <= toTs 
+        AND fromTs < ?
+    `;
+
+    const rows = db.prepare(query).all(lastUpdateTs, fromTs, toTs);
+    return rows.map((row: any) => this.mapRowToShape(row));
+  }
+
   public static async getAllShapes(strateryName: string, symbol: string): Promise<Shape[]> {
     const db = ShapesRepository.getConnection(strateryName, symbol);
     const rows = db.prepare('SELECT * FROM shapes').all();
@@ -97,6 +123,7 @@ export class ShapesService {
       toTs: row.toTs,
       data: row.data,
       styles: row.styles,
+      // lastModifyTimestamp is intentionally excluded to keep the Interface and payload pristine
     };
   }
 }

@@ -33,6 +33,7 @@ export class ShapesRepository {
     const db = new Database(dbPath);
     
     // Initialize standard table structure safely with AUTOINCREMENT for numeric IDs
+    // Modified: Added lastModifyTimestamp field to tracking database changes
     db.exec(`
       CREATE TABLE IF NOT EXISTS shapes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +41,8 @@ export class ShapesRepository {
         fromTs INTEGER,
         toTs INTEGER,
         data TEXT,
-        styles TEXT
+        styles TEXT,
+        lastModifyTimestamp INTEGER
       )
     `);
 

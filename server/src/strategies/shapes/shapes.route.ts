@@ -4,6 +4,45 @@ import { Shape } from './shapes.model.js';
 
 const router = Router();
 
+// GET: Fetch changed shapes matching time windows and update tracking constraints
+router.get(
+  '/api/strateries/:strateryName/:symbol/shapes/changed',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { strateryName, symbol } = req.params;
+      const { lastUpdateTs, fromTs, toTs } = req.query;
+
+      if (Array.isArray(strateryName) || Array.isArray(symbol)) {
+        throw new Error('Invalid route parameters');
+      }
+
+      const parsedLastUpdate = lastUpdateTs ? Number(lastUpdateTs) : NaN;
+      const parsedFrom = fromTs ? Number(fromTs) : NaN;
+      const parsedTo = toTs ? Number(toTs) : NaN;
+
+      // Bad Request Verification for validation requirements
+      if (isNaN(parsedLastUpdate) || isNaN(parsedFrom) || isNaN(parsedTo)) {
+        res.status(400).json({ 
+          error: 'Missing or invalid parameters. lastUpdateTs, fromTs, and toTs must be valid numbers.' 
+        });
+        return;
+      }
+
+      const updatedShapes = await ShapesService.getChangedShapes(
+        strateryName,
+        symbol,
+        parsedLastUpdate,
+        parsedFrom,
+        parsedTo
+      );
+
+      res.json(updatedShapes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+  }
+);
+
 // GET: Fetch shapes by timestamp range
 router.get(
   '/api/strateries/:strateryName/:symbol/shapes',
