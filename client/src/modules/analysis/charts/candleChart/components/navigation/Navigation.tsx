@@ -113,6 +113,13 @@ export default function Navigation(
             <div>This is a test 3</div>
           </div>
         )}
+
+        {/* DRAW */}
+        {openChildren[3] && (
+          <div className={styles.childWrapper}>
+            <div>This is a test 4</div>
+          </div>
+        )}
       </div>
     </div>
   );
