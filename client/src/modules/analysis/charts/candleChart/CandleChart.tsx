@@ -59,7 +59,7 @@ export default function CandleChart() {
   const gridAxes          = useGridAxes(viewport, candleData);
   const axes              = useAxes(candleData, viewport, gridAxes);
   const axesController    = useAxesController(candleData, viewport, viewController, crosshair, gridAxes, axes);
-  const shapeController   = useShapeController(viewport, crosshair,viewController);
+  const shapeController   = useShapeController(candleData, strateryData, viewport, crosshair,viewController);
 
   //=============================================================================================
   // Init / destroy

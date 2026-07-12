@@ -10,6 +10,8 @@ import { parsePosition } from "./utils/mathParser";
 import { getClosestShape } from "./utils/hitTestUtils";
 import { renderShapeToLayers } from "./utils/renderShapeUtils";
 import type { ViewController } from "../viewport/useViewController";
+import type { CandleData } from "../rawCandle/useCandleData";
+import type { StrateryData } from "../useStrateryData";
 
 import useLineLayer from "./raw/useLineLayer";
 import useTriangleLayer from "./raw/useTriangleLayer";
@@ -39,7 +41,7 @@ export type ShapeController = {
 //======================================================================================================
 // HOOK
 //======================================================================================================
-export default function useShapeController(viewport: Viewport, crosshair: Crosshair, viewController: ViewController): ShapeController {
+export default function useShapeController(candleData: CandleData, strateryData: StrateryData, viewport: Viewport, crosshair: Crosshair, viewController: ViewController): ShapeController {
     const appRef = useRef<Application | null>(null);
     
     // Main Background Layers
@@ -280,6 +282,10 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
             }
             onFlush()
         });
+
+        const refreshSrc = () => updateData(candleData.getSymbol(), strateryData.get().name)   
+        candleData.addOnDataChange("shapeController/init", refreshSrc)
+        strateryData.addOnStrateryChange("shapeController/init", refreshSrc)
     };
 
     const updateData = async (symbol: string, strategyName: string) => {
