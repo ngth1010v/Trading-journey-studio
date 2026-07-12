@@ -264,8 +264,11 @@ export default function CandleChart() {
       if (e.key === 'l') {
         shapeController.create("trendline");
       }
-      if (e.key === 's') {
+      if (e.key === 'r') {
         shapeController.create("rectangle");
+      }
+      if (e.key === 'h') {
+        shapeController.create("horizontalTrendline");
       }
     };
     element.addEventListener('keydown', handleKeyDown);

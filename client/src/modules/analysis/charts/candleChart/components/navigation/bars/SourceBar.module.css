@@ -4,18 +4,8 @@
     overflow: visible;
     display: flex;
     position: relative;
+    align-items: center;
 }
-
-.buttonContainer {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    position: relative;
-    align-items: start;
-    justify-content: start;
-    height: fit-content;
-}
-
 
 /* Square icon buttons inside panel */
 .button {
@@ -26,10 +16,10 @@
     color: #fff;
     padding: 8px 15px;
     box-sizing: border-box;
-    gap: 8px; /* Added spacing between status dot and text */
+    gap: 8px; /* Spacing between status dot and text */
 }
 
-/* GIỮ LẠI HOVER THEO YÊU CẦU */
+/* HOVER EFFECT RETAINED PER REQUIREMENT */
 .button:hover {
     background-color: rgba(40, 40, 45, 1);
 }
@@ -60,9 +50,8 @@
     max-height: 40vh;
     overflow-y: auto;
     overflow-x: hidden;
-    width: 100%;
+    min-width: 120px; /* Ensures panel drops cleanly without shrinking */
     box-sizing: border-box;
-    z-index: 10;
 }
 
 .popupItem {

@@ -5,6 +5,7 @@ import { type CandleData } from "../../../hooks/rawCandle/useCandleData";
 import { type StrateryData } from '../../../hooks/useStrateryData';
 import { strategiesApi } from '../../../../../../../shared/api/strategiesApi';
 import { type Strategy } from '../../../../../../../shared/types/strategies.type';
+import ButtonWithPopover from '../../../../../../../shared/components/ButtonWithPopover';
 
 export default function SourceBar(
     {
@@ -15,10 +16,6 @@ export default function SourceBar(
         strateryData: StrateryData
     }
 ) {
-    const [symbolOpen, setSymbolOpen]       = useState(false)
-    const [timeframeOpen, setTimeframeOpen] = useState(false)
-    const [strateryOpen, setStrateryOpen]   = useState(false)
-    
     const [strategies, setStrategies] = useState<Strategy[]>([]);
 
     // Fetch and sort strategy list on component mount
@@ -64,62 +61,80 @@ export default function SourceBar(
         <div className={styles.navigation}>
 
             {/* SYMBOL */}
-            <div className={styles.buttonContainer} onMouseLeave={()=>setSymbolOpen(false)}>
-                <div className={styles.button} onMouseEnter={()=>{setSymbolOpen(true)}}>
-                    {candleData.getSymbol()}
-                </div>
-                {symbolOpen && favoriteSymbols.length > 0 &&
-                    <div className={styles.popupPanel}>
-                        {favoriteSymbols.map((symbol) => (
-                            <div 
-                                key={symbol} 
-                                className={styles.popupItem} 
-                                onClick={() => candleData.setSrc(symbol, candleData.getTimeframe())}
-                            >
-                                {symbol}
-                            </div>
-                        ))}
-                    </div>
-                }
-            </div>
+            {favoriteSymbols.length > 0 && (
+                <ButtonWithPopover
+                    type="hover"
+                    position="bottom"
+                    align="start"
+                    button={
+                        <div className={styles.button}>
+                            {candleData.getSymbol()}
+                        </div>
+                    }
+                    popup={
+                        <div className={styles.popupPanel}>
+                            {favoriteSymbols.map((symbol) => (
+                                <div 
+                                    key={symbol} 
+                                    className={styles.popupItem} 
+                                    onClick={() => candleData.setSrc(symbol, candleData.getTimeframe())}
+                                >
+                                    {symbol}
+                                </div>
+                            ))}
+                        </div>
+                    }
+                />
+            )}
 
             <div className={styles.spliter}/>
 
             {/* TIMEFRAME */}
-            <div className={styles.buttonContainer} onMouseLeave={()=>setTimeframeOpen(false)}>
-                <div className={styles.button} onMouseEnter={()=>{setTimeframeOpen(true)}}>
-                    {candleData.getTimeframe()}
-                </div>                
-                {timeframeOpen && favoriteTimeframes.length > 0 &&
-                    <div className={styles.popupPanel}>
-                        {favoriteTimeframes.map((tf) => (
-                            <div 
-                                key={tf} 
-                                className={styles.popupItem} 
-                                onClick={() => candleData.setSrc(candleData.getSymbol(), tf)}
-                            >
-                                {tf}
-                            </div>
-                        ))}
-                    </div>
-                }
-            </div>
+            {favoriteTimeframes.length > 0 && (
+                <ButtonWithPopover
+                    type="hover"
+                    position="bottom"
+                    align="start"
+                    button={
+                        <div className={styles.button}>
+                            {candleData.getTimeframe()}
+                        </div>
+                    }
+                    popup={
+                        <div className={styles.popupPanel}>
+                            {favoriteTimeframes.map((tf) => (
+                                <div 
+                                    key={tf} 
+                                    className={styles.popupItem} 
+                                    onClick={() => candleData.setSrc(candleData.getSymbol(), tf)}
+                                >
+                                    {tf}
+                                </div>
+                            ))}
+                        </div>
+                    }
+                />
+            )}
 
             <div className={styles.spliter}/>
 
             {/* STRATEGY */}
-            <div className={styles.buttonContainer} onMouseLeave={()=>setStrateryOpen(false)}>
-                <div 
-                    className={styles.button} 
-                    onMouseEnter={()=>setStrateryOpen(true)}
-                    title={currentStrategy ? `[${currentStrategy.status.toUpperCase()}] ${currentStrategy.desc}` : undefined}
-                >
-                    {currentStrategy && (
-                        <span className={`${styles.statusDot} ${getStatusDotClass(currentStrategy.status)}`} />
-                    )}
-                    {currentStrategy ? currentStrategy.name : "Stratery"}
-                </div>                
-                {strateryOpen &&
+            <ButtonWithPopover
+                type="hover"
+                position="bottom"
+                align="start"
+                button={
+                    <div 
+                        className={styles.button} 
+                        title={currentStrategy ? `[${currentStrategy.status.toUpperCase()}] ${currentStrategy.desc}` : undefined}
+                    >
+                        {currentStrategy && (
+                            <span className={`${styles.statusDot} ${getStatusDotClass(currentStrategy.status)}`} />
+                        )}
+                        {currentStrategy ? currentStrategy.name : "Stratery"}
+                    </div>
+                }
+                popup={
                     <div className={styles.popupPanel}>
                         {strategies.map((strat) => (
                             <div 
@@ -127,7 +142,7 @@ export default function SourceBar(
                                 className={styles.popupItemStratery}
                                 onClick={() => strateryData.set(strat.name)}
                                 title={`[${strat.status.toUpperCase()}] ${strat.desc}`}
-                                style={{opacity: strat.status === "end" ? 0.7 : 1}}
+                                style={{ opacity: strat.status === "end" ? 0.7 : 1 }}
                             >
                                 <span className={`${styles.statusDot} ${getStatusDotClass(strat.status)}`} />
                                 <span>{strat.name}</span>
@@ -135,8 +150,8 @@ export default function SourceBar(
                         ))}
                     </div>
                 }
-            </div>
+            />
 
         </div>
-    )
+    );
 }
