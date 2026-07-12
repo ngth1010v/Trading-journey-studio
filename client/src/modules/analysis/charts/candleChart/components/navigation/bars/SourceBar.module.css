@@ -49,8 +49,7 @@
     border-radius: 4px;
     max-height: 40vh;
     overflow-y: auto;
-    overflow-x: hidden;
-    min-width: 120px; /* Ensures panel drops cleanly without shrinking */
+    min-width: 100%; /* Ensures panel drops cleanly without shrinking */
     box-sizing: border-box;
 }
 
