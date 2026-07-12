@@ -1,5 +1,5 @@
 import { throwAppError } from "../../../../../shared/appError";
-import type { Shape } from "../shared/types";
+import type { Shape, ShapeTemplate } from "../shared/types";
 
 /**
  * Intermediate type representing the raw format incoming/outgoing from the server
@@ -10,6 +10,16 @@ interface RawServerShape {
   fromTs: number;
   toTs: number;
   data: string;   // Server stores this as a raw JSON string
+  styles: string; // Server stores this as a raw JSON string
+}
+
+/**
+ * Intermediate type representing the raw template format incoming/outgoing from the server
+ */
+interface RawServerShapeTemplate {
+  id?: number;
+  type: string;
+  name: string;
   styles: string; // Server stores this as a raw JSON string
 }
 
@@ -59,6 +69,20 @@ function mapRawToShape(shape: RawServerShape): Shape {
 }
 
 /**
+ * Helper to parse raw server template styles field back into live JS types
+ */
+function mapRawToTemplate(template: RawServerShapeTemplate): ShapeTemplate {
+  let parsedStyles = template.styles;
+
+  try { if (typeof template.styles === "string") parsedStyles = JSON.parse(template.styles); } catch { /* Fallback if already parsed or corrupt */ }
+
+  return {
+    ...template,
+    styles: parsedStyles,
+  };
+}
+
+/**
  * GET /api/strateries/:strategyName/:symbol/shapes
  * Optionally filters by fromTs and toTs query parameters
  */
@@ -79,7 +103,7 @@ async function getShapes(
   }
 
   const rawShapes = await request<RawServerShape[]>(url);
-  const res = rawShapes.map(mapRawToShape)
+  const res = rawShapes.map(mapRawToShape);
   return res;
 }
 
@@ -133,6 +157,21 @@ async function saveShapes(
 }
 
 /**
+ * DELETE /api/strateries/:strategyName/:symbol/shapes/type/:typeName
+ */
+async function deleteShapesByType(
+  strategyName: string,
+  symbol: string,
+  typeName: string
+): Promise<{ message: string }> {
+  const url = `${API_BASE}/${encodeURIComponent(strategyName)}/${encodeURIComponent(symbol)}/shapes/type/${encodeURIComponent(typeName)}`;
+
+  return request<{ message: string }>(url, {
+    method: "DELETE",
+  });
+}
+
+/**
  * DELETE /api/strateries/:strategyName/:symbol/shapes/:id
  */
 async function deleteShape(
@@ -147,9 +186,65 @@ async function deleteShape(
   });
 }
 
+/**
+ * GET /api/strateries/:strategyName/:symbol/shapes/templates
+ */
+async function getTemplates(
+  strategyName: string,
+  symbol: string
+): Promise<ShapeTemplate[]> {
+  const url = `${API_BASE}/${encodeURIComponent(strategyName)}/${encodeURIComponent(symbol)}/shapes/templates`;
+
+  const rawTemplates = await request<RawServerShapeTemplate[]>(url);
+  return rawTemplates.map(mapRawToTemplate);
+}
+
+/**
+ * POST /api/strateries/:strategyName/:symbol/shapes/templates
+ */
+async function saveTemplates(
+  strategyName: string,
+  symbol: string,
+  templates: ShapeTemplate[]
+): Promise<{ message: string }> {
+  const url = `${API_BASE}/${encodeURIComponent(strategyName)}/${encodeURIComponent(symbol)}/shapes/templates`;
+
+  const payload: RawServerShapeTemplate[] = templates.map((template) => ({
+    ...template,
+    styles: typeof template.styles === "string" ? template.styles : JSON.stringify(template.styles),
+  }));
+
+  return request<{ message: string }>(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * DELETE /api/strateries/:strategyName/:symbol/shapes/templates/:id
+ */
+async function deleteTemplate(
+  strategyName: string,
+  symbol: string,
+  id: number
+): Promise<{ message: string }> {
+  const url = `${API_BASE}/${encodeURIComponent(strategyName)}/${encodeURIComponent(symbol)}/shapes/templates/${id}`;
+
+  return request<{ message: string }>(url, {
+    method: "DELETE",
+  });
+}
+
 export const shapeApis = {
   getShapes,
   getChangedShapes,
   saveShapes,
+  deleteShapesByType,
   deleteShape,
+  getTemplates,
+  saveTemplates,
+  deleteTemplate,
 };
