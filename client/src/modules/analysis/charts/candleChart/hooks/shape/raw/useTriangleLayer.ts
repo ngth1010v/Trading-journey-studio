@@ -70,7 +70,7 @@ function buildTriangleShader(viewport: Viewport): Shader {
         precision mediump float;
         varying vec4 vColor;
         void main(void) {
-            gl_FragColor = vColor;
+            gl_FragColor = vec4(vColor.rgb * vColor.a, vColor.a);
         }
       `
     },
