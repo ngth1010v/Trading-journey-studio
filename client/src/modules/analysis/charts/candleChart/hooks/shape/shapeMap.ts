@@ -56,7 +56,7 @@ export const SHAPE_MAP = {
             t0: "timestamp",
             p0: "price",
             t1: "timestamp",
-            te1: "text"
+            te: "text"
         },
 
         styles: {
@@ -85,16 +85,16 @@ export const SHAPE_MAP = {
         render: [
             {type: "line",pos: ["t0 p0", "t1 p0"],style: {color: "style.color",thickness: "style.thickness"}},
 
-            {type: "text", pos: ["min(t0,t1) p0"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
-            {type: "text", pos: ["(t0+t1)/2 p0"] , data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
-            {type: "text", pos: ["max(t0,t1) p0"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
+            {type: "text", pos: ["min(t0,t1) p0"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", pos: ["(t0+t1)/2 p0"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", pos: ["max(t0,t1) p0"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
 
-            {type: "text", pos: ["min(t0,t1) p0"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
-            {type: "text", pos: ["max(t0,t1) p0"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
+            {type: "text", pos: ["min(t0,t1) p0"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", pos: ["max(t0,t1) p0"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
 
-            {type: "text", pos: ["min(t0,t1) p0"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["(t0+t1)/2 p0"] , data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["max(t0,t1) p0"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},        
+            {type: "text", pos: ["min(t0,t1) p0"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["(t0+t1)/2 p0"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["max(t0,t1) p0"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},        
         ],
 
         editPoints: {
@@ -120,7 +120,7 @@ export const SHAPE_MAP = {
             t0: "timestamp",
             p0: "price",
             p1: "price",
-            te1: "text"
+            te: "text"
         },
 
         styles: {
@@ -149,17 +149,17 @@ export const SHAPE_MAP = {
         render: [
             {type: "line", pos: ["t0 p0", "t0 p1"], style: {color: "style.color", thickness: "style.thickness"}},
 
-            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
-            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
-            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
+            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
 
-            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
-            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
-            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
+            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
+            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
 
-            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},
         ],
 
         editPoints: {
@@ -186,7 +186,7 @@ export const SHAPE_MAP = {
             p0: "price",
             t1: "timestamp",
             p1: "price",
-            te1: "text",
+            te: "text",
         },
         styles      : {
             color : "rgba",
@@ -225,17 +225,17 @@ export const SHAPE_MAP = {
             {type: "line", pos: ["t0 p1", "t1 p1"], style: {color: "style.border.color", thickness: "style.border.thickness"}},
             {type: "line", pos: ["t0 p0", "t0 p1"], style: {color: "style.border.color", thickness: "style.border.thickness"}},
 
-            {type: "text", pos: ["min(t0,t1) max(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
-            {type: "text", pos: ["(t0+t1)/2 max(p0,p1)"] , data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
-            {type: "text", pos: ["max(t0,t1) max(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
+            {type: "text", pos: ["min(t0,t1) max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", pos: ["(t0+t1)/2 max(p0,p1)"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", pos: ["max(t0,t1) max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
 
-            {type: "text", pos: ["min(t0,t1) (p0+p1)/2"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
-            {type: "text", pos: ["(t0+t1)/2 (p0+p1)/2"] , data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
-            {type: "text", pos: ["max(t0,t1) (p0+p1)/2"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
+            {type: "text", pos: ["min(t0,t1) (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", pos: ["(t0+t1)/2 (p0+p1)/2"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
+            {type: "text", pos: ["max(t0,t1) (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
 
-            {type: "text", pos: ["min(t0,t1) min(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["(t0+t1)/2 min(p0,p1)"] , data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["max(t0,t1) min(p0,p1)"], data: {text: "te1"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},        
+            {type: "text", pos: ["min(t0,t1) min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["(t0+t1)/2 min(p0,p1)"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["max(t0,t1) min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},        
         ],        
         editPoints  : {
             create: {
