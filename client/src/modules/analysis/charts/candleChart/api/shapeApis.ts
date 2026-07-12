@@ -11,6 +11,8 @@ interface RawServerShape {
   toTs: number;
   data: string;   // Server stores this as a raw JSON string
   styles: string; // Server stores this as a raw JSON string
+  creater: string;
+  editable: boolean;
 }
 
 /**

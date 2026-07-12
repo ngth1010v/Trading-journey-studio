@@ -363,7 +363,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         // Editing Mode - Anchor & Shape Hit Test
         if (activeEditShapeIdRef.current !== null) {
             const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
-            if (activeShape) {
+            if (activeShape && activeShape.editable) {
                 const shapeDef = (SHAPE_MAP as any)[activeShape.type];
                 const editPoints = shapeDef.editPoints.edit;
                 let hitAnchor = false;
@@ -402,6 +402,20 @@ export default function useShapeController(candleData: CandleData, strateryData:
         // Hit testing for selection
         const closestShape = getClosestShape(shapesRef.current, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
         
+        // Enforce guardrail: if closest shape is not editable, block selection completely
+        if (closestShape && !closestShape.editable) {
+            if (activeEditShapeIdRef.current !== null) {
+                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                if (activeShape) {
+                    onEndEditCallbacks.current.forEach(cb => cb(activeShape));
+                }
+                activeEditShapeIdRef.current = null;
+                flushShapes();
+                flushActiveShape();
+            }
+            return;
+        }
+
         if (!closestShape || closestShape.id !== activeEditShapeIdRef.current) {
             if (activeEditShapeIdRef.current !== null) {
                 const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
@@ -443,7 +457,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         // Handle dragging edit anchor
         if (activeEditShapeIdRef.current !== null && draggingAnchorRef.current) {
             const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
-            if (activeShape) {
+            if (activeShape && activeShape.editable) {
                 const targetKeys = draggingAnchorRef.current.split(" ");
                 
                 targetKeys.forEach(k => {
@@ -459,7 +473,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         // Handle dragging entire shape
         if (isDraggingEntireShapeRef.current && activeEditShapeIdRef.current !== null && dragStartShapeDataRef.current) {
             const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
-            if (activeShape) {
+            if (activeShape && activeShape.editable) {
                 const currentX = viewport.timestampToPixel(timestamp);
                 const currentY = viewport.priceToPixel(price);
 
@@ -488,7 +502,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         if (button === 0) {
             if (activeEditShapeIdRef.current !== null) {
                 const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
-                if (activeShape) {
+                if (activeShape && activeShape.editable) {
                     if (draggingAnchorRef.current) {
                         saveShapes([activeShape]);
                         draggingAnchorRef.current = null;
@@ -512,7 +526,9 @@ export default function useShapeController(candleData: CandleData, strateryData:
         if (activeEditShapeIdRef.current !== null) {
             const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape) {
-                saveShapes([activeShape]);
+                if (activeShape.editable) {
+                    saveShapes([activeShape]);
+                }
                 onEndEditCallbacks.current.forEach(cb => cb(activeShape));
             }
             activeEditShapeIdRef.current = null;
@@ -550,7 +566,9 @@ export default function useShapeController(candleData: CandleData, strateryData:
             fromTs: 0,
             toTs: 0,
             data: {}, // Points start undefined
-            styles: defaultStyles
+            styles: defaultStyles,
+            creater: "<user>", // Injects new creation defaults
+            editable: true
         } as unknown as Shape;
         
         flushShapes();

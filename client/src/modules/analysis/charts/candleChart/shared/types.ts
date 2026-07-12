@@ -19,4 +19,13 @@ export interface Shape {
   toTs    : number;
   data    : any;
   styles  : any;
+  creater : string;   // new
+  editable: boolean;  // new
+}
+
+export interface ShapeTemplate {
+  id?: number; 
+  type: string;
+  name: string;
+  styles: any; 
 }
