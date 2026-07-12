@@ -4,12 +4,15 @@ import styles from './Navigation.module.css';
 import { type CandleData } from '../../hooks/rawCandle/useCandleData';
 import { type StrateryData } from '../../hooks/useStrateryData';
 
+import ButtonWithPopover from '../../../../../../shared/components/ButtonWithPopover';
+
 import SourceBar from './bars/SourceBar';
 
 import HouseIcon from '../../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon from '../../../../../../assets/icons/git-branch.svg?react';
 import SyncIcon from '../../../../../../assets/icons/arrows-clockwise.svg?react';
 import DrawIcon from '../../../../../../assets/icons/pencil.svg?react';
+import CalculatorIcon from '../../../../../../assets/icons/calculator.svg?react';
 
 export default function Navigation(
   {
@@ -24,10 +27,8 @@ export default function Navigation(
     onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>)=> void
   }
 ) {
-  const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
-  
-  // Quản lý trạng thái mở riêng biệt cho 3 nội dung (Index: 0, 1, 2)
-  const [openChildren, setOpenChildren] = useState<boolean[]>([false, false, false]);
+  // Quản lý trạng thái mở riêng biệt cho các nội dung con (Index: 0, 1, 2, 3)
+  const [openChildren, setOpenChildren] = useState<boolean[]>([false, false, false, false]);
 
   const toggleChild = (index: number) => {
     setOpenChildren((prev) => {
@@ -39,21 +40,18 @@ export default function Navigation(
 
   return (
     <div className={styles.navigation} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
-      <div className={styles.panelContainer}>
-        {/* Nút Toggle Panel chính */}
-        <button 
-          type="button"
-          className={styles.toggleButton} 
-          onClick={() => setIsPanelOpen(!isPanelOpen)}
-          title="Toggle Navigation Panel"
-        >
-          <HouseIcon width="15" height="15"/>
-        </button>
-
-        {/* Panel chứa danh sách icon (Chỉ hiện khi isPanelOpen = true) */}
-        {isPanelOpen && (
+      {/* Nút Toggle Panel chính sử dụng ButtonWithPopover hiển thị dạng hover */}
+      <ButtonWithPopover
+        type="hover"
+        position="bottom"
+        align="center"
+        button={
+          <div className={styles.toggleButton} title="Toggle Navigation Panel">
+            <HouseIcon width="15" height="15"/>
+          </div>
+        }
+        popup={
           <div className={styles.togglePanel}>
-
             <button
               type="button"
               className={`${styles.toggleButton} ${openChildren[0] ? styles.toggleButtonActive : ''}`}
@@ -81,13 +79,20 @@ export default function Navigation(
               <DrawIcon width="15" height="15"/>
             </button>
 
+            <button
+              type="button"
+              className={`${styles.toggleButton} ${openChildren[3] ? styles.toggleButtonActive : ''}`}
+              title="Algothym"
+              onClick={() => toggleChild(3)}
+            >
+              <CalculatorIcon width="15" height="15"/>
+            </button>
           </div>
-        )}
-      </div>
+        }
+      />
 
       {/* Vùng hiển thị nội dung tương ứng khi bấm button */}
       <div className={styles.childrenContainer}>
-        
         {/* SOURCE */}
         {openChildren[0] && (
           <div className={styles.childWrapper}>
@@ -108,7 +113,6 @@ export default function Navigation(
             <div>This is a test 3</div>
           </div>
         )}
-
       </div>
     </div>
   );
