@@ -1,4 +1,4 @@
-import { Shape } from './shapes.model.js';
+import { Shape, ShapeTemplate } from './shapes.model.js';
 import { ShapesRepository } from './shapes.repository.js';
 
 export class ShapesService {
@@ -65,6 +65,11 @@ export class ShapesService {
     db.prepare('DELETE FROM shapes WHERE id = ?').run(id);
   }
 
+  public static async deleteShapesByType(strateryName: string, symbol: string, typeName: string): Promise<void> {
+    const db = ShapesRepository.getConnection(strateryName, symbol);
+    db.prepare('DELETE FROM shapes WHERE type = ?').run(typeName);
+  }
+
   /**
    * Evaluates the timestamp query condition dynamically based on overlap logic:
    * req.query.fromTs <= shape.toTs AND shape.fromTs < req.query.toTs
@@ -113,6 +118,60 @@ export class ShapesService {
     const db = ShapesRepository.getConnection(strateryName, symbol);
     const rows = db.prepare('SELECT * FROM shapes').all();
     return rows.map((row: any) => this.mapRowToShape(row));
+  }
+
+  // --- Template System Methods ---
+
+  public static async saveTemplates(strateryName: string, symbol: string, templates: ShapeTemplate[]): Promise<void> {
+    const db = ShapesRepository.getConnection(strateryName, symbol);
+    
+    const stmt = db.prepare(`
+      INSERT INTO templateShapes (id, type, name, styles)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        type = excluded.type,
+        name = excluded.name,
+        styles = excluded.styles
+    `);
+
+    const transaction = db.transaction((templatesList: ShapeTemplate[]) => {
+      for (const template of templatesList) {
+        if (
+          template.type === undefined ||
+          template.name === undefined ||
+          template.styles === undefined
+        ) {
+          throw new Error('Cannot save template: Missing required fields.');
+        }
+
+        const bindId = template.id !== undefined && template.id !== null ? template.id : null;
+
+        stmt.run(
+          bindId,
+          template.type,
+          template.name,
+          template.styles
+        );
+      }
+    });
+
+    transaction(templates);
+  }
+
+  public static async getAllTemplates(strateryName: string, symbol: string): Promise<ShapeTemplate[]> {
+    const db = ShapesRepository.getConnection(strateryName, symbol);
+    const rows = db.prepare('SELECT * FROM templateShapes').all();
+    return rows.map((row: any) => ({
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      styles: row.styles
+    }));
+  }
+
+  public static async deleteTemplate(strateryName: string, symbol: string, id: number): Promise<void> {
+    const db = ShapesRepository.getConnection(strateryName, symbol);
+    db.prepare('DELETE FROM templateShapes WHERE id = ?').run(id);
   }
 
   private static mapRowToShape(row: any): Shape {

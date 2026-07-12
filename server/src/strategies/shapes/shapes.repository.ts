@@ -26,14 +26,13 @@ export class ShapesRepository {
     }
 
     // Ensure directory exists
-    const dirPath = path.join(process.cwd(), 'database', 'strateries', strateryName, symbol);
+    const dirPath = path.join(process.cwd(), 'database', 'strategies', strateryName, symbol);
     fs.mkdirSync(dirPath, { recursive: true });
     const dbPath = path.join(dirPath, 'shapes.db');
 
     const db = new Database(dbPath);
     
     // Initialize standard table structure safely with AUTOINCREMENT for numeric IDs
-    // Modified: Added lastModifyTimestamp field to tracking database changes
     db.exec(`
       CREATE TABLE IF NOT EXISTS shapes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,6 +42,16 @@ export class ShapesRepository {
         data TEXT,
         styles TEXT,
         lastModifyTimestamp INTEGER
+      )
+    `);
+
+    // Initialize templateShapes table matching ShapeTemplate definition
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS templateShapes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT,
+        name TEXT,
+        styles TEXT
       )
     `);
 

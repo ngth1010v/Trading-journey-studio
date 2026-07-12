@@ -1,4 +1,4 @@
-import { Shape } from './shapes.model.js';
+import { Shape, ShapeTemplate } from './shapes.model.js';
 import { ShapesService } from './shapes.service.js';
 import { shapesRouter } from './shapes.route.js';
 
@@ -34,6 +34,27 @@ export const shapes = {
    */
   async delete(strateryName: string, symbol: string, id: number): Promise<void> {
     await ShapesService.deleteShape(strateryName, symbol, id);
+  },
+
+  /**
+   * Bulk inserts or replaces multiple templates in the database.
+   */
+  async saveTemplates(strateryName: string, symbol: string, templatesArray: ShapeTemplate[]): Promise<void> {
+    await ShapesService.saveTemplates(strateryName, symbol, templatesArray);
+  },
+
+  /**
+   * Retrieves all templates for a strategy and symbol.
+   */
+  async getAllTemplates(strateryName: string, symbol: string): Promise<ShapeTemplate[]> {
+    return ShapesService.getAllTemplates(strateryName, symbol);
+  },
+
+  /**
+   * Deletes a template by ID.
+   */
+  async deleteTemplate(strateryName: string, symbol: string, id: number): Promise<void> {
+    await ShapesService.deleteTemplate(strateryName, symbol, id);
   },
 
   router: shapesRouter
