@@ -37,7 +37,6 @@ export const SHAPE_MAP = {
         },
     },
 
-
     // RECTANGLE
     rectangle: {
         name: "Rectangle",

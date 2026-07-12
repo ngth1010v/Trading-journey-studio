@@ -13,7 +13,7 @@ export type SymbolData = {
 }
 
 export interface Shape {
-  id?     : number; // Optional now to support auto-creation on save
+  id     ?: number; // Optional now to support auto-creation on save
   type    : string;
   fromTs  : number; 
   toTs    : number;

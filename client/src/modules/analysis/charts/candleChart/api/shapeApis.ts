@@ -80,7 +80,6 @@ async function getShapes(
 
   const rawShapes = await request<RawServerShape[]>(url);
   const res = rawShapes.map(mapRawToShape)
-  console.log(res)
   return res;
 }
 

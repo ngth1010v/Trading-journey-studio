@@ -62,10 +62,15 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
     const lastUpdateTsRef = useRef<number>(Date.now());
     const pollingIntervalRef = useRef<number | null>(null);
 
-    // Editing / Creating State
-    const activeEditShapeRef = useRef<Shape | null>(null);
+    // Editing / Creating State - Stored by numeric ID to prevent reference mismatch on data flushes
+    const activeEditShapeIdRef = useRef<number | null>(null);
     const draggingAnchorRef = useRef<string | null>(null); // the coordinate key being dragged
     
+    // Entire Shape Dragging State
+    const isDraggingEntireShapeRef = useRef<boolean>(false);
+    const dragStartMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const dragStartShapeDataRef = useRef<any>(null);
+
     const createShapeTypeRef = useRef<string | null>(null);
     const createPointsRef = useRef<number>(0);
     const tempShapeRef = useRef<Shape | null>(null);
@@ -73,6 +78,25 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
     // Callbacks
     const onStartEditCallbacks = useRef<Map<string, (shape: Shape) => void>>(new Map());
     const onEndEditCallbacks = useRef<Map<string, (shape: Shape) => void>>(new Map());
+
+    //======================================================================================================
+    // HELPER METHODS
+    //======================================================================================================
+    const updateShapeBoundaries = (shape: Shape) => {
+        const tValues = Object.keys(shape.data)
+            .filter(k => k.startsWith("t") && typeof shape.data[k] === "number")
+            .map(k => shape.data[k]);
+
+        if (tValues.length > 0) {
+            shape.fromTs = Math.round(Math.min(...tValues));
+            shape.toTs   = Math.round(Math.max(...tValues));
+        }
+    };
+
+    const saveShapes = (shapes: Shape[]) => {
+        shapes.forEach(updateShapeBoundaries);
+        shapeApis.saveShapes(strategyRef.current, symbolRef.current, shapes);
+    };
 
     //======================================================================================================
     // RENDERING & FLUSHING
@@ -88,7 +112,7 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
 
         shapesRef.current.forEach(shape => {
             // Skip rendering the active shape in raw layers (it will be drawn by active layers instead)
-            if (activeEditShapeRef.current && (activeEditShapeRef.current.id === shape.id || activeEditShapeRef.current === shape)) return;
+            if (activeEditShapeIdRef.current !== null && shape.id === activeEditShapeIdRef.current) return;
             if (shape === tempShapeRef.current) return; 
 
             renderShapeToLayers(shape, layers);
@@ -109,7 +133,8 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         const g = draftingGraphics.current;
         g.clear();
 
-        const activeShape = activeEditShapeRef.current;
+        if (activeEditShapeIdRef.current === null) return;
+        const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
         if (!activeShape) return;
 
         const shapeDef = (SHAPE_MAP as any)[activeShape.type];
@@ -138,7 +163,7 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         activeTriangleLayer.clean();
         activeTextLayer.clean();
 
-        const activeShape = tempShapeRef.current || activeEditShapeRef.current;
+        const activeShape = tempShapeRef.current || (activeEditShapeIdRef.current !== null ? shapesRef.current.find(s => s.id === activeEditShapeIdRef.current) : null);
         
         if (activeShape) {
             renderShapeToLayers(activeShape, {
@@ -186,7 +211,7 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
                 // Merge changes - respecting Local Priority
                 changed.forEach(updatedShape => {
                     // Local Priority: Skip update if currently editing this shape
-                    if (activeEditShapeRef.current && (activeEditShapeRef.current.id === updatedShape.id || activeEditShapeRef.current === updatedShape)) return;
+                    if (activeEditShapeIdRef.current !== null && updatedShape.id === activeEditShapeIdRef.current) return;
 
                     const idx = shapesRef.current.findIndex(s => s.id === updatedShape.id);
                     if (idx >= 0) shapesRef.current[idx] = updatedShape;
@@ -230,8 +255,12 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         });
 
         viewport.addOnViewportFlush("shapeController/draw", () => {
-            flushShapes();
-            flushActiveShape();
+            const onFlush = async () => {
+                flushShapes();
+                flushActiveShape();                
+                await updateData(symbolRef.current, strategyRef.current)
+            }
+            onFlush()
         });
     };
 
@@ -263,12 +292,16 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
 
         if (button !== 0) {
             // Right/Middle click exits edit/create mode
-            if (activeEditShapeRef.current) {
-                onEndEditCallbacks.current.forEach(cb => cb(activeEditShapeRef.current!));
-                activeEditShapeRef.current = null;
+            if (activeEditShapeIdRef.current !== null) {
+                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                if (activeShape) {
+                    onEndEditCallbacks.current.forEach(cb => cb(activeShape));
+                }
+                activeEditShapeIdRef.current = null;
             }
             createShapeTypeRef.current = null;
             tempShapeRef.current = null;
+            isDraggingEntireShapeRef.current = false;
             flushShapes();
             flushActiveShape();
             return;
@@ -289,10 +322,7 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
                 
                 // Finished creating
                 if (createPointsRef.current >= keys.length) {
-                    tempShapeRef.current.fromTs = Math.min(tempShapeRef.current.data.t0, timestamp);
-                    tempShapeRef.current.toTs = Math.max(tempShapeRef.current.data.t0, timestamp);
-                    
-                    shapeApis.saveShapes(strategyRef.current, symbolRef.current, [tempShapeRef.current]);
+                    saveShapes([tempShapeRef.current]);
                     shapesRef.current.push(tempShapeRef.current);
                     
                     createShapeTypeRef.current = null;
@@ -304,21 +334,39 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
             return;
         }
 
-        // Editing Mode - Anchor Hit Test
-        if (activeEditShapeRef.current) {
-            const shapeDef = (SHAPE_MAP as any)[activeEditShapeRef.current.type];
-            const editPoints = shapeDef.editPoints.edit;
-            
-            for (const [posFormula, targetKeysStr] of Object.entries(editPoints)) {
-                const [t, p] = parsePosition(posFormula, activeEditShapeRef.current.data);
-                const px = viewport.timestampToPixel(t);
-                const py = viewport.priceToPixel(p);
+        // Editing Mode - Anchor & Shape Hit Test
+        if (activeEditShapeIdRef.current !== null) {
+            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            if (activeShape) {
+                const shapeDef = (SHAPE_MAP as any)[activeShape.type];
+                const editPoints = shapeDef.editPoints.edit;
+                let hitAnchor = false;
                 
-                // If clicked within anchor bounds
-                if (Math.abs(x - px) < 10 && Math.abs(y - py) < 10) {
-                    draggingAnchorRef.current = targetKeysStr as string;
-                    viewController.setEnable({scaleTimestamp:false,scalePrice:false,panTimestamp:false,panPrice:false})
-                    return;
+                for (const [posFormula, targetKeysStr] of Object.entries(editPoints)) {
+                    const [t, p] = parsePosition(posFormula, activeShape.data);
+                    const px = viewport.timestampToPixel(t);
+                    const py = viewport.priceToPixel(p);
+                    
+                    // If clicked within anchor bounds
+                    if (Math.abs(x - px) < 10 && Math.abs(y - py) < 10) {
+                        draggingAnchorRef.current = targetKeysStr as string;
+                        viewController.setEnable({scaleTimestamp:false,scalePrice:false,panTimestamp:false,panPrice:false});
+                        hitAnchor = true;
+                        return;
+                    }
+                }
+
+                // Drag entire shape if clicking on the shape but missed the anchor
+                if (!hitAnchor) {
+                    const closestShape = getClosestShape(shapesRef.current, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
+                    if (closestShape && closestShape.id === activeEditShapeIdRef.current) {
+                        isDraggingEntireShapeRef.current = true;
+                        dragStartMousePosRef.current = { x, y };
+                        dragStartShapeDataRef.current = JSON.parse(JSON.stringify(activeShape.data));
+                        viewController.setEnable({scaleTimestamp:false,scalePrice:false,panTimestamp:false,panPrice:false});
+                        flushShapes(); // Hide it instantly from background layer maps
+                        return;
+                    }
                 }
             }
         }
@@ -326,11 +374,17 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         // Hit testing for selection
         const closestShape = getClosestShape(shapesRef.current, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
         
-        if (closestShape !== activeEditShapeRef.current) {
-            if (activeEditShapeRef.current) {
-                onEndEditCallbacks.current.forEach(cb => cb(activeEditShapeRef.current!));
+        if (!closestShape || closestShape.id !== activeEditShapeIdRef.current) {
+            if (activeEditShapeIdRef.current !== null) {
+                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                if (activeShape) {
+                    onEndEditCallbacks.current.forEach(cb => cb(activeShape));
+                }
             }
-            activeEditShapeRef.current = closestShape;
+            activeEditShapeIdRef.current =
+                closestShape && closestShape.id !== undefined
+                    ? closestShape.id
+                    : null;
             if (closestShape) {
                 onStartEditCallbacks.current.forEach(cb => cb(closestShape));
             }
@@ -357,42 +411,99 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         }
 
         // Handle dragging edit anchor
-        if (activeEditShapeRef.current && draggingAnchorRef.current) {
-            const targetKeys = draggingAnchorRef.current.split(" ");
-            
-            targetKeys.forEach(k => {
-                if (k.startsWith("t")) activeEditShapeRef.current!.data[k] = timestamp;
-                if (k.startsWith("p")) activeEditShapeRef.current!.data[k] = price;
-            });
-            flushActiveShape();
+        if (activeEditShapeIdRef.current !== null && draggingAnchorRef.current) {
+            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            if (activeShape) {
+                const targetKeys = draggingAnchorRef.current.split(" ");
+                
+                targetKeys.forEach(k => {
+                    if (k.startsWith("t")) activeShape.data[k] = timestamp;
+                    if (k.startsWith("p")) activeShape.data[k] = price;
+                });
+                updateShapeBoundaries(activeShape);
+                flushActiveShape();
+            }
+            return;
+        }
+
+        // Handle dragging entire shape
+        if (isDraggingEntireShapeRef.current && activeEditShapeIdRef.current !== null && dragStartShapeDataRef.current) {
+            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            if (activeShape) {
+                const currentX = viewport.timestampToPixel(timestamp);
+                const currentY = viewport.priceToPixel(price);
+
+                const deltaX = currentX - dragStartMousePosRef.current.x;
+                const deltaY = currentY - dragStartMousePosRef.current.y;
+
+                Object.keys(dragStartShapeDataRef.current).forEach(k => {
+                    if (k.startsWith("t") && typeof dragStartShapeDataRef.current[k] === "number") {
+                        const originalPixelX = viewport.timestampToPixel(dragStartShapeDataRef.current[k]);
+                        activeShape.data[k] = viewport.pixelToTimestamp(originalPixelX + deltaX);
+                    }
+                    if (k.startsWith("p") && typeof dragStartShapeDataRef.current[k] === "number") {
+                        const originalPixelY = viewport.priceToPixel(dragStartShapeDataRef.current[k]);
+                        activeShape.data[k] = viewport.pixelToPrice(originalPixelY + deltaY);
+                    }
+                });
+                
+                updateShapeBoundaries(activeShape);
+                
+                flushActiveShape();
+            }
         }
     };
 
     const onMouseUp = (button: number) => {
-        if (button === 0 && draggingAnchorRef.current && activeEditShapeRef.current) {
-            // Commit drag edit to API
-            shapeApis.saveShapes(strategyRef.current, symbolRef.current, [activeEditShapeRef.current]);
-            draggingAnchorRef.current = null;
-            viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true})
+        if (button === 0) {
+            if (activeEditShapeIdRef.current !== null) {
+                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                if (activeShape) {
+                    if (draggingAnchorRef.current) {
+                        saveShapes([activeShape]);
+                        draggingAnchorRef.current = null;
+                        viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
+                    } else if (isDraggingEntireShapeRef.current) {
+                        saveShapes([activeShape]);
+                        isDraggingEntireShapeRef.current = false;
+                        dragStartShapeDataRef.current = null;
+                        viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
+                        
+                        // Final layout sync across layers
+                        flushShapes();
+                        flushActiveShape();
+                    }
+                }
+            }
         }
     };
 
     const onMouseLeave = () => {
-        if (activeEditShapeRef.current) {
-            onEndEditCallbacks.current.forEach(cb => cb(activeEditShapeRef.current!));
-            activeEditShapeRef.current = null;
+        if (activeEditShapeIdRef.current !== null) {
+            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            if (activeShape) {
+                saveShapes([activeShape]);
+                onEndEditCallbacks.current.forEach(cb => cb(activeShape));
+            }
+            activeEditShapeIdRef.current = null;
         }
         createShapeTypeRef.current = null;
         tempShapeRef.current = null;
         draggingAnchorRef.current = null;
+        isDraggingEntireShapeRef.current = false;
+        dragStartShapeDataRef.current = null;
+        viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
         flushShapes();
         flushActiveShape();
     };
 
     const create = (shapeType: string) => {
-        if (activeEditShapeRef.current) {
-            onEndEditCallbacks.current.forEach(cb => cb(activeEditShapeRef.current!));
-            activeEditShapeRef.current = null;
+        if (activeEditShapeIdRef.current !== null) {
+            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            if (activeShape) {
+                onEndEditCallbacks.current.forEach(cb => cb(activeShape));
+            }
+            activeEditShapeIdRef.current = null;
         }
 
         createShapeTypeRef.current = shapeType;
@@ -414,7 +525,8 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
             toTs: 0,
             data: { t0: 0, p0: 0, t1: 0, p1: 0 }, 
             styles: defaultStyles
-        };
+        } as unknown as Shape; // Cast since id is missing while creating
+        
         flushShapes();
         flushActiveShape();
     };
