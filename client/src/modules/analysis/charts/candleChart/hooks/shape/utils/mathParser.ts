@@ -111,7 +111,8 @@ export function evaluateFormula(formula: string, context: Record<string, any>): 
     
     const resolveValue = (val: any) => {
         if (val && typeof val === 'object' && val.isVar) {
-            return context[val.name] !== undefined ? context[val.name] : 0;
+            // Returns NaN if the variable is unselected/missing
+            return context[val.name] !== undefined ? context[val.name] : NaN; 
         }
         return val;
     };
@@ -148,7 +149,7 @@ export function evaluateFormula(formula: string, context: Record<string, any>): 
         }
     }
     
-    return stack.length ? resolveValue(stack[0]) : 0;
+    return stack.length ? resolveValue(stack[0]) : NaN;
 }
 
 export function evaluateCondition(expr: string, context: Record<string, any>): boolean {
@@ -183,7 +184,7 @@ export function flattenContext(shape: any): Record<string, any> {
  */
 export function parsePosition(posStr: string, context: Record<string, number>): [number, number] {
     const parts = posStr.match(/(?:[^ (]+|\([^)]*\))+/g);
-    if (!parts || parts.length < 2) return [0, 0];
+    if (!parts || parts.length < 2) return [NaN, NaN];
     
     return [
         Number(evaluateFormula(parts[0], context)),

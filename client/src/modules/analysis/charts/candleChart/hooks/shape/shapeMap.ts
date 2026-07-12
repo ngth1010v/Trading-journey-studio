@@ -20,6 +20,12 @@ export const SHAPE_MAP = {
             thickness: "number,>=0",
         },
 
+        defaultStyle: {
+            color: [255,255,255,255],
+            thickness: 2,
+        },
+
+
         render: [
             {type: "line",pos: ["t0 p0", "t1 p1"],style: {color: "style.color",thickness: "style.thickness"}},
         ],
@@ -33,6 +39,46 @@ export const SHAPE_MAP = {
             edit: {
                 "t0 p0": "t0 p0",
                 "t1 p1": "t1 p1",
+            },
+        },
+    },
+
+    // HORIZONTAL TRENDLINE
+    horizontalTrendline: {
+        name: "Horizontal trendline",
+        icon: TrendlineIcon,
+
+        data: {
+            t0: "timestamp",
+            p0: "price",
+            t1: "timestamp",
+        },
+
+        styles: {
+            color: "rgba",
+            thickness: "number,>=0",
+        },
+
+        defaultStyle: {
+            color: [255,255,255,255],
+            thickness: 2,
+        },
+
+
+        render: [
+            {type: "line",pos: ["t0 p0", "t1 p0"],style: {color: "style.color",thickness: "style.thickness"}},
+        ],
+
+        editPoints: {
+            create: {
+                "t0 p0": "t0 p0",
+                "t1 p1": "t1",
+            },
+
+            edit: {
+                "t0 p0"         : "t0",
+                "(t0+t1)/2 p0"  : "p0",
+                "t1 p0"         : "t1",
             },
         },
     },
@@ -62,6 +108,20 @@ export const SHAPE_MAP = {
                 thickness   : "number,>=0" 
             }
         },
+        defaultStyle: {
+            color : [255,255,100,10],
+            text : {
+                color: [255,255,255],
+                size: 15,
+                alignX: "center",
+                alignY: "center",
+            },
+            border: {
+                color       : [255,255,100,255],
+                thickness   : 1
+            }
+        },
+
 
         render: [
             {type: "triangle", pos: ["t0 p0", "t1 p0", "t1 p1"], style: {color: "style.color"}},

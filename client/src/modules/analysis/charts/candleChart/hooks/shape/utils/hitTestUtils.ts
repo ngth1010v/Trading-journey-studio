@@ -37,6 +37,9 @@ export function getClosestShape(
                 const [t1, p1] = parsePosition(renderItem.pos[0], context);
                 const [t2, p2] = parsePosition(renderItem.pos[1], context);
 
+                // Skip hit testing if the point hasn't been selected yet
+                if (isNaN(t1) || isNaN(p1) || isNaN(t2) || isNaN(p2)) continue;
+
                 const v = { x: viewport.timestampToPixel(t1), y: viewport.priceToPixel(p1) };
                 const w = { x: viewport.timestampToPixel(t2), y: viewport.priceToPixel(p2) };
 

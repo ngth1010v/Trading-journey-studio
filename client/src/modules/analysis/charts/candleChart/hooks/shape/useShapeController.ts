@@ -93,8 +93,22 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         }
     };
 
+    const fillMissingDataDefaults = (shape: Shape) => {
+        const shapeDef = (SHAPE_MAP as any)[shape.type];
+        if (!shapeDef || !shapeDef.data) return;
+
+        Object.entries(shapeDef.data).forEach(([key, type]) => {
+            if (shape.data[key] === undefined) {
+                shape.data[key] = type === "text" ? "" : 0;
+            }
+        });
+    };
+
     const saveShapes = (shapes: Shape[]) => {
-        shapes.forEach(updateShapeBoundaries);
+        shapes.forEach(shape => {
+            fillMissingDataDefaults(shape);
+            updateShapeBoundaries(shape);
+        });
         shapeApis.saveShapes(strategyRef.current, symbolRef.current, shapes);
     };
 
@@ -144,6 +158,10 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
         const editPoints = shapeDef.editPoints.edit;
         Object.keys(editPoints).forEach(posFormula => {
             const [t, p] = parsePosition(posFormula, activeShape.data);
+            
+            // Do not draw an anchor if the point is unselected/undefined
+            if (isNaN(t) || isNaN(p)) return;
+
             const x = viewport.timestampToPixel(t);
             const y = viewport.priceToPixel(p);
             
@@ -315,8 +333,10 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
             if (createPointsRef.current < keys.length) {
                 // Determine which keys to fill (e.g. "t1 p1")
                 const targetKeys = keys[createPointsRef.current].split(" ");
-                tempShapeRef.current.data[targetKeys[0]] = timestamp;
-                tempShapeRef.current.data[targetKeys[1]] = price;
+                targetKeys.forEach(key => {
+                    if (key.startsWith("t")) tempShapeRef.current!.data[key] = timestamp;
+                    if (key.startsWith("p")) tempShapeRef.current!.data[key] = price;
+                });
                 
                 createPointsRef.current++;
                 
@@ -344,6 +364,8 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
                 
                 for (const [posFormula, targetKeysStr] of Object.entries(editPoints)) {
                     const [t, p] = parsePosition(posFormula, activeShape.data);
+                    if (isNaN(t) || isNaN(p)) continue; // Skip unselected anchors
+
                     const px = viewport.timestampToPixel(t);
                     const py = viewport.priceToPixel(p);
                     
@@ -403,8 +425,10 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
             
             if (createPointsRef.current < keys.length) {
                 const targetKeys = keys[createPointsRef.current].split(" ");
-                tempShapeRef.current.data[targetKeys[0]] = timestamp;
-                tempShapeRef.current.data[targetKeys[1]] = price;
+                targetKeys.forEach(key => {
+                    if (key.startsWith("t")) tempShapeRef.current!.data[key] = timestamp;
+                    if (key.startsWith("p")) tempShapeRef.current!.data[key] = price;
+                });
                 flushActiveShape();
             }
             return;
@@ -506,26 +530,22 @@ export default function useShapeController(viewport: Viewport, crosshair: Crossh
             activeEditShapeIdRef.current = null;
         }
 
+        const shapeDef = (SHAPE_MAP as any)[shapeType];
+        if (!shapeDef) return;
+
         createShapeTypeRef.current = shapeType;
         createPointsRef.current = 0;
         
-        const defaultStyles: any = {};
-        if (shapeType === "rectangle") {
-            defaultStyles.color = [100, 100, 100, 50];
-            defaultStyles.border = { color: [255, 255, 255, 255], thickness: 2 };
-            defaultStyles.text = { color: [255, 255, 255], size: 12, alignX: "center", alignY: "center" };
-        } else {
-            defaultStyles.color = [255, 255, 255, 255];
-            defaultStyles.thickness = 2;
-        }
+        // Load default style directly from map
+        const defaultStyles = JSON.parse(JSON.stringify(shapeDef.defaultStyle || {}));
 
         tempShapeRef.current = {
             type: shapeType,
             fromTs: 0,
             toTs: 0,
-            data: { t0: 0, p0: 0, t1: 0, p1: 0 }, 
+            data: {}, // Points start undefined
             styles: defaultStyles
-        } as unknown as Shape; // Cast since id is missing while creating
+        } as unknown as Shape;
         
         flushShapes();
         flushActiveShape();

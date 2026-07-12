@@ -261,8 +261,11 @@ export default function CandleChart() {
       crosshair.onKeyDown(e.key);
 
       // Trigger line configuration blueprint creation when 's' key is pressed
-      if (e.key === 's' || e.key === 'S') {
-        shapeController.create("line");
+      if (e.key === 'l') {
+        shapeController.create("trendline");
+      }
+      if (e.key === 's') {
+        shapeController.create("rectangle");
       }
     };
     element.addEventListener('keydown', handleKeyDown);

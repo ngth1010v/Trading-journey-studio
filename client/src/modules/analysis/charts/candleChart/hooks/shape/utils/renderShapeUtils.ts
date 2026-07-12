@@ -42,6 +42,9 @@ export function renderShapeToLayers(shape: Shape, layers: RenderLayers) {
             const [t1, p1] = parsePosition(renderItem.pos[0], shape.data);
             const [t2, p2] = parsePosition(renderItem.pos[1], shape.data);
 
+            // Abort drawing if points haven't been placed yet
+            if (isNaN(t1) || isNaN(p1) || isNaN(t2) || isNaN(p2)) return;
+
             layers.lineLayer.add({
                 timestamp1: t1, price1: p1, timestamp2: t2, price2: p2,
                 color: style.color || [255, 255, 255, 255],
@@ -49,23 +52,28 @@ export function renderShapeToLayers(shape: Shape, layers: RenderLayers) {
             });
         }
         else if (renderItem.type === "triangle") {
-            const p0 = parsePosition(renderItem.pos[0], shape.data);
-            const p1 = parsePosition(renderItem.pos[1], shape.data);
-            const p2 = parsePosition(renderItem.pos[2], shape.data);
+            const [t0, p0] = parsePosition(renderItem.pos[0], shape.data);
+            const [t1, p1] = parsePosition(renderItem.pos[1], shape.data);
+            const [t2, p2] = parsePosition(renderItem.pos[2], shape.data);
+
+            // Abort drawing if points haven't been placed yet
+            if (isNaN(t0) || isNaN(p0) || isNaN(t1) || isNaN(p1) || isNaN(t2) || isNaN(p2)) return;
 
             layers.triangleLayer.add({
-                timestamp: [p0[0], p1[0], p2[0]],
-                price: [p0[1], p1[1], p2[1]],
+                timestamp: [t0, t1, t2],
+                price: [p0, p1, p2],
                 color: style.color || [80, 80, 80, 80],
             });
         }
         else if (renderItem.type === "text") {
             const [timestamp, price] = parsePosition(renderItem.pos[0], shape.data);
-
             const data = renderItem.data ?? {};
+            
+            // Abort drawing if point hasn't been placed or text is undefined
+            if (isNaN(timestamp) || isNaN(price) || shape.data?.[data.text] === undefined) return;
 
             layers.textLayer.add({
-                text: shape.data?.[data.text] ?? "",
+                text: shape.data[data.text],
                 timestamp,
                 price,
 
