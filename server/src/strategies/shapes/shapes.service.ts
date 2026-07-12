@@ -9,14 +9,16 @@ export class ShapesService {
     
     // SQLite upsert: updates existing fields and sets the automated internal timestamp on modification
     const stmt = db.prepare(`
-      INSERT INTO shapes (id, type, fromTs, toTs, data, styles, lastModifyTimestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO shapes (id, type, fromTs, toTs, data, styles, creater, editable, lastModifyTimestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         fromTs = excluded.fromTs,
         toTs = excluded.toTs,
         data = excluded.data,
         styles = excluded.styles,
+        creater = excluded.creater,
+        editable = excluded.editable,
         lastModifyTimestamp = excluded.lastModifyTimestamp
     `);
 
@@ -28,7 +30,9 @@ export class ShapesService {
           shape.fromTs === undefined ||
           shape.toTs === undefined ||
           shape.data === undefined ||
-          shape.styles === undefined
+          shape.styles === undefined ||
+          shape.creater === undefined ||
+          shape.editable === undefined
         ) {
           throw new Error('Cannot save shape: Missing required fields.');
         }
@@ -43,6 +47,8 @@ export class ShapesService {
           shape.toTs,
           shape.data,
           shape.styles,
+          shape.creater,
+          shape.editable ? 1 : 0, // Map boolean to SQLite INTEGER (1/0)
           currentTimestamp
         );
       }
@@ -182,6 +188,8 @@ export class ShapesService {
       toTs: row.toTs,
       data: row.data,
       styles: row.styles,
+      creater: row.creater,
+      editable: row.editable === 1, // Map SQLite INTEGER back to boolean
       // lastModifyTimestamp is intentionally excluded to keep the Interface and payload pristine
     };
   }

@@ -5,6 +5,9 @@ export interface Shape {
   toTs: number;
   data: string; // JSON, no need to validate
   styles: string; // JSON, no need to validate
+
+  creater: string;   // new
+  editable: boolean; // new
 }
 
 export interface ShapeTemplate {

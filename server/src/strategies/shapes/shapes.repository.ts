@@ -41,6 +41,8 @@ export class ShapesRepository {
         toTs INTEGER,
         data TEXT,
         styles TEXT,
+        creater TEXT,
+        editable INTEGER,
         lastModifyTimestamp INTEGER
       )
     `);
