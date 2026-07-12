@@ -28,7 +28,7 @@ export default function ButtonWithPopover({
             setIsRendered(true);
             onPopupOpen?.();
         }
-    }, [isOpen]);
+    }, [isOpen, onPopupOpen]);
 
     // Handle clicking outside to close (Only for type="click")
     useEffect(() => {

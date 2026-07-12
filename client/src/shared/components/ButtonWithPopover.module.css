@@ -1,7 +1,7 @@
 /* Core Layout Wrapper */
 .Container {
     position: relative;
-    display: inline-flex;
+    display: inline-flex; /* Changed to inline-flex to bound tightly to the button */
 }
 
 .ButtonContainer {
@@ -49,8 +49,10 @@
 .Top.AlignStart .PopupContainer, .Bottom.AlignStart .PopupContainer { left: 0; }
 
 .Top.AlignCenter, .Bottom.AlignCenter { align-items: center; }
-.Top.AlignCenter .PopupContainer, .Bottom.AlignCenter .PopupContainer { left: 50%; transform-origin: top center; translate: -50% 0; }
-/* Combined adjustments to mix manual translations with animation transformations safely */
+.Top.AlignCenter .PopupContainer, .Bottom.AlignCenter .PopupContainer { 
+    left: 50%; 
+    transform-origin: top center; 
+}
 .Top.AlignCenter .PopupContainer.Open, .Bottom.AlignCenter .PopupContainer.Open { animation-name: popupInCenteredY; }
 .Top.AlignCenter .PopupContainer.Close, .Bottom.AlignCenter .PopupContainer.Close { animation-name: popupOutCenteredY; }
 
@@ -82,7 +84,10 @@
 .Left.AlignStart .PopupContainer, .Right.AlignStart .PopupContainer { top: 0; }
 
 .Left.AlignCenter, .Right.AlignCenter { align-items: center; }
-.Left.AlignCenter .PopupContainer, .Right.AlignCenter .PopupContainer { top: 50%; transform-origin: center center; translate: 0 -50%; }
+.Left.AlignCenter .PopupContainer, .Right.AlignCenter .PopupContainer { 
+    top: 50%; 
+    transform-origin: center center; 
+}
 .Left.AlignCenter .PopupContainer.Open, .Right.AlignCenter .PopupContainer.Open { animation-name: popupInCenteredX; }
 .Left.AlignCenter .PopupContainer.Close, .Right.AlignCenter .PopupContainer.Close { animation-name: popupOutCenteredX; }
 
