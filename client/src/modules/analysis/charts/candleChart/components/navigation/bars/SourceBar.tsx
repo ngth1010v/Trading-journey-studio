@@ -1,65 +1,73 @@
-import styles from './SourceBar.module.css';
-import { useState, useEffect } from 'react';
+import styles from "./SourceBar.module.css";
+import { useState, useEffect } from "react";
 
 import { type CandleData } from "../../../hooks/rawCandle/useCandleData";
-import { type StrateryData } from '../../../hooks/useStrateryData';
-import { strategiesApi } from '../../../../../../../shared/api/strategiesApi';
-import { type Strategy } from '../../../../../../../shared/types/strategies.type';
-import ButtonWithPopover from '../../../../../../../shared/components/ButtonWithPopover';
+import { type StrateryData } from "../../../hooks/useStrateryData";
+import { strategiesApi } from "../../../../../../../shared/api/strategiesApi";
+import { type Strategy } from "../../../../../../../shared/types/strategies.type";
+import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
 
-export default function SourceBar(
-    {
-        candleData,
-        strateryData
-    }: {
-        candleData: CandleData,
-        strateryData: StrateryData
-    }
-) {
+export default function SourceBar({
+    candleData,
+    strateryData
+}: {
+    candleData: CandleData;
+    strateryData: StrateryData;
+}) {
     const [strategies, setStrategies] = useState<Strategy[]>([]);
 
-    // Fetch and sort strategy list on component mount
+    // Display state
+    const [symbol, setSymbol] = useState(() => candleData.getSymbol());
+    const [timeframe, setTimeframe] = useState(() => candleData.getTimeframe());
+    const [currentStrategy, setCurrentStrategy] = useState<Strategy | null>(() => {
+        try {
+            return strateryData.get();
+        } catch {
+            return null;
+        }
+    });
+
+    // Fetch strategy list
     useEffect(() => {
-        strategiesApi.getAllStrategies()
+        strategiesApi
+            .getAllStrategies()
             .then((data) => {
-                // Priority ranking map for sorting status: live > backtest > end
                 const statusOrder: Record<"live" | "backtest" | "end", number> = {
-                    "live": 1,
-                    "backtest": 2,
-                    "end": 3
+                    live: 1,
+                    backtest: 2,
+                    end: 3
                 };
 
-                const sortedData = [...data].sort((a, b) => {
-                    return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
-                });
+                const sorted = [...data].sort(
+                    (a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+                );
 
-                setStrategies(sortedData);
+                setStrategies(sorted);
+
+                // Refresh current strategy after strategies are loaded
+                try {
+                    setCurrentStrategy(strateryData.get());
+                } catch {}
             })
             .catch((err) => console.error("Failed to load strategies:", err));
     }, []);
 
-    // Helper to get active strategy information safely
-    let currentStrategy: Strategy | null = null;
-    try {
-        currentStrategy = strateryData.get();
-    } catch (e) {
-        // Fallback if strategy is not set or not loaded yet
-    }
+    const favoriteSymbols = currentStrategy?.favoriteSymbols ?? [];
+    const favoriteTimeframes = currentStrategy?.favoriteTimeframes ?? [];
 
-    // Safely extract favorite options from current strategy
-    const favoriteSymbols = currentStrategy?.favoriteSymbols || [];
-    const favoriteTimeframes = currentStrategy?.favoriteTimeframes || [];
-
-    // Helper to get corresponding dot style class matching the status
     const getStatusDotClass = (status: "live" | "backtest" | "end") => {
-        if (status === "live") return styles.dotLive;
-        if (status === "backtest") return styles.dotBacktest;
-        return styles.dotEnd;
+        switch (status) {
+            case "live":
+                return styles.dotLive;
+            case "backtest":
+                return styles.dotBacktest;
+            default:
+                return styles.dotEnd;
+        }
     };
 
     return (
         <div className={styles.navigation}>
-
             {/* SYMBOL */}
             {favoriteSymbols.length > 0 && (
                 <ButtonWithPopover
@@ -68,18 +76,22 @@ export default function SourceBar(
                     align="start"
                     button={
                         <div className={styles.button}>
-                            {candleData.getSymbol()}
+                            {symbol}
                         </div>
                     }
                     popup={
                         <div className={styles.popupPanel}>
-                            {favoriteSymbols.map((symbol) => (
-                                <div 
-                                    key={symbol} 
-                                    className={styles.popupItem} 
-                                    onClick={() => candleData.setSrc(symbol, candleData.getTimeframe())}
+                            {favoriteSymbols.map((item) => (
+                                <div
+                                    key={item}
+                                    className={styles.popupItem}
+                                    onClick={() => {
+                                        candleData.setSrc(item, candleData.getTimeframe());
+                                        setSymbol(candleData.getSymbol());
+                                        setTimeframe(candleData.getTimeframe());
+                                    }}
                                 >
-                                    {symbol}
+                                    {item}
                                 </div>
                             ))}
                         </div>
@@ -87,7 +99,7 @@ export default function SourceBar(
                 />
             )}
 
-            <div className={styles.spliter}/>
+            <div className={styles.spliter} />
 
             {/* TIMEFRAME */}
             {favoriteTimeframes.length > 0 && (
@@ -97,16 +109,20 @@ export default function SourceBar(
                     align="start"
                     button={
                         <div className={styles.button}>
-                            {candleData.getTimeframe()}
+                            {timeframe}
                         </div>
                     }
                     popup={
                         <div className={styles.popupPanel}>
                             {favoriteTimeframes.map((tf) => (
-                                <div 
-                                    key={tf} 
-                                    className={styles.popupItem} 
-                                    onClick={() => candleData.setSrc(candleData.getSymbol(), tf)}
+                                <div
+                                    key={tf}
+                                    className={styles.popupItem}
+                                    onClick={() => {
+                                        candleData.setSrc(candleData.getSymbol(), tf);
+                                        setSymbol(candleData.getSymbol());
+                                        setTimeframe(candleData.getTimeframe());
+                                    }}
                                 >
                                     {tf}
                                 </div>
@@ -116,7 +132,7 @@ export default function SourceBar(
                 />
             )}
 
-            <div className={styles.spliter}/>
+            <div className={styles.spliter} />
 
             {/* STRATEGY */}
             <ButtonWithPopover
@@ -124,34 +140,55 @@ export default function SourceBar(
                 position="bottom"
                 align="start"
                 button={
-                    <div 
-                        className={styles.button} 
-                        title={currentStrategy ? `[${currentStrategy.status.toUpperCase()}] ${currentStrategy.desc}` : undefined}
+                    <div
+                        className={styles.button}
+                        title={
+                            currentStrategy
+                                ? `[${currentStrategy.status.toUpperCase()}] ${currentStrategy.desc}`
+                                : undefined
+                        }
                     >
                         {currentStrategy && (
-                            <span className={`${styles.statusDot} ${getStatusDotClass(currentStrategy.status)}`} />
+                            <span
+                                className={`${styles.statusDot} ${getStatusDotClass(
+                                    currentStrategy.status
+                                )}`}
+                            />
                         )}
-                        {currentStrategy ? currentStrategy.name : "Stratery"}
+                        {currentStrategy ? currentStrategy.name : "Strategy"}
                     </div>
                 }
                 popup={
                     <div className={styles.popupPanel}>
                         {strategies.map((strat) => (
-                            <div 
-                                key={strat.name} 
+                            <div
+                                key={strat.name}
                                 className={styles.popupItemStratery}
-                                onClick={() => strateryData.set(strat.name)}
                                 title={`[${strat.status.toUpperCase()}] ${strat.desc}`}
-                                style={{ opacity: strat.status === "end" ? 0.7 : 1 }}
+                                style={{
+                                    opacity: strat.status === "end" ? 0.7 : 1
+                                }}
+                                onClick={() => {
+                                    const setStrat = async () => {
+                                        await strateryData.set(strat.name);
+                                        try {
+                                                setCurrentStrategy(strateryData.get());
+                                        } catch {}                                            
+                                    }
+                                    setStrat()
+                                }}
                             >
-                                <span className={`${styles.statusDot} ${getStatusDotClass(strat.status)}`} />
+                                <span
+                                    className={`${styles.statusDot} ${getStatusDotClass(
+                                        strat.status
+                                    )}`}
+                                />
                                 <span>{strat.name}</span>
                             </div>
                         ))}
                     </div>
                 }
             />
-
         </div>
     );
 }

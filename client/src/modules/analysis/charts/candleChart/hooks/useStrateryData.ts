@@ -27,11 +27,11 @@ export default function useStrateryData(): StrateryData {
 
   const set = async (name: string): Promise<void> => {
     strategyNameRef.current = name;
-
+    
     const requestId = ++requestIdRef.current;
 
     const allStrategies = await strategiesApi.getAllStrategies();
-
+    
     // Ignore stale request.
     if (requestId !== requestIdRef.current) {
       return;
@@ -45,7 +45,7 @@ export default function useStrateryData(): StrateryData {
         `Strategy "${name}" not found.`,
       );
     }
-
+    
     strategyRef.current = strategy;
 
     fireOnStrategyChange();
