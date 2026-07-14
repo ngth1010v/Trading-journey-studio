@@ -5,7 +5,7 @@ export function createThemeRouter(service: ThemeService): Router {
     const router = Router();
 
     // GET api/themes -> Fetch all stored custom options along with base defaults
-    router.get('/', (req: Request, res: Response) => {
+    router.get('/api/themes/', (req: Request, res: Response) => {
         try {
             const themes = service.getAll();
             res.json({ success: true, data: themes });
@@ -15,7 +15,7 @@ export function createThemeRouter(service: ThemeService): Router {
     });
 
     // GET api/themes/changed/:timestamp -> Returns flat list array of theme names changed after timestamp
-    router.get('/changed/:timestamp', (req: Request, res: Response) => {
+    router.get('/api/themes/changed/:timestamp', (req: Request, res: Response) => {
         try {
             const { timestamp } = req.params;
             const parsedTimestamp = Number(timestamp);
@@ -33,7 +33,7 @@ export function createThemeRouter(service: ThemeService): Router {
     });
 
     // POST api/themes/:name -> Create or perform updates to an option
-    router.post('/:name', (req: Request, res: Response) => {
+    router.post('/api/themes/:name', (req: Request, res: Response) => {
         try {
             const { name } = req.params;
             if (Array.isArray(name)) {
@@ -48,7 +48,7 @@ export function createThemeRouter(service: ThemeService): Router {
     });
 
     // DELETE api/themes/:name -> Purge data option records safely
-    router.delete('/:name', (req: Request, res: Response) => {
+    router.delete('/api/themes/:name', (req: Request, res: Response) => {
         try {
             const { name } = req.params;
             if (Array.isArray(name)) {

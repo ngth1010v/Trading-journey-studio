@@ -2,10 +2,14 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { Theme } from './theme.model.js';
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class ThemeRepository {
     private db!: Database.Database;
-    private readonly dbPath = path.resolve('server/database/theme.db');
+    private readonly dbPath = path.join(__dirname, "../../database/theme.db");
 
     init() {
         const dir = path.dirname(this.dbPath);
