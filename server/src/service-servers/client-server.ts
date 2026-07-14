@@ -4,8 +4,8 @@ import path from 'path';
 
 const _SECTION = "client";
 
-// Lưu trữ reference tới ChildProcess độc lập
 let clientChild: ChildProcess | null = null;
+let isExpectedShutdown = false; // Biến cờ để biết client tắt chủ động hay bị crash
 
 function init(): void {
     if (clientChild) {
@@ -14,37 +14,56 @@ function init(): void {
     }
 
     const clientPath = path.resolve(process.cwd(), '..', 'client'); 
+    isExpectedShutdown = false;
 
-    // Sử dụng spawn thay vì exec để có quyền 'detached' (tách lập tiến trình)
-    // Chạy trực tiếp lệnh 'npm.cmd' (trên Windows phải gọi rõ .cmd) thay vì thông qua start
-    clientChild = spawn('npm run dev', {
+    // Sử dụng 'pipe' hoặc 'inherit' thay vì 'ignore' để không bị nghẽn/tự sập khi dev update code
+    clientChild = spawn('npm', ['run', 'dev'], {
         cwd: clientPath,
         detached: true,
-        shell: true,     // Bắt buộc phải có shell: true để Windows hiểu lệnh 'npm' viết liền này
-        stdio: 'ignore'
+        shell: true,     
+        stdio: ['ignore', 'pipe', 'pipe'] // Giữ lại stdout/stderr để bắt lỗi
     });
 
-    // Unref giúp Node.js server có thể tự đóng độc lập mà không bị treo bởi tiến trình con này
-    clientChild.unref();
+    // Lắng nghe dữ liệu log lỗi từ client (Rất quan trọng khi update code bị lỗi)
+    clientChild.stderr?.on('data', (data) => {
+        logger.error(_SECTION, `Client Log Error: ${data.toString().trim()}`);
+    });
 
+    clientChild.stdout?.on('data', (data) => {
+        // Bạn có thể comment dòng này nếu thấy quá nhiều log dev thông thường
+        logger.info(_SECTION, `Client Log: ${data.toString().trim()}`);
+    });
+
+    // Bắt sự kiện nếu tiến trình bỗng dưng bị sập khi đang update code
+    clientChild.on('exit', (code, signal) => {
+        clientChild = null;
+        if (!isExpectedShutdown) {
+            logger.error(_SECTION, `Client server crashed unexpectedly (Code: ${code}, Signal: ${signal}). Restarting in 3s...`);
+            setTimeout(() => {
+                init();
+            }, 3000); // Tự động bật lại sau 3 giây nếu bị sập ngầm do lỗi code
+        } else {
+            logger.info(_SECTION, `Client server process exited safely.`);
+        }
+    });
+
+    clientChild.unref();
     logger.info(_SECTION, `Open client-server successfully in detached mode.`);
 }
 
 async function shutdown(): Promise<void> {
     logger.info(_SECTION, `Shutting down Client-server...`);
+    isExpectedShutdown = true; // Đánh dấu đây là hành động tắt chủ động, không kích hoạt tự động restart
 
     return new Promise<void>((resolve) => {
         if (clientChild && clientChild.pid) {
             try {
-                // Trên Windows, để giết một tiến trình tách lập (detached) và các tiến trình con của nó (Vite)
-                // mà KHÔNG ảnh hưởng tới tiến trình gọi (Node.js), ta dùng taskkill nhắm thẳng vào PID của npm run dev.
-                // Do đã 'detached: true', cây tiến trình của clientChild đã bị cô lập hoàn toàn khỏi Node.js Server.
+                // Thêm quyền ép buộc để dọn sạch toàn bộ tree process (NPM + Vite)
                 const killCmd = `taskkill /PID ${clientChild.pid} /T /F`;
-                
                 const processKill = spawn('cmd.exe', ['/c', killCmd]);
 
                 processKill.on('exit', () => {
-                    logger.info(_SECTION, `Client-server shutdown successfully.`);
+                    logger.info(_SECTION, `Client-server shutdown command executed.`);
                     clientChild = null;
                     resolve();
                 });
