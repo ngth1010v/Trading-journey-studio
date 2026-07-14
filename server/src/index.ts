@@ -9,6 +9,7 @@ import { clientServer } from './service-servers/client-server.js';
 import { strategies } from './strategies/strategies/strategies.index.js';
 import { shapes } from './strategies/shapes/shapes.index.js';
 import { theme } from './theme/theme.index.js';
+import { color } from './color/color.index.js';
 
 
 // =============================================================================================================
@@ -27,6 +28,7 @@ app.use(marketServer.router);
 app.use(strategies.router)
 app.use(shapes.router)
 app.use(theme.router)
+app.use(color.router)
 
 app.get('/', (_req: Request, res: Response) => {
     res.send('Hello World!');
@@ -38,6 +40,7 @@ app.get('/', (_req: Request, res: Response) => {
 // LOGIC STARTUP & SHUTDOWN 
 // =============================================================================================================
 function startup(): void {
+    color.init()
     theme.init()
     marketServer.init();
     clientServer.init();
@@ -46,6 +49,7 @@ function startup(): void {
 }
 
 async function shutdown(): Promise<void> {
+    color.shutdown()
     theme.shutdown()
     await marketServer.shutdown();
     await clientServer.shutdown();
