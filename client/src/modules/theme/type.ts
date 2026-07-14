@@ -52,4 +52,7 @@ export interface ThemeDataContextType {
     set: (themeName: string, theme: PartialTheme) => Promise<void>;
     addOnSelectedThemeChange: (id: string, callback: (theme: Theme) => void) => void;
     removeOnSelectedThemeChange: (id: string) => void;
+    // Added new management signatures for global changes tracker listener
+    addOnThemeDataChange: (id: string, callback: (changedNames: string[]) => void) => void;
+    removeOnThemeDataChange: (id: string) => void;
 }

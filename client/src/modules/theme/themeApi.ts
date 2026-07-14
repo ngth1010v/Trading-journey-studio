@@ -42,6 +42,11 @@ async function getAllThemes(): Promise<Theme[]> {
   return request<Theme[]>(API_BASE);
 }
 
+// Added integration for fetching changed themes matching specific timestamp tracking marks
+async function getChangedThemes(timestamp: number): Promise<string[]> {
+  return request<string[]>(`${API_BASE}/changed/${timestamp}`);
+}
+
 async function saveTheme(name: string, theme: PartialTheme): Promise<Theme> {
   return request<Theme>(`${API_BASE}/${encodeURIComponent(name)}`, "POST", theme);
 }
@@ -52,6 +57,7 @@ async function deleteTheme(name: string): Promise<{ success: boolean }> {
 
 export const themeApi = {
   getAllThemes,
+  getChangedThemes,
   saveTheme,
   deleteTheme,
 };

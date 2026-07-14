@@ -7,12 +7,58 @@ export const ThemeDataContext = createContext<ThemeDataContextType | null>(null)
 export const ThemeDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themes, setThemes] = useState<Theme[]>([]);
   const listenersRef = useRef<Map<string, (theme: Theme) => void>>(new Map());
+  const globalListenersRef = useRef<Map<string, (changedNames: string[]) => void>>(new Map());
+  
+  // Tracks the timestamp for pulling historical differential changes
+  const trackingTimestampRef = useRef<number>(Date.now());
 
   // Load initial themes from backend API
   useEffect(() => {
     themeApi.getAllThemes()
       .then((data) => setThemes(data))
       .catch((err) => console.error("Failed to fetch themes initially:", err));
+  }, []);
+
+  // Polling hook every 1 second to inspect structural backend edits
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const queryTime = trackingTimestampRef.current;
+        const changedNames = await themeApi.getChangedThemes(queryTime);
+
+        if (changedNames.length > 0) {
+          // Progressively increment track pointer reference
+          trackingTimestampRef.current = Date.now();
+
+          // Fetch full fresh content payloads
+          const updatedThemes = await themeApi.getAllThemes();
+
+          setThemes((prevThemes) => {
+            const oldSelected = prevThemes.find((t) => t.selected);
+            const oldSelectedName = oldSelected ? oldSelected.name : "Default";
+
+            const newSelected = updatedThemes.find((t) => t.selected);
+            const newSelectedName = newSelected ? newSelected.name : "Default";
+
+            // Trigger when selection target name changed OR the existing target name properties were changed
+            const selectedThemeChanged = oldSelectedName !== newSelectedName || changedNames.includes(newSelectedName);
+
+            if (selectedThemeChanged && newSelected) {
+              listenersRef.current.forEach((callback) => callback(newSelected));
+            }
+
+            return updatedThemes;
+          });
+
+          // Always broadcast changes to general structural hook subscribers
+          globalListenersRef.current.forEach((callback) => callback(changedNames));
+        }
+      } catch (err) {
+        console.error("Error occurred during theme change synchronization polling:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const getSelectedName = useCallback((): string => {
@@ -40,7 +86,7 @@ export const ThemeDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             return { ...t, selected: false };
           }
           return t;
-        });
+          });
 
         const exists = prevThemes.some((t) => t.name === themeName);
         if (!exists) {
@@ -71,6 +117,14 @@ export const ThemeDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     listenersRef.current.delete(id);
   }, []);
 
+  const addOnThemeDataChange = useCallback((id: string, callback: (changedNames: string[]) => void) => {
+    globalListenersRef.current.set(id, callback);
+  }, []);
+
+  const removeOnThemeDataChange = useCallback((id: string) => {
+    globalListenersRef.current.delete(id);
+  }, []);
+
   const contextValue: ThemeDataContextType = {
     getSelectedName,
     get,
@@ -78,6 +132,8 @@ export const ThemeDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     set,
     addOnSelectedThemeChange,
     removeOnSelectedThemeChange,
+    addOnThemeDataChange,
+    removeOnThemeDataChange,
   };
 
   return (
