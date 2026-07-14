@@ -15,7 +15,11 @@ export const ThemeDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Load initial themes from backend API
   useEffect(() => {
     themeApi.getAllThemes()
-      .then((data) => setThemes(data))
+      .then((data) => {
+        setThemes(data)
+        const newSelected = data.find((t) => t.selected);
+        if (newSelected) listenersRef.current.forEach((callback) => callback(newSelected));
+      })
       .catch((err) => console.error("Failed to fetch themes initially:", err));
   }, []);
 
