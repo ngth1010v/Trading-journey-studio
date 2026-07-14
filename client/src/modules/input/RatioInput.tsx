@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useId } from "react";
-import ButtonWithPopover from "../ButtonWithPopover";
-import { useThemeData } from "../../../modules/theme/useThemeData";
-import type { Theme, RGB, RGBA } from "../../../modules/theme/type";
+import ButtonWithPopover from "../../shared/components/ButtonWithPopover";
+import { useThemeData } from "../theme/useThemeData";
+import type { Theme, RGB, RGBA } from "../theme/type";
 import styles from "./Input.module.css";
 
 const toRGBString = (color: RGB) =>

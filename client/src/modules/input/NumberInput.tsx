@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useId } from "react";
-import { useThemeData } from "../../../modules/theme/useThemeData";
-import type { Theme, RGB, RGBA } from "../../../modules/theme/type";
+import { useThemeData } from "../theme/useThemeData";
+import type { Theme, RGB, RGBA } from "../theme/type";
 import styles from "./Input.module.css";
 
 const toRGBString = (color: RGB): string => `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
