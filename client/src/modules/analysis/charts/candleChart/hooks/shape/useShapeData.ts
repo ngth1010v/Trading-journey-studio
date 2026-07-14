@@ -1,6 +1,6 @@
 import { useRef, useCallback } from "react";
 import type { Viewport } from "../viewport/useViewport";
-import type { Shape } from "../../shared/types";
+import type { Shape, ShapeTemplate } from "../../shared/types";
 import { shapeApis } from "../../api/shapeApis";
 import { CONFIG } from "../../shared/config";
 import { SHAPE_MAP } from "./shapeMap";
@@ -8,12 +8,17 @@ import { SHAPE_MAP } from "./shapeMap";
 export type ShapeData = {
     getShapes: () => Shape[];
     setShapes: (shapes: Shape[]) => void;
+    getTemplates: () => ShapeTemplate[];
+    setTemplates: (templates: ShapeTemplate[]) => void;
     getSymbol: () => string;
     getStrategyName: () => string;
     updateData: (symbol: string, strategyName: string) => Promise<void>;
     saveShapes: (shapes: Shape[]) => void;
+    saveTemplates: (templates: ShapeTemplate[]) => Promise<void>;
     addOnShapeDataChange: (id: string, callback: () => void) => void;
     removeOnShapeDataChange: (id: string) => void;
+    addOnShapeTemplateChange: (id: string, callback: () => void) => void;
+    removeOnShapeTemplateChange: (id: string) => void;
 };
 
 export default function useShapeData(
@@ -21,14 +26,27 @@ export default function useShapeData(
 ): ShapeData {
     const symbolRef = useRef<string>("");
     const strategyRef = useRef<string>("");
+    
+    // Core Collections State
     const shapesRef = useRef<Shape[]>([]);
+    const templatesRef = useRef<ShapeTemplate[]>([]);
+    
+    // Timers & Polling Anchors
     const lastUpdateTsRef = useRef<number>(Date.now());
+    const lastTemplatePollTsRef = useRef<number>(0);
     const pollingIntervalRef = useRef<number | null>(null);
+    const isPollingTemplateRef = useRef<boolean>(false);
 
+    // Event Subscriptions
     const onShapeDataChangeCallbacks = useRef<Map<string, () => void>>(new Map());
+    const onShapeTemplateChangeCallbacks = useRef<Map<string, () => void>>(new Map());
 
-    const notifyListeners = useCallback(() => {
+    const notifyShapeListeners = useCallback(() => {
         onShapeDataChangeCallbacks.current.forEach((cb) => cb());
+    }, []);
+
+    const notifyTemplateListeners = useCallback(() => {
+        onShapeTemplateChangeCallbacks.current.forEach((cb) => cb());
     }, []);
 
     const updateShapeBoundaries = (shape: Shape) => {
@@ -61,9 +79,16 @@ export default function useShapeData(
         shapeApis.saveShapes(strategyRef.current, symbolRef.current, shapes);
     }, []);
 
+    const saveTemplates = useCallback(async (templates: ShapeTemplate[]) => {
+        await shapeApis.saveTemplates(strategyRef.current, symbolRef.current, templates);
+    }, []);
+
     const pollUpdates = useCallback(async () => {
         if (!symbolRef.current || !strategyRef.current) return;
         
+        const now = Date.now();
+
+        // 1. Core Shape updates (500ms cycle handler)
         try {
             const view = viewport.getTransformedView();
             const extend = CONFIG.SHAPES.CACHE_EXTEND_RATIO;
@@ -81,20 +106,34 @@ export default function useShapeData(
 
             if (changed.length > 0) {
                 lastUpdateTsRef.current = Date.now();
-                
-                // Note: The active shape check bypass logic remains handled up-level or via raw checks during mutations
                 changed.forEach(updatedShape => {
                     const idx = shapesRef.current.findIndex(s => s.id === updatedShape.id);
                     if (idx >= 0) shapesRef.current[idx] = updatedShape;
                     else shapesRef.current.push(updatedShape);
                 });
-
-                notifyListeners();
+                notifyShapeListeners();
             }
         } catch (e) {
             console.error("Shape polling error", e);
         }
-    }, [viewport, notifyListeners]);
+
+        // 2. ShapeTemplate updates (1000ms cycle handler with execution lock)
+        if (now - lastTemplatePollTsRef.current >= 1000) {
+            if (!isPollingTemplateRef.current) {
+                isPollingTemplateRef.current = true;
+                try {
+                    const serverTemplates = await shapeApis.getTemplates(strategyRef.current, symbolRef.current);
+                    templatesRef.current = serverTemplates;
+                    lastTemplatePollTsRef.current = Date.now();
+                    notifyTemplateListeners();
+                } catch (e) {
+                    console.error("Template polling error", e);
+                } finally {
+                    isPollingTemplateRef.current = false;
+                }
+            }
+        }
+    }, [viewport, notifyShapeListeners, notifyTemplateListeners]);
 
     const updateData = async (symbol: string, strategyName: string) => {
         symbolRef.current = symbol;
@@ -106,16 +145,25 @@ export default function useShapeData(
         const extend = CONFIG.SHAPES.CACHE_EXTEND_RATIO;
         const deltaTs = view.toTs - view.fromTs;
         
-        shapesRef.current = await shapeApis.getShapes(
-            strategyName, 
-            symbol, 
-            view.fromTs - deltaTs * extend, 
-            view.toTs + deltaTs * extend
-        );
-        
-        notifyListeners();
+        // Initial loader synchronization requests
+        const [loadedShapes, loadedTemplates] = await Promise.all([
+            shapeApis.getShapes(
+                strategyName, 
+                symbol, 
+                view.fromTs - deltaTs * extend, 
+                view.toTs + deltaTs * extend
+            ),
+            shapeApis.getTemplates(strategyName, symbol)
+        ]);
 
-        // 0.5s polling
+        shapesRef.current = loadedShapes;
+        templatesRef.current = loadedTemplates;
+        lastTemplatePollTsRef.current = Date.now();
+        
+        notifyShapeListeners();
+        notifyTemplateListeners();
+
+        // Common polling cycle executor
         pollingIntervalRef.current = window.setInterval(pollUpdates, 500);
     };
 
@@ -124,12 +172,17 @@ export default function useShapeData(
         apiRef.current = {
             getShapes: () => shapesRef.current,
             setShapes: (shapes) => { shapesRef.current = shapes; },
+            getTemplates: () => templatesRef.current,
+            setTemplates: (templates) => { templatesRef.current = templates; },
             getSymbol: () => symbolRef.current,
             getStrategyName: () => strategyRef.current,
             updateData,
             saveShapes,
+            saveTemplates,
             addOnShapeDataChange: (id, cb) => onShapeDataChangeCallbacks.current.set(id, cb),
             removeOnShapeDataChange: (id) => onShapeDataChangeCallbacks.current.delete(id),
+            addOnShapeTemplateChange: (id, cb) => onShapeTemplateChangeCallbacks.current.set(id, cb),
+            removeOnShapeTemplateChange: (id) => onShapeTemplateChangeCallbacks.current.delete(id),
         };
     }
 
