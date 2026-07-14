@@ -3,7 +3,6 @@ import { Application, Graphics } from "pixi.js";
 import type { Viewport } from "../viewport/useViewport";
 import type { Crosshair } from "../useCrosshair";
 import type { Shape } from "../../shared/types";
-import { shapeApis } from "../../api/shapeApis";
 import { CONFIG } from "../../shared/config";
 import { SHAPE_MAP } from "./shapeMap";
 import { parsePosition } from "./utils/mathParser";
@@ -12,14 +11,12 @@ import { renderShapeToLayers } from "./utils/renderShapeUtils";
 import type { ViewController } from "../viewport/useViewController";
 import type { CandleData } from "../rawCandle/useCandleData";
 import type { StrateryData } from "../useStrateryData";
+import useShapeData from "./useShapeData";
 
 import useLineLayer from "./raw/useLineLayer";
 import useTriangleLayer from "./raw/useTriangleLayer";
 import useTextLayer from "./raw/useTextLayer";
 
-//======================================================================================================
-// TYPES
-//======================================================================================================
 export type ShapeController = {
     init: (app: Application) => Promise<void>;
     updateData: (symbol: string, strategyName: string) => Promise<void>;
@@ -38,11 +35,17 @@ export type ShapeController = {
     removeOnEndEdit: (id: string) => void;
 };
 
-//======================================================================================================
-// HOOK
-//======================================================================================================
-export default function useShapeController(candleData: CandleData, strateryData: StrateryData, viewport: Viewport, crosshair: Crosshair, viewController: ViewController): ShapeController {
+export default function useShapeController(
+    candleData: CandleData, 
+    strateryData: StrateryData, 
+    viewport: Viewport, 
+    crosshair: Crosshair, 
+    viewController: ViewController
+): ShapeController {
     const appRef = useRef<Application | null>(null);
+    
+    // Core Data Sync Hook
+    const shapeData = useShapeData(viewport);
     
     // Main Background Layers
     const lineLayer = useLineLayer();
@@ -56,13 +59,6 @@ export default function useShapeController(candleData: CandleData, strateryData:
     
     // Anchor graphics (Used strictly for edit handles now)
     const draftingGraphics = useRef<Graphics | null>(null);
-
-    // State
-    const symbolRef = useRef<string>("");
-    const strategyRef = useRef<string>("");
-    const shapesRef = useRef<Shape[]>([]);
-    const lastUpdateTsRef = useRef<number>(Date.now());
-    const pollingIntervalRef = useRef<number | null>(null);
 
     // Editing / Creating State - Stored by numeric ID to prevent reference mismatch on data flushes
     const activeEditShapeIdRef = useRef<number | null>(null);
@@ -95,25 +91,6 @@ export default function useShapeController(candleData: CandleData, strateryData:
         }
     };
 
-    const fillMissingDataDefaults = (shape: Shape) => {
-        const shapeDef = (SHAPE_MAP as any)[shape.type];
-        if (!shapeDef || !shapeDef.data) return;
-
-        Object.entries(shapeDef.data).forEach(([key, type]) => {
-            if (shape.data[key] === undefined) {
-                shape.data[key] = type === "text" ? "" : 0;
-            }
-        });
-    };
-
-    const saveShapes = (shapes: Shape[]) => {
-        shapes.forEach(shape => {
-            fillMissingDataDefaults(shape);
-            updateShapeBoundaries(shape);
-        });
-        shapeApis.saveShapes(strategyRef.current, symbolRef.current, shapes);
-    };
-
     //======================================================================================================
     // RENDERING & FLUSHING
     //======================================================================================================
@@ -125,8 +102,9 @@ export default function useShapeController(candleData: CandleData, strateryData:
         textLayer.clean();
 
         const layers = { lineLayer, triangleLayer, textLayer };
+        const shapes = shapeData.getShapes();
 
-        shapesRef.current.forEach(shape => {
+        shapes.forEach(shape => {
             // Skip rendering the active shape in raw layers (it will be drawn by active layers instead)
             if (activeEditShapeIdRef.current !== null && shape.id === activeEditShapeIdRef.current) return;
             if (shape === tempShapeRef.current) return; 
@@ -141,7 +119,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         lineLayer.draw();
         triangleLayer.draw();
         textLayer.draw();
-    }, [lineLayer, triangleLayer, textLayer]);
+    }, [lineLayer, triangleLayer, textLayer, shapeData]);
 
     // Draws ONLY the edit anchor hit-boxes over the shape
     const drawActiveAnchors = useCallback(() => {
@@ -150,7 +128,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         g.clear();
 
         if (activeEditShapeIdRef.current === null) return;
-        const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+        const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
         if (!activeShape) return;
 
         const shapeDef = (SHAPE_MAP as any)[activeShape.type];
@@ -175,7 +153,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
              .fill({ color: (fc[0]<<16) + (fc[1]<<8) + fc[2], alpha: fc[3]/255 })
              .stroke({ width: CONFIG.SHAPES.EDIT_BUTTON.BORDER_WIDTH, color: (bc[0]<<16) + (bc[1]<<8) + bc[2] });
         });
-    }, [viewport]);
+    }, [viewport, shapeData]);
 
     // Flushes strictly the actively edited shape to identical raw layers to match visual styling
     const flushActiveShape = useCallback(() => {
@@ -183,7 +161,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         activeTriangleLayer.clean();
         activeTextLayer.clean();
 
-        const activeShape = tempShapeRef.current || (activeEditShapeIdRef.current !== null ? shapesRef.current.find(s => s.id === activeEditShapeIdRef.current) : null);
+        const activeShape = tempShapeRef.current || (activeEditShapeIdRef.current !== null ? shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current) : null);
         
         if (activeShape) {
             renderShapeToLayers(activeShape, {
@@ -202,48 +180,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
         activeTextLayer.draw();
 
         drawActiveAnchors();
-    }, [activeLineLayer, activeTriangleLayer, activeTextLayer, drawActiveAnchors]);
-
-    //======================================================================================================
-    // API POLLING
-    //======================================================================================================
-    const pollUpdates = useCallback(async () => {
-        if (!symbolRef.current || !strategyRef.current) return;
-        
-        try {
-            const view = viewport.getTransformedView();
-            const extend = CONFIG.SHAPES.CACHE_EXTEND_RATIO;
-            const deltaTs = view.toTs - view.fromTs;
-            const fromTs = view.fromTs - deltaTs * extend;
-            const toTs = view.toTs + deltaTs * extend;
-
-            const changed = await shapeApis.getChangedShapes(
-                strategyRef.current, 
-                symbolRef.current, 
-                lastUpdateTsRef.current, 
-                fromTs, 
-                toTs
-            );
-
-            if (changed.length > 0) {
-                lastUpdateTsRef.current = Date.now();
-                
-                // Merge changes - respecting Local Priority
-                changed.forEach(updatedShape => {
-                    // Local Priority: Skip update if currently editing this shape
-                    if (activeEditShapeIdRef.current !== null && updatedShape.id === activeEditShapeIdRef.current) return;
-
-                    const idx = shapesRef.current.findIndex(s => s.id === updatedShape.id);
-                    if (idx >= 0) shapesRef.current[idx] = updatedShape;
-                    else shapesRef.current.push(updatedShape);
-                });
-
-                flushShapes();
-            }
-        } catch (e) {
-            console.error("Shape polling error", e);
-        }
-    }, [viewport, flushShapes]);
+    }, [activeLineLayer, activeTriangleLayer, activeTextLayer, drawActiveAnchors, shapeData]);
 
     //======================================================================================================
     // PUBLIC METHODS
@@ -278,9 +215,14 @@ export default function useShapeController(candleData: CandleData, strateryData:
             const onFlush = async () => {
                 flushShapes();
                 flushActiveShape();                
-                await updateData(symbolRef.current, strategyRef.current)
+                await updateData(shapeData.getSymbol(), shapeData.getStrategyName())
             }
             onFlush()
+        });
+
+        // Use the newly engineered shape logic events 
+        shapeData.addOnShapeDataChange("shapeController/onDataChange", () => {
+            flushShapes();
         });
 
         const refreshSrc = () => updateData(candleData.getSymbol(), strateryData.get().name)   
@@ -289,35 +231,18 @@ export default function useShapeController(candleData: CandleData, strateryData:
     };
 
     const updateData = async (symbol: string, strategyName: string) => {
-        symbolRef.current = symbol;
-        strategyRef.current = strategyName;
-        
-        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-        
-        const view = viewport.getTransformedView();
-        const extend = CONFIG.SHAPES.CACHE_EXTEND_RATIO;
-        const deltaTs = view.toTs - view.fromTs;
-        
-        shapesRef.current = await shapeApis.getShapes(
-            strategyName, 
-            symbol, 
-            view.fromTs - deltaTs * extend, 
-            view.toTs + deltaTs * extend
-        );
-        
+        await shapeData.updateData(symbol, strategyName);
         flushShapes();
-
-        // 0.5s polling
-        pollingIntervalRef.current = window.setInterval(pollUpdates, 500);
     };
 
     const onMouseDown = (x: number, y: number, button: number) => {
         const { timestamp, price } = crosshair.get();
+        const shapes = shapeData.getShapes();
 
         if (button !== 0) {
             // Right/Middle click exits edit/create mode
             if (activeEditShapeIdRef.current !== null) {
-                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
                 if (activeShape) {
                     onEndEditCallbacks.current.forEach(cb => cb(activeShape));
                 }
@@ -348,8 +273,8 @@ export default function useShapeController(candleData: CandleData, strateryData:
                 
                 // Finished creating
                 if (createPointsRef.current >= keys.length) {
-                    saveShapes([tempShapeRef.current]);
-                    shapesRef.current.push(tempShapeRef.current);
+                    shapeData.saveShapes([tempShapeRef.current]);
+                    shapes.push(tempShapeRef.current);
                     
                     createShapeTypeRef.current = null;
                     tempShapeRef.current = null;
@@ -362,7 +287,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
         // Editing Mode - Anchor & Shape Hit Test
         if (activeEditShapeIdRef.current !== null) {
-            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape && activeShape.editable) {
                 const shapeDef = (SHAPE_MAP as any)[activeShape.type];
                 const editPoints = shapeDef.editPoints.edit;
@@ -386,7 +311,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
                 // Drag entire shape if clicking on the shape but missed the anchor
                 if (!hitAnchor) {
-                    const closestShape = getClosestShape(shapesRef.current, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
+                    const closestShape = getClosestShape(shapes, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
                     if (closestShape && closestShape.id === activeEditShapeIdRef.current) {
                         isDraggingEntireShapeRef.current = true;
                         dragStartMousePosRef.current = { x, y };
@@ -400,12 +325,12 @@ export default function useShapeController(candleData: CandleData, strateryData:
         }
 
         // Hit testing for selection
-        const closestShape = getClosestShape(shapesRef.current, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
+        const closestShape = getClosestShape(shapes, x, y, viewport, CONFIG.SHAPES.TOLERANCE);
         
         // Enforce guardrail: if closest shape is not editable, block selection completely
         if (closestShape && !closestShape.editable) {
             if (activeEditShapeIdRef.current !== null) {
-                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
                 if (activeShape) {
                     onEndEditCallbacks.current.forEach(cb => cb(activeShape));
                 }
@@ -418,7 +343,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
         if (!closestShape || closestShape.id !== activeEditShapeIdRef.current) {
             if (activeEditShapeIdRef.current !== null) {
-                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
                 if (activeShape) {
                     onEndEditCallbacks.current.forEach(cb => cb(activeShape));
                 }
@@ -437,6 +362,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
     const onMouseMove = () => {
         const { timestamp, price } = crosshair.get();
+        const shapes = shapeData.getShapes();
 
         // Handle dragging create point
         if (createShapeTypeRef.current && tempShapeRef.current) {
@@ -456,7 +382,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
         // Handle dragging edit anchor
         if (activeEditShapeIdRef.current !== null && draggingAnchorRef.current) {
-            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape && activeShape.editable) {
                 const targetKeys = draggingAnchorRef.current.split(" ");
                 
@@ -472,7 +398,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
         // Handle dragging entire shape
         if (isDraggingEntireShapeRef.current && activeEditShapeIdRef.current !== null && dragStartShapeDataRef.current) {
-            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape && activeShape.editable) {
                 const currentX = viewport.timestampToPixel(timestamp);
                 const currentY = viewport.priceToPixel(price);
@@ -501,14 +427,14 @@ export default function useShapeController(candleData: CandleData, strateryData:
     const onMouseUp = (button: number) => {
         if (button === 0) {
             if (activeEditShapeIdRef.current !== null) {
-                const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+                const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
                 if (activeShape && activeShape.editable) {
                     if (draggingAnchorRef.current) {
-                        saveShapes([activeShape]);
+                        shapeData.saveShapes([activeShape]);
                         draggingAnchorRef.current = null;
                         viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
                     } else if (isDraggingEntireShapeRef.current) {
-                        saveShapes([activeShape]);
+                        shapeData.saveShapes([activeShape]);
                         isDraggingEntireShapeRef.current = false;
                         dragStartShapeDataRef.current = null;
                         viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
@@ -524,10 +450,10 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
     const onMouseLeave = () => {
         if (activeEditShapeIdRef.current !== null) {
-            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape) {
                 if (activeShape.editable) {
-                    saveShapes([activeShape]);
+                    shapeData.saveShapes([activeShape]);
                 }
                 onEndEditCallbacks.current.forEach(cb => cb(activeShape));
             }
@@ -545,7 +471,7 @@ export default function useShapeController(candleData: CandleData, strateryData:
 
     const create = (shapeType: string) => {
         if (activeEditShapeIdRef.current !== null) {
-            const activeShape = shapesRef.current.find(s => s.id === activeEditShapeIdRef.current);
+            const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape) {
                 onEndEditCallbacks.current.forEach(cb => cb(activeShape));
             }
@@ -576,9 +502,11 @@ export default function useShapeController(candleData: CandleData, strateryData:
     };
 
     const set = (shape: Shape) => {
-        const idx = shapesRef.current.findIndex(s => s.id === shape.id);
-        if (idx >= 0) shapesRef.current[idx] = shape;
-        else shapesRef.current.push(shape);
+        const shapes = shapeData.getShapes();
+        const idx = shapes.findIndex(s => s.id === shape.id);
+        if (idx >= 0) shapes[idx] = shape;
+        else shapes.push(shape);
+        shapeData.setShapes(shapes);
         flushShapes();
     };
 
