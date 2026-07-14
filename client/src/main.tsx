@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ThemeDataProvider } from './modules/theme/ThemeDataProvider.tsx'
 import App from './App.tsx'
+import "./index.css";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

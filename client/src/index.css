@@ -1,0 +1,18 @@
+@font-face {
+    font-family: "PixelFont";
+    src: url("./assets/fonts/Roboto.ttf") format("truetype");
+    font-display: swap;
+}
+
+:root {
+    --font-ui: "Roboto", sans-serif;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+    font-family: var(--font-ui);
+}
