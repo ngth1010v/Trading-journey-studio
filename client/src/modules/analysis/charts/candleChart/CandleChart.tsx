@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
-import useCandleData from './hooks/rawCandle/useCandleData';
-import useViewport, { type ViewportSetViewArgs } from './hooks/viewport/useViewport';
-import useCandleLayer from './hooks/rawCandle/useCandleLayer';
-import useViewController from './hooks/viewport/useViewController';
-import useCrosshair, {type CrosshairStyles} from './hooks/useCrosshair';
-import useGridAxes from './hooks/axes/useGridAxes';
-import useAxes from './hooks/axes/useAxes';
-import useAxesController from './hooks/axes/useAxesController';
-import useStrateryData from './hooks/useStrateryData';
 
-// Import the new shape controller hook
-import useShapeController from './hooks/shape/useShapeController';
 
-import Navigation from './components/navigation/Navigation';
+import useCandleData    from './market/hooks/useCandleData';
+import useStrateryData  from './market/hooks/useStrateryData';
+
+import useViewport, { type ViewportSetViewArgs } from './chart/viewport/useViewport';
+import useViewController                         from './chart/viewport/useViewController';
+
+import useCandleLayer                       from './chart/candle/useCandleLayer';
+import useCrosshair, {type CrosshairStyles} from './chart/crosshair/useCrosshair';
+import useGridAxes                          from './chart/axes/useGridAxes'
+import useAxes                              from './chart/axes/useAxes'
+import useAxesController                    from './chart/axes/useAxesController'
+
+import useShapeController from './shape/useShapeController';
+import Navigation         from './navigation/Navigation';
+
+
 
 
 const DEFAULT_FROMTS = 1782432000000;
