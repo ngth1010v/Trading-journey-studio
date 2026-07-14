@@ -14,6 +14,24 @@ export function createThemeRouter(service: ThemeService): Router {
         }
     });
 
+    // GET api/themes/changed/:timestamp -> Returns flat list array of theme names changed after timestamp
+    router.get('/changed/:timestamp', (req: Request, res: Response) => {
+        try {
+            const { timestamp } = req.params;
+            const parsedTimestamp = Number(timestamp);
+
+            if (isNaN(parsedTimestamp)) {
+                res.status(400).json({ success: false, error: 'Timestamp must be a valid number.' });
+                return;
+            }
+
+            const changedThemes = service.getChangedThemesSince(parsedTimestamp);
+            res.json(changedThemes);
+        } catch (err: any) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     // POST api/themes/:name -> Create or perform updates to an option
     router.post('/:name', (req: Request, res: Response) => {
         try {

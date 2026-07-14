@@ -18,11 +18,13 @@ export class ThemeRepository {
         // Optimize SQLite operations via WAL mode
         this.db.pragma('journal_mode = WAL');
 
+        // Added lastModifyTimestamp column to themes table
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS themes (
                 name TEXT PRIMARY KEY,
                 selected INTEGER NOT NULL DEFAULT 0,
-                json TEXT NOT NULL
+                json TEXT NOT NULL,
+                lastModifyTimestamp INTEGER NOT NULL DEFAULT 0
             )
         `);
     }
@@ -56,24 +58,46 @@ export class ThemeRepository {
         };
     }
 
-    saveTheme(theme: Theme) {
+    // Fetches names of themes modified after a given timestamp
+    getChangedThemeNames(timestamp: number): string[] {
+        const stmt = this.db.prepare('SELECT name FROM themes WHERE lastModifyTimestamp > ?');
+        const rows = stmt.all(timestamp) as { name: string }[];
+        return rows.map(row => row.name);
+    }
+
+    saveTheme(theme: Theme, currentTimestamp: number) {
         const { name, selected, ...restData } = theme;
         const selectedInt = selected ? 1 : 0;
         const jsonStr = JSON.stringify(restData);
 
-        const stmt = this.db.prepare(`
-            INSERT INTO themes (name, selected, json)
-            VALUES (?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                selected = excluded.selected,
-                json = excluded.json
-        `);
-        stmt.run(name, selectedInt, jsonStr);
+        // Run updates inside a transaction to ensure atomic modifications across elements
+        const transaction = this.db.transaction(() => {
+            if (selected) {
+                this.clearAllSelectionsAndTrack(currentTimestamp);
+            }
+
+            const stmt = this.db.prepare(`
+                INSERT INTO themes (name, selected, json, lastModifyTimestamp)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    selected = excluded.selected,
+                    json = excluded.json,
+                    lastModifyTimestamp = excluded.lastModifyTimestamp
+            `);
+            stmt.run(name, selectedInt, jsonStr, currentTimestamp);
+        });
+
+        transaction();
     }
 
-    clearAllSelections() {
-        const stmt = this.db.prepare('UPDATE themes SET selected = 0');
-        stmt.run();
+    // Clears all active choices and bumps timestamps for the newly deselected options
+    private clearAllSelectionsAndTrack(currentTimestamp: number) {
+        const stmt = this.db.prepare(`
+            UPDATE themes 
+            SET selected = 0, lastModifyTimestamp = ? 
+            WHERE selected = 1
+        `);
+        stmt.run(currentTimestamp);
     }
 
     deleteTheme(name: string): boolean {

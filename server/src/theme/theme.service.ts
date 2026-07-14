@@ -17,6 +17,11 @@ export class ThemeService {
         return [runtimeDefault, ...dbThemes];
     }
 
+    // New service layer entry point to isolate history tracking queries
+    getChangedThemesSince(timestamp: number): string[] {
+        return this.repo.getChangedThemeNames(timestamp);
+    }
+
     save(name: string, incomingData: PartialTheme): Theme {
         if (!name || name.trim() === "") {
             throw new Error("Theme name is required.");
@@ -38,15 +43,13 @@ export class ThemeService {
             mergedTheme = this.deepMerge({}, DEFAULT_THEME, incomingData) as Theme;
         }
 
-        // enforce explicit primary rules overrides
+        // Enforce explicit primary rules overrides
         mergedTheme.name = name;
         mergedTheme.selected = selected;
 
-        if (selected) {
-            this.repo.clearAllSelections();
-        }
-
-        this.repo.saveTheme(mergedTheme);
+        // Drive updates down with a consistent unified system timestamp boundary
+        const currentTimestamp = Date.now();
+        this.repo.saveTheme(mergedTheme, currentTimestamp);
 
         return mergedTheme;
     }
