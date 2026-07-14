@@ -1,5 +1,4 @@
-export type RGB  = [number, number, number];
-export type RGBA = [number, number, number, number];
+import type { RGB, RGBA } from "../../shared/types/color.type";
 export type BBF  = { background: RGBA; border: RGBA; font: RGB };
 
 export interface Theme {
