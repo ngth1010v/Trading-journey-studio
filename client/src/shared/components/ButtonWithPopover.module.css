@@ -2,11 +2,15 @@
 .Container {
     position: relative;
     display: inline-flex; /* Changed to inline-flex to bound tightly to the button */
+    min-width: 100%;
+    min-height: 100%;
 }
 
 .ButtonContainer {
     display: inline-block;
     cursor: pointer;
+    min-width: 100%;
+    min-height: 100%;
 }
 
 /* Base Popup Wrapper */
@@ -15,6 +19,7 @@
     z-index: 100;
     pointer-events: auto;
     min-width: 100%;
+    min-height: 100%;
     
     /* Animation offset targets */
     --offset-x: 0px;
