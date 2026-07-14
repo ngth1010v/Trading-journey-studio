@@ -8,6 +8,7 @@ import { clientServer } from './service-servers/client-server.js';
 
 import { strategies } from './strategies/strategies/strategies.index.js';
 import { shapes } from './strategies/shapes/shapes.index.js';
+import { theme } from './theme/theme.index.js';
 
 
 // =============================================================================================================
@@ -25,6 +26,7 @@ app.use(express.json());
 app.use(marketServer.router);
 app.use(strategies.router)
 app.use(shapes.router)
+app.use(theme.router)
 
 app.get('/', (_req: Request, res: Response) => {
     res.send('Hello World!');
@@ -36,6 +38,7 @@ app.get('/', (_req: Request, res: Response) => {
 // LOGIC STARTUP & SHUTDOWN 
 // =============================================================================================================
 function startup(): void {
+    theme.init()
     marketServer.init();
     clientServer.init();
     strategies.init();
@@ -43,6 +46,7 @@ function startup(): void {
 }
 
 async function shutdown(): Promise<void> {
+    theme.shutdown()
     await marketServer.shutdown();
     await clientServer.shutdown();
     await strategies.shutdown();
