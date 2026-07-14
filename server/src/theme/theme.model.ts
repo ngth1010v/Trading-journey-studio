@@ -1,5 +1,5 @@
-type RGB  = [number, number, number];
-type RGBA = [number, number, number, number];
+import type { RGB, RGBA } from "../shared/type.js";
+
 type BBF  = { background: RGBA, border: RGBA, font: RGB };
 
 export interface Theme {
