@@ -1,0 +1,117 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+  /* overflow-y: auto; */
+  gap: 12px;
+}
+
+.headerContainer {
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.footerContainer {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.contentContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+/* Nesting Boxes Styling */
+.groupContainer {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.groupHeader:hover {
+  filter: brightness(1.15);
+}
+
+.groupTitle {
+  text-align: left;
+}
+
+.chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chevronCollapsed {
+  transform: rotate(-90deg);
+}
+
+/* Animation wrapper for dynamic collapse/uncollapse */
+.collapseWrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.2s ease-in-out;
+}
+
+.collapseWrapperCollapsed {
+  grid-template-rows: 0fr;
+}
+
+/* Ensures overflow is hidden only when collapsing/collapsed or during transition. 
+   When fully expanded, the class 'uncollapsedFinished' is added to prevent clipping.
+*/
+.collapseContent {
+  overflow: hidden;
+}
+
+.uncollapsedFinished {
+  overflow: visible;
+}
+
+.groupContent {
+  min-height: 0; /* Critical for CSS Grid transition to 0fr */
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top-style: solid;
+  border-top-width: 1px;
+}
+
+.inputRow {
+  width: 100%;
+  box-sizing: border-box;
+  transition: opacity 0.2s ease;
+}
+
+/* Fallback handling for missing/undefined paths */
+.disabledInputWrapper {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none; /* Prevents focus/click/picker activation on inputs */
+}
+
+/* Enforce the visual "not-allowed" state when mouse hover triggers over wrapper bounds */
+.disabledInputWrapper * {
+  cursor: not-allowed !important;
+}
