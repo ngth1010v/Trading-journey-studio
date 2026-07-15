@@ -8,8 +8,8 @@ import styles from "./Input.module.css";
 
 // --- Helpers ---
 const toRGBString = (color: RGB | RGBA) => `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-const toRGBAString = (color: RGBA) => `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
-const toHexString = (color: RGBA) => {
+const toRGBAString = (color: RGBA | RGB) => `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] ?? 1})`;
+const toHexString = (color: RGBA | RGB) => {
     const toHex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
     return `#${toHex(color[0])}${toHex(color[1])}${toHex(color[2])}`.toUpperCase();
 };
@@ -33,7 +33,7 @@ function isDuplicate(a: RGBA, b: RGBA) {
     return true;
 }
 
-function getLuminance([r, g, b]: RGBA): number {
+function getLuminance([r, g, b]: RGBA | RGB): number {
     const toLinear = (v: number) => {
         v /= 255;
         return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -101,19 +101,21 @@ export default function ColorInput({
     onTempDataChange,
     newLine = false,
     labelWidth = "30%",
+    alpha = true
 }: {
     label: string;
-    data: RGBA;
-    setData: (val: RGBA) => void;
-    onTempDataChange?: (tempData: RGBA, setTempData: React.Dispatch<React.SetStateAction<RGBA>>) => void;
+    data: RGBA | RGB;
+    setData: (val: RGBA | RGB) => void;
+    onTempDataChange?: (tempData: RGBA | RGB, setTempData: React.Dispatch<React.SetStateAction<RGBA | RGB>>) => void;
     newLine?: boolean;
     labelWidth?: string;
+    alpha?: boolean;
 }) {
     const themeContext = useThemeData();
     const instanceId = useId();
 
     const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() => themeContext.get(themeContext.getSelectedName()));
-    const [tempValue, setTempValue] = useState<RGBA>(data);
+    const [tempValue, setTempValue] = useState<RGBA | RGB>(data);
     const [customColors, setCustomColors] = useState<DbColor[]>([]);
     const [remountKey, setRemountKey] = useState<number>(0);
 
@@ -124,8 +126,6 @@ export default function ColorInput({
         return () => themeContext.removeOnSelectedThemeChange(instanceId);
     }, [themeContext, instanceId]);
 
-
-
     useEffect(() => {
         setTempValue(data);
     }, [data]);
@@ -135,13 +135,15 @@ export default function ColorInput({
     const saveTheme = currentTheme?.button.primary1; 
 
     const commitValue = (val: RGBA) => {
-        setData(val);
-        setTempValue(val);
-        onTempDataChange?.(val, setTempValue);
+        const finalValue = alpha ? val : [val[0], val[1], val[2]] as RGB;
+        setData(finalValue);
+        setTempValue(finalValue);
+        onTempDataChange?.(finalValue, setTempValue as any);
     };
 
-    const handleOpacityChange = (alpha: number, isFinal: boolean = false) => {
-        const newColor: RGBA = [tempValue[0], tempValue[1], tempValue[2], alpha];
+    const handleOpacityChange = (opacityVal: number, isFinal: boolean = false) => {
+        if (!alpha) return;
+        const newColor: RGBA = [tempValue[0], tempValue[1], tempValue[2], opacityVal];
         setTempValue(newColor);
         if (isFinal) {
             commitValue(newColor);
@@ -195,7 +197,7 @@ export default function ColorInput({
                     }
                     
                     setCustomColors(updatedList);
-                    commitValue([finalColor[0], finalColor[1], finalColor[2], tempValue[3]]);
+                    commitValue([finalColor[0], finalColor[1], finalColor[2], tempValue[3] ?? 1]);
                     setRemountKey(prev => prev + 1); // Auto remount on changes
                     document.body.click(); 
                 }
@@ -236,7 +238,7 @@ export default function ColorInput({
             <div 
                 className={styles.colorSquare} 
                 style={{ backgroundColor: toRGBString(dbColor!.color) }} 
-                onClick={() => commitValue([dbColor!.color[0], dbColor!.color[1], dbColor!.color[2], tempValue[3]])} 
+                onClick={() => commitValue([dbColor!.color[0], dbColor!.color[1], dbColor!.color[2], tempValue[3] ?? 1])} 
             />
         );
 
@@ -256,12 +258,12 @@ export default function ColorInput({
             <div className={styles.colorSection}>
                 <div className={styles.colorGrid}>
                     {BASE_G1.map((c, i) => (
-                        <div key={`g1-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3]])} />
+                        <div key={`g1-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 1])} />
                     ))}
                 </div>
                 <div className={styles.colorGrid}>
                     {BASE_G2.map((c, i) => (
-                        <div key={`g2-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3]])} />
+                        <div key={`g2-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 1])} />
                     ))}
                 </div>
             </div>
@@ -271,7 +273,7 @@ export default function ColorInput({
             <div className={styles.colorSection}>
                 <div className={styles.colorGrid}>
                     {themeColors.slice(0, 30).map((c, i) => (
-                        <div key={`thm-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3]])} />
+                        <div key={`thm-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 1])} />
                     ))}
                 </div>
             </div>
@@ -286,28 +288,32 @@ export default function ColorInput({
                         </div>
                     ))}
                     <div className={styles.colorSquareContainer}>
+                        <div className={styles.colorSquareContainer}>
                         <EditColorPopover isNew={true} />
+                    </div>
                     </div>
                 </div>
             </div>
 
-            <div className={styles.opacitySection}>
-                <div style={{ fontSize: "11px", opacity: 0.8 }}>Opacity</div>
-                <input 
-                    type="range" 
-                    min="0" max="100" 
-                    value={Math.round(tempValue[3] * 100)} 
-                    onChange={(e) => handleOpacityChange(Number(e.target.value) / 100, false)}
-                    onMouseUp={(e) => handleOpacityChange(Number((e.target as HTMLInputElement).value) / 100, true)}
-                    className={styles.opacitySlider}
-                />
-                <input 
-                    type="text" 
-                    value={`${Math.round(tempValue[3] * 100)}%`}
-                    onChange={(e) => handleOpacityChange(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) / 100, true)}
-                    className={styles.opacityNumber}
-                />
-            </div>
+            {alpha && (
+                <div className={styles.opacitySection}>
+                    <div style={{ fontSize: "11px", opacity: 0.8 }}>Opacity</div>
+                    <input 
+                        type="range" 
+                        min="0" max="100" 
+                        value={Math.round((tempValue[3] ?? 1) * 100)} 
+                        onChange={(e) => handleOpacityChange(Number(e.target.value) / 100, false)}
+                        onMouseUp={(e) => handleOpacityChange(Number((e.target as HTMLInputElement).value) / 100, true)}
+                        className={styles.opacitySlider}
+                    />
+                    <input 
+                        type="text" 
+                        value={`${Math.round((tempValue[3] ?? 1) * 100)}%`}
+                        onChange={(e) => handleOpacityChange(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) / 100, true)}
+                        className={styles.opacityNumber}
+                    />
+                </div>
+            )}
         </div>
     );
 
