@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useId, useMemo } from "react";
-import ButtonWithPopover from "../../shared/components/ButtonWithPopover";
-import { useThemeData } from "../theme/useThemeData";
-import type { Theme } from "../theme/type";
-import type { RGB, RGBA } from "../../shared/types/color.type";
-import { colorApi, type DbColor } from "./ColorApi";
+import ButtonWithPopover from "../../../shared/components/ButtonWithPopover";
+import { useThemeData } from "../../theme/useThemeData";
+import type { Theme } from "../../theme/type";
+import type { RGB, RGBA } from "../../../shared/types/color.type";
+import { colorApi, type DbColor } from "../api/ColorApi";
 import styles from "./Input.module.css";
 
 // --- Helpers ---

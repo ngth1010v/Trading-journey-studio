@@ -1,4 +1,4 @@
-import type { RGBA } from "../../shared/types/color.type";
+import type { RGBA } from "../../../shared/types/color.type";
 
 export interface DbColor {
     id: number;
