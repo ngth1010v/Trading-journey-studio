@@ -18,7 +18,7 @@ export class ColorService {
     }));
   }
 
-  public saveColor(colorData: Partial<Color>): { success: boolean; id: number } {
+  public saveColor(colorData: Partial<Color>): { success: boolean; data: {id: number} } {
     if (!this.validateRGBA(colorData.color)) {
       throw new Error("Invalid RGBA format. Must be an array of 4 numbers [0-255].");
     }
@@ -31,12 +31,12 @@ export class ColorService {
       const existing = this.repo.getById(colorData.id);
       if (existing) {
         this.repo.update(colorData.id, colorJson, timestamp);
-        return { success: true, id: colorData.id };
+        return { success: true, data: {id: colorData.id }};
       }
     }
 
     const newId = this.repo.create(colorJson, timestamp);
-    return { success: true, id: newId };
+    return { success: true, data: {id: newId} };
   }
 
   public deleteColor(id: number): boolean {

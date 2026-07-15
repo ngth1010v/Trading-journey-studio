@@ -137,7 +137,7 @@
   background: transparent;
   color: inherit;
   outline: none;
-  padding: 6px 4px; /* Adjusted padding to replace dataBox native padding */
+  padding: 6px 4px;
   font-family: inherit;
   font-size: 14px;
   width: 100%; 
@@ -162,7 +162,6 @@
   font-weight: bold;
 }
 
-
 /* ---------- Dynamic Scrollbar ---------- */
 .textareaBox,
 .dropdownMenu {
@@ -171,7 +170,7 @@
 
 /* Chromium */
 .textareaBox::-webkit-scrollbar,
-.dropdownMenu::-webkit-scrollbar {
+.dropdownMenu::-webkit-webkit-scrollbar {
   width: 10px;
 }
 
@@ -190,4 +189,153 @@
 .textareaBox::-webkit-scrollbar-thumb:hover,
 .dropdownMenu::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
+}
+
+/* --- ColorInput Specifics --- */
+.colorPreviewBox {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  margin-right: 8px;
+}
+
+.colorMainPopup {
+  padding: 10px;
+  width: fit-content;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.colorDiviver { 
+  width: 100%;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.colorSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(10, calc((100% - 9px) / 10));
+  gap: 1px;
+}
+
+.colorSquareContainer {
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+  aspect-ratio: 1;
+}
+
+.colorSquare {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
+  transition: transform 0.1s ease;
+}
+
+.colorSquare:hover {
+  transform: scale(1.15);
+  z-index: 5;
+  border-color: var(--font-color);
+}
+
+.colorAddBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: rgba(0,0,0,0.05);
+}
+
+.opacitySection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.opacitySlider {
+  flex: 1;
+  cursor: pointer;
+  width: 50px;
+  height: 5px;
+}
+
+.opacityNumber {
+  width: 30px;
+  padding: 4px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: inherit;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* --- Color Edit Popup --- */
+.editPopup {
+  padding: 12px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  gap: 12px;
+  width: 200px;
+}
+
+.editLeft {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.editRight {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.editRow {
+  display: flex;
+  gap: 4px;
+}
+
+.editInput {
+  width: 100%;
+  padding: 4px;
+  font-size: 11px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: inherit;
+  border-radius: 2px;
+}
+
+.editSaveBtn {
+  padding: 4px 0;
+  font-size: 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 4px;
 }

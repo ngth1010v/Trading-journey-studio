@@ -5,7 +5,7 @@ export function createColorRouter(service: ColorService): Router {
   const router = Router();
 
   // GET /api/colors
-  router.get("/", (_req: Request, res: Response) => {
+  router.get("/api/colors", (_req: Request, res: Response) => {
     try {
       const colors = service.getAllColors();
       res.json(colors);
@@ -15,7 +15,7 @@ export function createColorRouter(service: ColorService): Router {
   });
 
   // POST /api/colors
-  router.post("/", (req: Request, res: Response) => {
+  router.post("/api/colors", (req: Request, res: Response) => {
     try {
       const result = service.saveColor(req.body);
       res.status(200).json(result);
@@ -25,7 +25,7 @@ export function createColorRouter(service: ColorService): Router {
   });
 
   // DELETE /api/colors/:id
-  router.delete("/:id", (req: Request, res: Response) => {
+  router.delete("/api/colors/:id", (req: Request, res: Response) => {
     try {
 
         if (Array.isArray(req.params.id)) {
