@@ -331,6 +331,7 @@ export default function ColorInput({
                     type="hover"
                     position="bottom"
                     align="end"
+                    buttonWidth="100%"
                     button={DataBoxButton}
                     popup={MainPopover}
                 />

@@ -1,16 +1,22 @@
 /* Core Layout Wrapper */
 .Container {
     position: relative;
-    display: inline-flex; /* Changed to inline-flex to bound tightly to the button */
+    /* display: inline-flex;
     min-width: 100%;
-    min-height: 100%;
+    min-height: 100%; */
 }
 
 .ButtonContainer {
+    position: relative; /* Changed to relative as requested */
     display: inline-block;
     cursor: pointer;
-    min-width: 100%;
-    min-height: 100%;
+}
+
+/* Invisible Bridge Layer to hold mouse hover states between gap */
+.Buffer {
+    position: absolute;
+    opacity: 0;
+    z-index: 99;
 }
 
 /* Base Popup Wrapper */
@@ -18,8 +24,6 @@
     position: absolute;
     z-index: 100;
     pointer-events: auto;
-    min-width: 100%;
-    min-height: 100%;
     
     /* Animation offset targets */
     --offset-x: 0px;
@@ -30,14 +34,20 @@
    POSITION MODIFIERS
    ========================================================================== */
 
-/* --- TOP & BOTTOM (Align modifies Horizontal Placement) --- */
+/* --- TOP & BOTTOM --- */
 .Top {
     flex-direction: column-reverse;
 }
 .Top .PopupContainer {
     bottom: 100%;
-    padding-bottom: 5px; /* Safe gap layout */
+    margin-bottom: 5px; /* Safe gap layout */
     --offset-y: 10px;
+}
+.Top .Buffer {
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    height: 5px; /* Fills the 5px gap */
 }
 
 .Bottom {
@@ -45,8 +55,14 @@
 }
 .Bottom .PopupContainer {
     top: 100%;
-    padding-top: 5px; /* Safe gap layout */
+    margin-top: 5px; /* Safe gap layout */
     --offset-y: -10px;
+}
+.Bottom .Buffer {
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 5px; /* Fills the 5px gap */
 }
 
 /* Horizontal alignment configs for Top / Bottom */
@@ -65,14 +81,20 @@
 .Top.AlignEnd .PopupContainer, .Bottom.AlignEnd .PopupContainer { right: 0; }
 
 
-/* --- LEFT & RIGHT (Align modifies Vertical Placement) --- */
+/* --- LEFT & RIGHT --- */
 .Left {
     flex-direction: row-reverse;
 }
 .Left .PopupContainer {
     right: 100%;
-    padding-right: 5px; /* Safe gap layout */
+    margin-right: 5px; /* Safe gap layout */
     --offset-x: 10px;
+}
+.Left .Buffer {
+    right: 100%;
+    top: 0;
+    bottom: 0;
+    width: 5px; /* Fills the 5px gap */
 }
 
 .Right {
@@ -80,8 +102,14 @@
 }
 .Right .PopupContainer {
     left: 100%;
-    padding-left: 5px; /* Safe gap layout */
+    margin-left: 5px; /* Safe gap layout */
     --offset-x: -10px;
+}
+.Right .Buffer {
+    left: 100%;
+    top: 0;
+    bottom: 0;
+    width: 5px; /* Fills the 5px gap */
 }
 
 /* Vertical alignment configs for Left / Right */
@@ -111,7 +139,6 @@
     animation: popupOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* --- Standard Keyframes (AlignStart and AlignEnd) --- */
 @keyframes popupIn {
     from { opacity: 0; transform: translate(var(--offset-x), var(--offset-y)); }
     to { opacity: 1; transform: translate(0, 0); }
@@ -121,7 +148,6 @@
     to { opacity: 0; transform: translate(var(--offset-x), var(--offset-y)); }
 }
 
-/* --- Custom Keyframes to preserve the center translate(-50%, 0) on Y Axis --- */
 @keyframes popupInCenteredY {
     from { opacity: 0; transform: translate(calc(-50% + var(--offset-x)), var(--offset-y)); }
     to { opacity: 1; transform: translate(-50%, 0); }
@@ -131,7 +157,6 @@
     to { opacity: 0; transform: translate(calc(-50% + var(--offset-x)), var(--offset-y)); }
 }
 
-/* --- Custom Keyframes to preserve the center translate(0, -50%) on X Axis --- */
 @keyframes popupInCenteredX {
     from { opacity: 0; transform: translate(var(--offset-x), calc(-50% + var(--offset-y))); }
     to { opacity: 1; transform: translate(0, -50%); }

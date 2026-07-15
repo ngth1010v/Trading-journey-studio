@@ -175,6 +175,8 @@ export default function RatioInput({
                     type="hover"
                     position="bottom"
                     align="end"
+                    buttonWidth="100%"
+                    popupWidth="100%"
                     button={DataBoxButton}
                     popup={PopoverMenu}
                 />

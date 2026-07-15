@@ -5,6 +5,10 @@ export default function ButtonWithPopover({
     type = "click",
     position = "bottom",
     align = "center",
+    buttonWidth = "fit-content",
+    buttonHeight = "fit-content",
+    popupWidth = "fit-content",
+    popupHeight = "fit-content",
     onPopupOpen,
     onPopupClose,
     button,
@@ -13,6 +17,10 @@ export default function ButtonWithPopover({
     type?: "hover" | "click";
     position?: "top" | "right" | "bottom" | "left";
     align?: "start" | "center" | "end";
+    buttonWidth ?: string;
+    buttonHeight?: string;
+    popupWidth  ?: string;
+    popupHeight ?: string;
     onPopupOpen?: () => void;
     onPopupClose?: () => void;
     button: React.ReactNode;
@@ -20,7 +28,10 @@ export default function ButtonWithPopover({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isRendered, setIsRendered] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+    
+    const buttonRef = useRef<HTMLDivElement>(null);
+    const bufferRef = useRef<HTMLDivElement>(null);
+    const popupRef = useRef<HTMLDivElement>(null);
 
     // Sync rendering state with open state
     useEffect(() => {
@@ -30,12 +41,18 @@ export default function ButtonWithPopover({
         }
     }, [isOpen, onPopupOpen]);
 
-    // Handle clicking outside to close (Only for type="click")
+    // Handle clicking outside all three pieces to close (Only for type="click")
     useEffect(() => {
         if (type !== "click" || !isOpen) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            
+            const clickedInsideButton = buttonRef.current?.contains(target);
+            const clickedInsideBuffer = bufferRef.current?.contains(target);
+            const clickedInsidePopup = popupRef.current?.contains(target);
+
+            if (!clickedInsideButton && !clickedInsideBuffer && !clickedInsidePopup) {
                 setIsOpen(false);
             }
         };
@@ -56,6 +73,13 @@ export default function ButtonWithPopover({
         }
     };
 
+    // Only allow entering the buffer/popup to trigger 'open' if it hasn't already begun closing
+    const handleSubElementMouseEnter = () => {
+        if (type === "hover" && isOpen) {
+            setIsOpen(true);
+        }
+    };
+
     const handleMouseLeave = () => {
         if (type === "hover") {
             setIsOpen(false);
@@ -69,27 +93,43 @@ export default function ButtonWithPopover({
         }
     };
 
-    // Capitalize strings for dynamic class map matches (e.g., Top, Bottom, Start, Center, End)
     const posClass = position.charAt(0).toUpperCase() + position.slice(1);
     const alignClass = align.charAt(0).toUpperCase() + align.slice(1);
-
     const combinedClassName = `${style.Container} ${style[posClass]} ${style[`Align${alignClass}`]}`;
 
     return (
-        <div 
-            ref={containerRef} 
-            className={combinedClassName}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-        >
-            <div className={style.ButtonContainer} onClick={handleButtonClick}>
+        <div className={combinedClassName}>
+            {/* 1. BUTTON PART */}
+            <div 
+                ref={buttonRef}
+                className={style.ButtonContainer} 
+                onClick={handleButtonClick}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                style={{ width: buttonWidth, height: buttonHeight }}
+            >
                 {button}
             </div>
             
+            {/* 2. BUFFER PART */}
+            {isRendered && (
+                <div
+                    ref={bufferRef}
+                    className={style.Buffer}
+                    onMouseEnter={handleSubElementMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                />
+            )}
+
+            {/* 3. POPUP PART */}
             {isRendered && (
                 <div 
+                    ref={popupRef}
                     className={`${style.PopupContainer} ${isOpen ? style.Open : style.Close}`}
                     onAnimationEnd={handleAnimationEnd}
+                    onMouseEnter={handleSubElementMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    style={{ width: popupWidth, height: popupHeight }}
                 >
                     {popup}
                 </div>

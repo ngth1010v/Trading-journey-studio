@@ -74,6 +74,7 @@ export default function SourceBar({
                     type="hover"
                     position="bottom"
                     align="start"
+                    popupWidth="100%"
                     button={
                         <div className={styles.button}>
                             {symbol}
@@ -107,6 +108,7 @@ export default function SourceBar({
                     type="hover"
                     position="bottom"
                     align="start"
+                    popupWidth="100%"
                     button={
                         <div className={styles.button}>
                             {timeframe}
@@ -139,6 +141,7 @@ export default function SourceBar({
                 type="hover"
                 position="bottom"
                 align="start"
+                popupWidth="100%"
                 button={
                     <div
                         className={styles.button}
