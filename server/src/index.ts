@@ -4,7 +4,6 @@ import { Server } from 'node:http';
 import { logger } from './logger.js';
 
 import { marketServer } from './service-servers/markets-server.js';
-import { clientServer } from './service-servers/client-server.js';
 
 import { strategies } from './strategies/strategies/strategies.index.js';
 import { shapes } from './strategies/shapes/shapes.index.js';
@@ -42,8 +41,6 @@ app.get('/', (_req: Request, res: Response) => {
 function startup(): void {
     color.init()
     theme.init()
-    marketServer.init();
-    clientServer.init();
     strategies.init();
     logger.info(_SECTION, 'Start up done!');
 }
@@ -51,8 +48,6 @@ function startup(): void {
 async function shutdown(): Promise<void> {
     color.shutdown()
     theme.shutdown()
-    await marketServer.shutdown();
-    await clientServer.shutdown();
     await strategies.shutdown();
     logger.info(_SECTION, 'Shutdown done!');
 }
