@@ -98,7 +98,7 @@ export default function ButtonWithPopover({
     const combinedClassName = `${style.Container} ${style[posClass]} ${style[`Align${alignClass}`]}`;
 
     return (
-        <div className={combinedClassName}>
+        <div className={combinedClassName} style={{ width: buttonWidth, height: buttonHeight }}>
             {/* 1. BUTTON PART */}
             <div 
                 ref={buttonRef}
