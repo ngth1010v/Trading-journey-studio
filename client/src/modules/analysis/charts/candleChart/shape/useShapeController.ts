@@ -82,7 +82,7 @@ export default function useShapeController(
     //======================================================================================================
     const updateShapeBoundaries = (shape: Shape) => {
         const tValues = Object.keys(shape.data)
-            .filter(k => k.startsWith("t") && typeof shape.data[k] === "number")
+            .filter(k => k.startsWith("t") && typeof shape.data[k] === "number" && !isNaN(shape.data[k]))
             .map(k => shape.data[k]);
 
         if (tValues.length > 0) {
@@ -134,13 +134,12 @@ export default function useShapeController(
         const shapeDef = (SHAPE_MAP as any)[activeShape.type];
         if (!shapeDef) return;
 
-        // Draw edit anchors if in edit mode
         const editPoints = shapeDef.editPoints.edit;
         Object.keys(editPoints).forEach(posFormula => {
             const [t, p] = parsePosition(posFormula, activeShape.data);
             
-            // Do not draw an anchor if the point is unselected/undefined
-            if (isNaN(t) || isNaN(p)) return;
+            // Validate that evaluation resolved to numeric screen coordinates
+            if (t === undefined || p === undefined || isNaN(t) || isNaN(p)) return;
 
             const x = viewport.timestampToPixel(t);
             const y = viewport.priceToPixel(p);

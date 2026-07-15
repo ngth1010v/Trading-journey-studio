@@ -178,7 +178,6 @@ export function flattenContext(shape: any): Record<string, any> {
     flattenObj(shape.styles, "style");
     return flat;
 }
-
 /**
  * Parses a combined position string like "(t0+t1)/2 p0" into [timestamp, price]
  */
