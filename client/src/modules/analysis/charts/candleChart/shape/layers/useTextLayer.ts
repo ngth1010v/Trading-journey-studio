@@ -2,6 +2,8 @@ import { useRef } from "react";
 import { Application, Container, Geometry, Mesh, Shader, Buffer, BufferUsage, Cache, Assets } from "pixi.js";
 import type { Viewport } from "../../chart/viewport/useViewport";
 import { CONFIG } from "../../shared/config";
+import type { RGB } from "../../../../../../shared/types/color.type";
+
 
 //======================================================================================================
 // PUBLIC TYPES
@@ -10,7 +12,7 @@ export type Text = {
   text: string;
   timestamp: number;
   price: number;
-  color: [number, number, number]; // rgb [0..255, 0..255, 0..255]
+  color: RGB; // rgb [0..255, 0..255, 0..255]
   size: number;
   alignX: "left" | "center" | "right";
   alignY: "top" | "center" | "bottom";

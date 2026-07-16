@@ -78,7 +78,7 @@ export function renderShapeToLayers(shape: Shape, layers: RenderLayers) {
                 price,
 
                 color:
-                    style.color?.slice?.(1, 4) ??
+                    style.color ??
                     [255, 255, 255],
 
                 size: style.size ?? 14,

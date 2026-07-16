@@ -1,14 +1,15 @@
 import { useRef } from "react";
-import { Application, Container, Geometry, Mesh, Shader, Buffer, BufferUsage  } from "pixi.js";
+import { Application, Container, Geometry, Mesh, Shader, Buffer, BufferUsage } from "pixi.js";
 import type { Viewport } from "../../chart/viewport/useViewport";
 import { CONFIG } from "../../shared/config";
+import type { RGBA } from "../../../../../../shared/types/color.type";
 
 //======================================================================================================
 // PUBLIC TYPES
 //======================================================================================================
 export type Line = {
   thickness   ?: number;
-  color       ?: [number, number, number, number]; // rgba
+  color       ?: RGBA;
   timestamp1  ?: number;
   timestamp2  ?: number;
   price1      ?: number;
@@ -29,14 +30,11 @@ type ContainerLike = Container & { removeChildren: () => ContainerLike[]; };
 //======================================================================================================
 // CONSTANTS & STRIDE CONFIGURATION
 //======================================================================================================
-// Stride layout: 
-// [cornerX, cornerY, thickness, R, G, B, A, p1X, p1Y, p2X, p2Y] = 11 floats per vertex
 const FLOATS_PER_VERTEX = 11;
 const VERTICES_PER_LINE = 6;
 const FLOATS_PER_LINE = VERTICES_PER_LINE * FLOATS_PER_VERTEX;
-const STRIDE_BYTES = FLOATS_PER_VERTEX * 4; // 44 bytes
+const STRIDE_BYTES = FLOATS_PER_VERTEX * 4;
 
-// Quad corner template matrices configurations
 const CORNERS = [
   [0, -1], [1, -1], [1,  1],
   [0, -1], [1,  1], [0,  1]
@@ -119,7 +117,6 @@ export default function useLineLayer(): LineLayer {
   const shaderRef = useRef<Shader | null>(null);
   const pixiBufferRef = useRef<Buffer | null>(null);
 
-  // Single Master Interleaved Buffer Staging Array Reference
   const lineCountRef = useRef<number>(0);
   const interleavedArrayRef = useRef<Float32Array>(new Float32Array(0));
 
@@ -135,10 +132,7 @@ export default function useLineLayer(): LineLayer {
 
     const maxLines = CONFIG.LINES_LAYER.MAX_LINES;
     lineCountRef.current = 0;
-    
-    // Allocate the unified single array instantly
     interleavedArrayRef.current = new Float32Array(maxLines * FLOATS_PER_LINE);
-
     shaderRef.current = buildLineShader(viewport);
   };
 
@@ -146,14 +140,12 @@ export default function useLineLayer(): LineLayer {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    const currentIdx = lineCountRef.current;
-    if (currentIdx >= CONFIG.LINES_LAYER.MAX_LINES) {
+    if (lineCountRef.current >= CONFIG.LINES_LAYER.MAX_LINES) {
       throw new Error("Line layer capacity limit has been reached.");
     }
 
-
     if (
-      line.thickness === undefined || line.color === undefined ||
+      line.thickness === undefined || !line.color ||
       line.timestamp1 === undefined || line.price1 === undefined ||
       line.timestamp2 === undefined || line.price2 === undefined
     ) {
@@ -163,7 +155,6 @@ export default function useLineLayer(): LineLayer {
     const tWeights = viewport.getTimestampToPixelWeights();
     const pWeights = viewport.getPriceToPixelWeights();
 
-    // Instant layout offsetting configuration shifts values directly to local float space metrics safely
     const t1 = line.timestamp1 - tWeights.offset;
     const p1 = line.price1 - pWeights.offset;
     const t2 = line.timestamp2 - tWeights.offset;
@@ -173,37 +164,30 @@ export default function useLineLayer(): LineLayer {
     const rf = r / 255, gf = g / 255, bf = b / 255, af = a / 255;
 
     const arr = interleavedArrayRef.current;
-    let ptr = currentIdx * FLOATS_PER_LINE;
+    let ptr = lineCountRef.current * FLOATS_PER_LINE;
 
-    // Fast inline construction loops filling 6 sequential vertices layout structures instantly
     for (let i = 0; i < VERTICES_PER_LINE; i++) {
-      arr[ptr++] = CORNERS[i][0]; // aCorner.x
-      arr[ptr++] = CORNERS[i][1]; // aCorner.y
-      arr[ptr++] = line.thickness;// aThickness
-      arr[ptr++] = rf;            // aColor.r
-      arr[ptr++] = gf;            // aColor.g
-      arr[ptr++] = bf;            // aColor.b
-      arr[ptr++] = af;            // aColor.a
-      arr[ptr++] = t1;            // aLineStart.x
-      arr[ptr++] = p1;            // aLineStart.y
-      arr[ptr++] = t2;            // aLineEnd.x
-      arr[ptr++] = p2;            // aLineEnd.y
+      arr[ptr++] = CORNERS[i][0];
+      arr[ptr++] = CORNERS[i][1];
+      arr[ptr++] = line.thickness;
+      arr[ptr++] = rf;
+      arr[ptr++] = gf;
+      arr[ptr++] = bf;
+      arr[ptr++] = af;
+      arr[ptr++] = t1;
+      arr[ptr++] = p1;
+      arr[ptr++] = t2;
+      arr[ptr++] = p2;
     }
 
     lineCountRef.current++;
   };
 
   const flush = (): void => {
-    if (geometryRef.current) {
-      geometryRef.current.destroy();
-      geometryRef.current = null;
-    }
-    if (pixiBufferRef.current) {
-      pixiBufferRef.current.destroy();
-      pixiBufferRef.current = null;
-    }
+    if (geometryRef.current) { geometryRef.current.destroy(); geometryRef.current = null; }
+    if (pixiBufferRef.current) { pixiBufferRef.current.destroy(); pixiBufferRef.current = null; }
   };
-// 3. UPDATE: draw() - Fix the buffer fast path
+
   const draw = (): void => {
     const app = appRef.current;
     const viewport = viewportRef.current;
@@ -224,9 +208,7 @@ export default function useLineLayer(): LineLayer {
 
     if (shaderRef.current) {
       const shaderAny = shaderRef.current as any;
-      if (globalUniforms) {
-        shaderAny.resources.uLineUniforms.uniforms.uProjectionMatrix = globalUniforms;
-      }
+      if (globalUniforms) shaderAny.resources.uLineUniforms.uniforms.uProjectionMatrix = globalUniforms;
       const lineUniforms = shaderAny.resources?.uLineUniforms?.uniforms;
       if (lineUniforms) {
         lineUniforms.uTimestampShaderWeights = [tWeights.multiplication, tWeights.addition];
@@ -234,64 +216,48 @@ export default function useLineLayer(): LineLayer {
       }
     }
 
-    // Hoisted slice for both creation and update paths
     const activeDataSlice = interleavedArrayRef.current.subarray(0, count * FLOATS_PER_LINE);
 
     if (!geometryRef.current) {
       pixiBufferRef.current = new Buffer({ data: activeDataSlice, usage: BufferUsage.VERTEX, shrinkToFit: false });
-
       const geometry = new Geometry();
-      geometry.addAttribute("aCorner",    { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 0 * 4 });
+      geometry.addAttribute("aCorner", { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 0 * 4 });
       geometry.addAttribute("aThickness", { buffer: pixiBufferRef.current, size: 1, stride: STRIDE_BYTES, offset: 2 * 4 });
-      geometry.addAttribute("aColor",     { buffer: pixiBufferRef.current, size: 4, stride: STRIDE_BYTES, offset: 3 * 4 });
+      geometry.addAttribute("aColor", { buffer: pixiBufferRef.current, size: 4, stride: STRIDE_BYTES, offset: 3 * 4 });
       geometry.addAttribute("aLineStart", { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 7 * 4 });
-      geometry.addAttribute("aLineEnd",   { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 9 * 4 });
-
+      geometry.addAttribute("aLineEnd", { buffer: pixiBufferRef.current, size: 2, stride: STRIDE_BYTES, offset: 9 * 4 });
       geometryRef.current = geometry;
-
+      
       if (meshRef.current) {
         layerRef.current?.removeChildren();
         meshRef.current.destroy();
       }
-
       meshRef.current = new Mesh({ geometry, shader: shaderRef.current } as any);
       layerRef.current?.addChild(meshRef.current);
-    } else {
-      // Corrected fast path
-      if (pixiBufferRef.current) {
-        pixiBufferRef.current.data = activeDataSlice;
-        pixiBufferRef.current.update(activeDataSlice.byteLength);
-      }
+    } else if (pixiBufferRef.current) {
+      pixiBufferRef.current.data = activeDataSlice;
+      pixiBufferRef.current.update(activeDataSlice.byteLength);
     }
   };
 
-  const clean = (): void => {
-    lineCountRef.current = 0;
-  };
+  const clean = (): void => { lineCountRef.current = 0; };
 
   const destroy = (): void => {
     if (meshRef.current) { meshRef.current.destroy(); meshRef.current = null; }
     if (geometryRef.current) { geometryRef.current.destroy(); geometryRef.current = null; }
     if (shaderRef.current) { shaderRef.current.destroy(); shaderRef.current = null; }
     if (pixiBufferRef.current) { pixiBufferRef.current.destroy(); pixiBufferRef.current = null; }
-    
     if (layerRef.current) {
       const stage = (appRef.current as any)?.stage;
-      if (stage?.children?.includes(layerRef.current)) {
-        try { stage.removeChild(layerRef.current); } catch {}
-      }
+      if (stage?.children?.includes(layerRef.current)) try { stage.removeChild(layerRef.current); } catch {}
       layerRef.current.destroy();
       layerRef.current = null;
     }
-
     appRef.current = null;
     viewportRef.current = null;
   };
 
   const apiRef = useRef<LineLayer | null>(null);
-  if (!apiRef.current) {
-    apiRef.current = { init, add, flush, draw, clean, destroy };
-  }
-
+  if (!apiRef.current) apiRef.current = { init, add, flush, draw, clean, destroy };
   return apiRef.current;
 }

@@ -2,12 +2,14 @@ import { useRef } from "react";
 import { Application, Container, Geometry, Mesh, Shader, Buffer, BufferUsage } from "pixi.js";
 import type { Viewport } from "../../chart/viewport/useViewport";
 import { CONFIG } from "../../shared/config";
+import type { RGBA } from "../../../../../../shared/types/color.type";
+
 
 //======================================================================================================
 // PUBLIC TYPES
 //======================================================================================================
 export type Triangle = {
-  color     : [number, number, number, number]; // rgba 
+  color     : RGBA; // rgba 
   timestamp : [number, number, number];         // point1, point2, point3
   price     : [number, number, number];         // point1, point2, point3
 };
