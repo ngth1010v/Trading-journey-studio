@@ -32,10 +32,8 @@ export default function ButtonWithPopover({
     open: externalOpen,
     setOpen: externalSetOpen
 }: ButtonWithPopoverProps) {
-    // Internal state used when uncontrolled
     const [internalOpen, setInternalOpen] = useState(false);
     
-    // Determine controlled vs uncontrolled state
     const isControlled = externalOpen !== undefined && externalOpen !== null;
     const isOpen = isControlled ? externalOpen : internalOpen;
 
@@ -51,12 +49,8 @@ export default function ButtonWithPopover({
     };
 
     const [isRendered, setIsRendered] = useState(isOpen);
-    
-    const buttonRef = useRef<HTMLDivElement>(null);
-    const bufferRef = useRef<HTMLDivElement>(null);
-    const popupRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    // Sync rendering state with open state
     useEffect(() => {
         if (isOpen) {
             setIsRendered(true);
@@ -64,18 +58,12 @@ export default function ButtonWithPopover({
         }
     }, [isOpen, onPopupOpen]);
 
-    // Handle clicking outside all three pieces to close (Only for type="click")
+    // Click outside listener: target the entire container sub-tree
     useEffect(() => {
         if (type !== "click" || !isOpen) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as Node;
-            
-            const clickedInsideButton = buttonRef.current?.contains(target);
-            const clickedInsideBuffer = bufferRef.current?.contains(target);
-            const clickedInsidePopup = popupRef.current?.contains(target);
-
-            if (!clickedInsideButton && !clickedInsideBuffer && !clickedInsidePopup) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         };
@@ -96,7 +84,6 @@ export default function ButtonWithPopover({
         }
     };
 
-    // Only allow entering the buffer/popup to trigger 'open' if it hasn't already begun closing
     const handleSubElementMouseEnter = () => {
         if (type === "hover" && isOpen) {
             setIsOpen(true);
@@ -121,15 +108,17 @@ export default function ButtonWithPopover({
     const combinedClassName = `${style.Container} ${style[posClass]} ${style[`Align${alignClass}`]}`;
 
     return (
-        <div className={combinedClassName} style={{ width: buttonWidth, height: buttonHeight }}>
+        <div 
+            ref={containerRef}
+            className={combinedClassName} 
+            style={{ width: buttonWidth, height: buttonHeight }}
+        >
             {/* 1. BUTTON PART */}
             <div 
-                ref={buttonRef}
                 className={style.ButtonContainer} 
                 onClick={handleButtonClick}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
-                style={{ width: buttonWidth, height: buttonHeight }}
             >
                 {button}
             </div>
@@ -137,7 +126,6 @@ export default function ButtonWithPopover({
             {/* 2. BUFFER PART */}
             {isRendered && (
                 <div
-                    ref={bufferRef}
                     className={style.Buffer}
                     onMouseEnter={handleSubElementMouseEnter}
                     onMouseLeave={handleMouseLeave}
@@ -147,7 +135,6 @@ export default function ButtonWithPopover({
             {/* 3. POPUP PART */}
             {isRendered && (
                 <div 
-                    ref={popupRef}
                     className={`${style.PopupContainer} ${isOpen ? style.Open : style.Close}`}
                     onAnimationEnd={handleAnimationEnd}
                     onMouseEnter={handleSubElementMouseEnter}

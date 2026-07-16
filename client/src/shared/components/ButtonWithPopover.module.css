@@ -1,135 +1,125 @@
-/* Core Layout Wrapper */
+/* Core Outer Container */
 .Container {
     position: relative;
-    /* display: inline-flex;
-    min-width: 100%;
-    min-height: 100%; */
+    display: inline-block;
 }
 
 .ButtonContainer {
-    position: relative; /* Changed to relative as requested */
+    position: relative;
     display: inline-block;
     cursor: pointer;
+    width: 100%;
+    height: 100%;
 }
 
-/* Invisible Bridge Layer to hold mouse hover states between gap */
+/* Invisible Buffer to prevent hover loss across gap */
 .Buffer {
     position: absolute;
     opacity: 0;
     z-index: 99;
 }
 
-/* Base Popup Wrapper */
+/* Popup Base Container */
 .PopupContainer {
     position: absolute;
     z-index: 100;
     pointer-events: auto;
-    
-    /* Animation offset targets */
+
     --offset-x: 0px;
     --offset-y: 0px;
 }
 
 /* ==========================================================================
-   POSITION MODIFIERS
+   POSITIONS & ALIGNMENTS (Scoped strictly to direct children using '>')
    ========================================================================== */
 
-/* --- TOP & BOTTOM --- */
-.Top {
-    flex-direction: column-reverse;
-}
-.Top .PopupContainer {
+/* --- TOP --- */
+.Top > .PopupContainer {
     bottom: 100%;
-    margin-bottom: 5px; /* Safe gap layout */
+    margin-bottom: 5px;
     --offset-y: 10px;
 }
-.Top .Buffer {
+.Top > .Buffer {
     bottom: 100%;
     left: 0;
     right: 0;
-    height: 5px; /* Fills the 5px gap */
+    height: 5px;
 }
+.Top.AlignStart > .PopupContainer { left: 0; }
+.Top.AlignCenter > .PopupContainer { 
+    left: 50%; 
+    transform-origin: bottom center; 
+}
+.Top.AlignCenter > .PopupContainer.Open { animation-name: popupInCenteredY; }
+.Top.AlignCenter > .PopupContainer.Close { animation-name: popupOutCenteredY; }
+.Top.AlignEnd > .PopupContainer { right: 0; }
 
-.Bottom {
-    flex-direction: column;
-}
-.Bottom .PopupContainer {
+/* --- BOTTOM --- */
+.Bottom > .PopupContainer {
     top: 100%;
-    margin-top: 5px; /* Safe gap layout */
+    margin-top: 5px;
     --offset-y: -10px;
 }
-.Bottom .Buffer {
+.Bottom > .Buffer {
     top: 100%;
     left: 0;
     right: 0;
-    height: 5px; /* Fills the 5px gap */
+    height: 5px;
 }
-
-/* Horizontal alignment configs for Top / Bottom */
-.Top.AlignStart, .Bottom.AlignStart { align-items: flex-start; }
-.Top.AlignStart .PopupContainer, .Bottom.AlignStart .PopupContainer { left: 0; }
-
-.Top.AlignCenter, .Bottom.AlignCenter { align-items: center; }
-.Top.AlignCenter .PopupContainer, .Bottom.AlignCenter .PopupContainer { 
+.Bottom.AlignStart > .PopupContainer { left: 0; }
+.Bottom.AlignCenter > .PopupContainer { 
     left: 50%; 
     transform-origin: top center; 
 }
-.Top.AlignCenter .PopupContainer.Open, .Bottom.AlignCenter .PopupContainer.Open { animation-name: popupInCenteredY; }
-.Top.AlignCenter .PopupContainer.Close, .Bottom.AlignCenter .PopupContainer.Close { animation-name: popupOutCenteredY; }
+.Bottom.AlignCenter > .PopupContainer.Open { animation-name: popupInCenteredY; }
+.Bottom.AlignCenter > .PopupContainer.Close { animation-name: popupOutCenteredY; }
+.Bottom.AlignEnd > .PopupContainer { right: 0; }
 
-.Top.AlignEnd, .Bottom.AlignEnd { align-items: flex-end; }
-.Top.AlignEnd .PopupContainer, .Bottom.AlignEnd .PopupContainer { right: 0; }
-
-
-/* --- LEFT & RIGHT --- */
-.Left {
-    flex-direction: row-reverse;
-}
-.Left .PopupContainer {
+/* --- LEFT --- */
+.Left > .PopupContainer {
     right: 100%;
-    margin-right: 5px; /* Safe gap layout */
+    margin-right: 5px;
     --offset-x: 10px;
 }
-.Left .Buffer {
+.Left > .Buffer {
     right: 100%;
     top: 0;
     bottom: 0;
-    width: 5px; /* Fills the 5px gap */
+    width: 5px;
 }
+.Left.AlignStart > .PopupContainer { top: 0; }
+.Left.AlignCenter > .PopupContainer { 
+    top: 50%; 
+    transform-origin: center right; 
+}
+.Left.AlignCenter > .PopupContainer.Open { animation-name: popupInCenteredX; }
+.Left.AlignCenter > .PopupContainer.Close { animation-name: popupOutCenteredX; }
+.Left.AlignEnd > .PopupContainer { bottom: 0; }
 
-.Right {
-    flex-direction: row;
-}
-.Right .PopupContainer {
+/* --- RIGHT --- */
+.Right > .PopupContainer {
     left: 100%;
-    margin-left: 5px; /* Safe gap layout */
+    margin-left: 5px;
     --offset-x: -10px;
 }
-.Right .Buffer {
+.Right > .Buffer {
     left: 100%;
     top: 0;
     bottom: 0;
-    width: 5px; /* Fills the 5px gap */
+    width: 5px;
 }
-
-/* Vertical alignment configs for Left / Right */
-.Left.AlignStart, .Right.AlignStart { align-items: flex-start; }
-.Left.AlignStart .PopupContainer, .Right.AlignStart .PopupContainer { top: 0; }
-
-.Left.AlignCenter, .Right.AlignCenter { align-items: center; }
-.Left.AlignCenter .PopupContainer, .Right.AlignCenter .PopupContainer { 
+.Right.AlignStart > .PopupContainer { top: 0; }
+.Right.AlignCenter > .PopupContainer { 
     top: 50%; 
-    transform-origin: center center; 
+    transform-origin: center left; 
 }
-.Left.AlignCenter .PopupContainer.Open, .Right.AlignCenter .PopupContainer.Open { animation-name: popupInCenteredX; }
-.Left.AlignCenter .PopupContainer.Close, .Right.AlignCenter .PopupContainer.Close { animation-name: popupOutCenteredX; }
-
-.Left.AlignEnd, .Right.AlignEnd { align-items: flex-end; }
-.Left.AlignEnd .PopupContainer, .Right.AlignEnd .PopupContainer { bottom: 0; }
+.Right.AlignCenter > .PopupContainer.Open { animation-name: popupInCenteredX; }
+.Right.AlignCenter > .PopupContainer.Close { animation-name: popupOutCenteredX; }
+.Right.AlignEnd > .PopupContainer { bottom: 0; }
 
 
 /* ==========================================================================
-   ANIMATION STATES & KEYFRAMES
+   ANIMATIONS & KEYFRAMES
    ========================================================================== */
 .PopupContainer.Open {
     animation: popupIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -163,5 +153,5 @@
 }
 @keyframes popupOutCenteredX {
     from { opacity: 1; transform: translate(0, -50%); }
-    to { opacity: 0; transform: translate(var(--offset-x), calc(-50% + var(--offset-y))); }
+    to { opacity: 0; transform: translate(var(--offset-x), -50%); }
 }
