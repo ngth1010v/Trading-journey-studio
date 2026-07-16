@@ -36,7 +36,7 @@ export default function ShapeEditor({
     shapeData: ShapeData;
     candleData: CandleData;
 }) {
-    const { isOpen, shapeId, position, setPosition, handleChange } =
+    const { isOpen, shapeId, position, setPosition, handleChange, flushStyleDefault } =
         shapeEditorController;
 
     const panelRef = useRef<HTMLDivElement>(null);
@@ -52,6 +52,7 @@ export default function ShapeEditor({
 
     useEffect(() => {
         if (isOpen) {
+            flushStyleDefault(shapeData)
             setShouldRender(true);
             setIsExiting(false);
             if (shapeId !== null) {

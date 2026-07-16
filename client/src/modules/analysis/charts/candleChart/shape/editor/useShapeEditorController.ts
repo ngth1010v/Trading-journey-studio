@@ -12,6 +12,7 @@ export type ShapeEditorController = {
     removeShape: () => void;
     setPosition: (pos: { x: number; y: number }) => void;
     handleChange: (newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => void;
+    flushStyleDefault:(shapeData: ShapeData) => void
 };
 
 export default function useShapeEditorController(initialPosition: { x: number; y: number }, shapeController: ShapeController): ShapeEditorController {
@@ -58,6 +59,29 @@ export default function useShapeEditorController(initialPosition: { x: number; y
         }
     },[shapeId])
 
+    const flushStyleDefault = useCallback((shapeData: ShapeData) => {
+        if (shapeId === null) return;
+
+        const shapes = shapeData.getShapes();
+        const targetShape = shapes.find(s => s.id === shapeId);
+        if (!targetShape) return;
+        
+        // ✅ FIX: Find the template object to get its actual database ID
+        const existingDefault = shapeData.getTemplates().find(
+            (t) => t.name === "<<<DEFAULT>>>" && t.type === targetShape.type
+        );
+
+        const template: ShapeTemplate = {
+            id: existingDefault?.id, // ✅ Retains undefined if new, or real ID if existing
+            type: targetShape.type,
+            name: "<<<DEFAULT>>>",
+            styles: structuredClone(targetShape.styles) // ✅ Clean deep clone
+        };
+
+        shapeData.setTemplate(template);
+
+    }, [shapeId]);
+
     const handleChange = useCallback((newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => {
         if (shapeId === null) return;
 
@@ -74,17 +98,8 @@ export default function useShapeEditorController(initialPosition: { x: number; y
 
         //DEFAULT template update
         if (type === 'styles'){
-            const defaultTemplateId = shapeData.getTemplates().findIndex((s: any) => s.name == "<<<DEFAULT>>>" && s.type == targetShape.type)
-            const shape = {
-                id: defaultTemplateId === -1 ? undefined : defaultTemplateId,
-                type: targetShape.type,
-                name: "<<<DEFAULT>>>",
-                styles: JSON.parse(JSON.stringify(targetShape.styles))
-            }as ShapeTemplate            
-            shapeData.saveTemplates([shape])
+            flushStyleDefault(shapeData)
         }
-
-
 
         if (onChangeRef.current) {
             onChangeRef.current(shapeId);
@@ -99,6 +114,7 @@ export default function useShapeEditorController(initialPosition: { x: number; y
         close,
         removeShape, 
         setPosition, 
-        handleChange 
+        handleChange,
+        flushStyleDefault
     };
 }

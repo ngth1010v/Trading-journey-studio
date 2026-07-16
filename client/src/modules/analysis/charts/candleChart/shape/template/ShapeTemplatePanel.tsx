@@ -51,35 +51,33 @@ export default function ShapeTemplatePanel({
     //---------------------------------------
     // Handlers
     //---------------------------------------
-    const handleStyleChange = useCallback(async (templateId: number | undefined, newStyles: any) => {
+    const handleStyleChange = useCallback((templateId: number | undefined, newStyles: any) => {
         if (templateId === undefined) return;
-        
-        const allTemplates = [...shapeData.getTemplates()];
-        const targetIndex = allTemplates.findIndex(t => t.id === templateId);
-        if (targetIndex === -1) return;
 
-        allTemplates[targetIndex] = {
-            ...allTemplates[targetIndex],
+        const targetTemplate = shapeData.getTemplates().find(t => t.id === templateId);
+        if (!targetTemplate) return;
+
+        const updatedTemplate: ShapeTemplate = {
+            ...targetTemplate,
             styles: newStyles
         };
 
-        shapeData.setTemplates(allTemplates);
-        await shapeData.saveTemplates(allTemplates);
+        shapeData.setTemplate(updatedTemplate);
     }, [shapeData]);
 
     const handleRemoveTemplate = useCallback(async (e: React.MouseEvent, templateId: number | undefined) => {
         e.stopPropagation();
         if (templateId === undefined) return;
-        
+
         await shapeData.removeTemplate(templateId);
     }, [shapeData]);
 
-    const handleSaveNewTemplate = useCallback(async () => {
+    const handleSaveNewTemplate = useCallback(() => {
         const trimmedName = newTemplateName.trim();
         if (!trimmedName) return;
 
         const allTemplates = shapeData.getTemplates();
-        
+
         // Find default template to copy
         const defaultTemplate = allTemplates.find(
             t => t.name === "<<<DEFAULT>>>" && (!shapeType || t.type === shapeType)
@@ -98,11 +96,8 @@ export default function ShapeTemplatePanel({
             ...(shapeType ? { type: shapeType } : {}),
         };
 
-        const updatedTemplates = [...allTemplates, clonedTemplate];
-
-        // Save through shapeData
-        shapeData.setTemplates(updatedTemplates);
-        await shapeData.saveTemplates(updatedTemplates);
+        // Save single template through shapeData
+        shapeData.setTemplate(clonedTemplate);
 
         // Reset state and force close popover
         setNewTemplateName("");

@@ -271,7 +271,7 @@ export default function useShapeController(
                 
                 // Finished creating
                 if (createPointsRef.current >= keys.length) {
-                    shapeData.saveShapes([tempShapeRef.current]);
+                    shapeData.setShape(tempShapeRef.current);
                     shapes.push(tempShapeRef.current);
                     
                     createShapeTypeRef.current = null;
@@ -428,11 +428,11 @@ export default function useShapeController(
                 const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
                 if (activeShape && activeShape.editable) {
                     if (draggingAnchorRef.current) {
-                        shapeData.saveShapes([activeShape]);
+                        shapeData.setShape(activeShape);
                         draggingAnchorRef.current = null;
                         viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
                     } else if (isDraggingEntireShapeRef.current) {
-                        shapeData.saveShapes([activeShape]);
+                        shapeData.setShape(activeShape);
                         isDraggingEntireShapeRef.current = false;
                         dragStartShapeDataRef.current = null;
                         viewController.setEnable({scaleTimestamp:true,scalePrice:true,panTimestamp:true,panPrice:true});
@@ -458,7 +458,7 @@ export default function useShapeController(
             const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape) {
                 if (activeShape.editable) {
-                    shapeData.saveShapes([activeShape]);
+                    shapeData.setShape(activeShape);
                 }
                 onEndEditCallbacks.current.forEach(cb => cb(activeShape));
             }
@@ -507,11 +507,7 @@ export default function useShapeController(
     };
 
     const set = (shape: Shape) => {
-        const shapes = shapeData.getShapes();
-        const idx = shapes.findIndex(s => s.id === shape.id);
-        if (idx >= 0) shapes[idx] = shape;
-        else shapes.push(shape);
-        shapeData.saveShapes(shapes)
+        shapeData.setShape(shape)
         flushShapes();
         flushActiveShape();
     };

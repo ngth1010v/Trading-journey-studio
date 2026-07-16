@@ -12,19 +12,17 @@ export type ShapeData = {
 
     // Shape
     getShapes: () => Shape[];
-    setShapes: (shapes: Shape[]) => void;
+    setShape: (shape: Shape) => void;
     remove: (shapeId: number) => Promise<void>;
     removeByType: (shapeType: string) => Promise<void>;
     updateData: (symbol: string, strategyName: string) => Promise<void>;
-    saveShapes: (shapes: Shape[]) => void;  
 
     addOnShapeDataChange: (id: string, callback: () => void) => void;
-    removeOnShapeDataChange: (id: string) => void;    
+    removeOnShapeDataChange: (id: string) => void;
 
     // Template
     getTemplates: () => ShapeTemplate[];
-    setTemplates: (templates: ShapeTemplate[]) => void;
-    saveTemplates: (templates: ShapeTemplate[]) => Promise<void>;
+    setTemplate: (template: ShapeTemplate) => void;
     removeTemplate: (templateId: number) => Promise<void>;
 
     addOnShapeTemplateChange: (id: string, callback: () => void) => void;
@@ -36,11 +34,11 @@ export default function useShapeData(
 ): ShapeData {
     const symbolRef = useRef<string>("");
     const strategyRef = useRef<string>("");
-    
+
     // Core Collections State
     const shapesRef = useRef<Shape[]>([]);
     const templatesRef = useRef<ShapeTemplate[]>([]);
-    
+
     // Timers & Polling Anchors
     const lastUpdateTsRef = useRef<number>(Date.now());
     const lastTemplatePollTsRef = useRef<number>(0);
@@ -81,13 +79,23 @@ export default function useShapeData(
         });
     };
 
-    const saveShapes = useCallback((shapes: Shape[]) => {
-        shapes.forEach(shape => {
-            fillMissingDataDefaults(shape);
-            updateShapeBoundaries(shape);
-        });
-        shapeApis.saveShapes(strategyRef.current, symbolRef.current, shapes);
-    }, []);
+    const setShape = useCallback((shape: Shape) => {
+        fillMissingDataDefaults(shape);
+        updateShapeBoundaries(shape);
+
+        // Update local state (upsert)
+        const existingIdx = shapesRef.current.findIndex((s) => s.id !== undefined && s.id === shape.id);
+        if (existingIdx >= 0) {
+            shapesRef.current[existingIdx] = shape;
+        } else {
+            shapesRef.current.push(shape);
+        }
+
+        notifyShapeListeners();
+
+        // Trigger backend save
+        shapeApis.saveShapes(strategyRef.current, symbolRef.current, [shape]);
+    }, [notifyShapeListeners]);
 
     const remove = useCallback(async (shapeId: number) => {
         await shapeApis.removeShape(
@@ -117,22 +125,33 @@ export default function useShapeData(
         notifyShapeListeners();
     }, [notifyShapeListeners]);
 
-    const saveTemplates = useCallback(async (templates: ShapeTemplate[]) => {
-        console.log(templates)
-        await shapeApis.saveTemplates(strategyRef.current, symbolRef.current, templates);
-    }, []);
+    const setTemplate = useCallback((template: ShapeTemplate) => {
+        // Update local state (upsert)
+        const existingIdx = templatesRef.current.findIndex((t) => t.id !== undefined && t.id === template.id);
+        if (existingIdx >= 0) {
+            templatesRef.current[existingIdx] = template;
+        } else {
+            templatesRef.current.push(template);
+        }
+
+        notifyTemplateListeners();
+
+        // Trigger backend save
+        shapeApis.saveTemplates(strategyRef.current, symbolRef.current, [template]);
+    }, [notifyTemplateListeners]);
 
     const removeTemplate = useCallback(async (templateId: number) => {
         await shapeApis.removeTemplate(strategyRef.current, symbolRef.current, templateId);
-    }, []);
-    
+        templatesRef.current = templatesRef.current.filter(t => t.id !== templateId);
+        notifyTemplateListeners();
+    }, [notifyTemplateListeners]);
 
     const pollUpdates = useCallback(async () => {
         if (!symbolRef.current || !strategyRef.current) return;
-        
+
         const now = Date.now();
 
-        // 1. Core Shape updates (500ms cycle handler)
+        // 1. Core Shape updates
         try {
             const view = viewport.getTransformedView();
             const extend = CONFIG.SHAPES.CACHE_EXTEND_RATIO;
@@ -141,10 +160,10 @@ export default function useShapeData(
             const toTs = view.toTs + deltaTs * extend;
 
             const changed = await shapeApis.getChangedShapes(
-                strategyRef.current, 
-                symbolRef.current, 
-                lastUpdateTsRef.current, 
-                fromTs, 
+                strategyRef.current,
+                symbolRef.current,
+                lastUpdateTsRef.current,
+                fromTs,
                 toTs
             );
 
@@ -161,7 +180,7 @@ export default function useShapeData(
             console.error("Shape polling error", e);
         }
 
-        // 2. ShapeTemplate updates (1000ms cycle handler with execution lock)
+        // 2. ShapeTemplate updates
         if (now - lastTemplatePollTsRef.current >= 1000) {
             if (!isPollingTemplateRef.current) {
                 isPollingTemplateRef.current = true;
@@ -182,19 +201,18 @@ export default function useShapeData(
     const updateData = async (symbol: string, strategyName: string) => {
         symbolRef.current = symbol;
         strategyRef.current = strategyName;
-        
+
         if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-        
+
         const view = viewport.getTransformedView();
         const extend = CONFIG.SHAPES.CACHE_EXTEND_RATIO;
         const deltaTs = view.toTs - view.fromTs;
-        
-        // Initial loader synchronization requests
+
         const [loadedShapes, loadedTemplates] = await Promise.all([
             shapeApis.getShapes(
-                strategyName, 
-                symbol, 
-                view.fromTs - deltaTs * extend, 
+                strategyName,
+                symbol,
+                view.fromTs - deltaTs * extend,
                 view.toTs + deltaTs * extend
             ),
             shapeApis.getTemplates(strategyName, symbol)
@@ -203,11 +221,10 @@ export default function useShapeData(
         shapesRef.current = loadedShapes;
         templatesRef.current = loadedTemplates;
         lastTemplatePollTsRef.current = Date.now();
-        
+
         notifyShapeListeners();
         notifyTemplateListeners();
 
-        // Common polling cycle executor
         pollingIntervalRef.current = window.setInterval(pollUpdates, 500);
     };
 
@@ -215,16 +232,14 @@ export default function useShapeData(
     if (!apiRef.current) {
         apiRef.current = {
             getShapes: () => shapesRef.current,
-            setShapes: (shapes) => { shapesRef.current = shapes; },
+            setShape,
             getTemplates: () => templatesRef.current,
-            setTemplates: (templates) => { templatesRef.current = templates; },
+            setTemplate,
             getSymbol: () => symbolRef.current,
             getStrategyName: () => strategyRef.current,
             updateData,
-            saveShapes,
             remove,
             removeByType,
-            saveTemplates,
             removeTemplate,
             addOnShapeDataChange: (id, cb) => onShapeDataChangeCallbacks.current.set(id, cb),
             removeOnShapeDataChange: (id) => onShapeDataChangeCallbacks.current.delete(id),
