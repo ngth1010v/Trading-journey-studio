@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useId } from "react";
+import React, { useRef, useState, useEffect, useId, useCallback } from "react";
 import style from "./ShapeEditor.module.css";
 
 import type { ShapeEditorController } from "./useShapeEditorController";
@@ -7,6 +7,7 @@ import { SHAPE_MAP } from "../shapeMap";
 
 import ButtonWithPopover from "../../../../../../shared/components/ButtonWithPopover";
 import PanelInput from "../../../../../input/panel/PanelInput";
+import ShapeTemplatePanel from "../template/ShapeTemplatePanel";
 
 import type { CandleData } from "../../market/hooks/useCandleData";
 
@@ -18,6 +19,7 @@ import DragIcon from "../../../../../../assets/icons/dots-six-vertical.svg?react
 import DataIcon from "../../../../../../assets/icons/database.svg?react";
 import StyleIcon from "../../../../../../assets/icons/paint-brush-broad.svg?react";
 import RemoveIcon from "../../../../../../assets/icons/trash.svg?react";
+import TemplateIcon from "../../../../../../assets/icons/bookmark-simple.svg?react";
 
 const toRGBString = (color: RGB) =>
     `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -43,6 +45,10 @@ export default function ShapeEditor({
     const [shouldRender, setShouldRender] = useState(isOpen);
     const [isExiting, setIsExiting] = useState(false);
     const [activeShapeId, setActiveShapeId] = useState<number | null>(shapeId);
+
+    // State to control popover open state for Template Panel
+    const [templatePopoverKey, setTemplatePopoverKey] = useState<number>(0);
+    const [isTemplatePanelOpen, setIsTemplatePanelOpen] = useState<boolean>(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -113,6 +119,24 @@ export default function ShapeEditor({
           };
 
     //---------------------------------------
+    // Template Selection Handler
+    //---------------------------------------
+    const handleSelectTemplate = useCallback(
+        (templateId: number) => {
+            const templates = shapeData.getTemplates();
+            const selectedTemplate = templates.find((t) => t.id === templateId);
+
+            if (selectedTemplate && selectedTemplate.styles) {
+                // 1. Apply template styles to current shape
+                handleChange(selectedTemplate.styles, "styles", shapeData);
+
+                // 2. Close the template panel by re-mounting/closing the popover state
+                setIsTemplatePanelOpen(false);
+                setTemplatePopoverKey((prev) => prev + 1);
+            }
+        },
+        [shapeData, handleChange]
+    );
 
     if (!shouldRender || activeShapeId === null) return null;
 
@@ -204,6 +228,7 @@ export default function ShapeEditor({
 
             <div className={style.Divider} />
 
+            {/* Data Input Popover */}
             <ButtonWithPopover
                 type="hover"
                 position="bottom"
@@ -230,6 +255,7 @@ export default function ShapeEditor({
                 }
             />
 
+            {/* Style Input Popover */}
             <ButtonWithPopover
                 type="hover"
                 position="bottom"
@@ -256,10 +282,32 @@ export default function ShapeEditor({
                 }
             />
 
+            {/* Template Panel Popover */}
+            <ButtonWithPopover
+                key={templatePopoverKey}
+                type="hover"
+                position="bottom"
+                align="start"
+                open={isTemplatePanelOpen}
+                setOpen={setIsTemplatePanelOpen}
+                button={
+                    <div className={style.IconButton}>
+                        <TemplateIcon className={style.Icon} />
+                    </div>
+                }
+                popup={
+                    <ShapeTemplatePanel
+                        shapeType={shape.type}
+                        shapeData={shapeData}
+                        onSelected={handleSelectTemplate}
+                    />
+                }
+            />
+
             <div className={style.Divider} />
 
             <div className={style.IconButton} onClick={shapeEditorController.removeShape}>
-                <RemoveIcon className={`${style.Icon} ${style.DangerIcon}`}/>
+                <RemoveIcon className={`${style.Icon} ${style.DangerIcon}`} />
             </div>
         </div>
     );

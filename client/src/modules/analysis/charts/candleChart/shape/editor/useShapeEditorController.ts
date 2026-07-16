@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import type { ShapeData } from '../data/useShapeData';
 import type { ShapeController } from '../useShapeController';
+import type { ShapeTemplate } from '../data/type';
 
 export type ShapeEditorController = {
     isOpen: boolean;
@@ -70,6 +71,20 @@ export default function useShapeEditorController(initialPosition: { x: number; y
         // Auto-save updated shape back to ShapeData
         // shapeData.saveShapes([]);
         shapeController.set(targetShape)
+
+        //DEFAULT template update
+        if (type === 'styles'){
+            const defaultTemplateId = shapeData.getTemplates().findIndex((s: any) => s.name == "<<<DEFAULT>>>" && s.type == targetShape.type)
+            const shape = {
+                id: defaultTemplateId === -1 ? undefined : defaultTemplateId,
+                type: targetShape.type,
+                name: "<<<DEFAULT>>>",
+                styles: JSON.parse(JSON.stringify(targetShape.styles))
+            }as ShapeTemplate            
+            shapeData.saveTemplates([shape])
+        }
+
+
 
         if (onChangeRef.current) {
             onChangeRef.current(shapeId);

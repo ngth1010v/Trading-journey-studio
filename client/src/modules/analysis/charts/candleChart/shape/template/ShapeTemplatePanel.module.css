@@ -1,0 +1,143 @@
+.Panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    overflow: visible;
+
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    min-width: 150px;
+    border-radius: 4px;
+    align-items: center;
+}
+
+.TemplateRow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--font-color);
+    transition: all 0.2s ease-in-out;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.TemplateRow:hover {
+    background-color: var(--hover-bg);
+    color: var(--hover-font);
+}
+
+.SaveAsRow {
+    /* border-top: 1px solid var(--border-color); */
+    font-weight: 500;
+}
+
+.TemplateName {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    user-select: none;
+}
+
+.RemoveBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    margin-left: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--danger-font);
+    transition: all 0.2s ease-in-out;
+    pointer-events: auto; /* Ensures remove button clicks don't interrupt hover bridge */
+}
+
+.RemoveBtn:hover {
+    background-color: var(--danger-hover-bg);
+    color: var(--danger-hover-font);
+}
+
+.Icon {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+    stroke: currentColor;
+}
+
+.Divider {
+    width: calc(100% - 20px);
+    height: 1px;
+    background-color: var(--border-color);
+}
+
+/* Save Popover Styling */
+.SavePopoverContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    min-width: 300px;
+    box-sizing: border-box;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.SaveInputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.SaveLabel {
+    font-size: 12px;
+    color: var(--font-color);
+    font-weight: 500;
+}
+
+.SaveInput {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: transparent;
+    color: var(--font-color);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.SaveInput:focus {
+    border-color: var(--hover-font);
+}
+
+.SaveButton {
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.2s ease-in-out;
+    border: 1px solid var(--primary-border);
+    background-color: var(--primary-bg);
+    color: var(--primary-font);
+    outline: none;
+}
+
+.SaveButton:hover {
+    opacity: 0.9;
+}
+
+.SaveButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

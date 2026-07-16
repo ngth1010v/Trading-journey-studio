@@ -226,7 +226,7 @@ async function saveTemplates(
 /**
  * DELETE /api/strateries/:strategyName/:symbol/shapes/templates/:id
  */
-async function deleteTemplate(
+async function removeTemplate(
   strategyName: string,
   symbol: string,
   id: number
@@ -246,5 +246,5 @@ export const shapeApis = {
   removeShape,
   getTemplates,
   saveTemplates,
-  deleteTemplate,
+  removeTemplate,
 };

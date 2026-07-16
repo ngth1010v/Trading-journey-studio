@@ -6,19 +6,27 @@ import { CONFIG } from "../../shared/config";
 import { SHAPE_MAP } from "../shapeMap";
 
 export type ShapeData = {
-    getShapes: () => Shape[];
-    setShapes: (shapes: Shape[]) => void;
-    getTemplates: () => ShapeTemplate[];
-    setTemplates: (templates: ShapeTemplate[]) => void;
+    // Other
     getSymbol: () => string;
     getStrategyName: () => string;
-    updateData: (symbol: string, strategyName: string) => Promise<void>;
-    saveShapes: (shapes: Shape[]) => void;
+
+    // Shape
+    getShapes: () => Shape[];
+    setShapes: (shapes: Shape[]) => void;
     remove: (shapeId: number) => Promise<void>;
     removeByType: (shapeType: string) => Promise<void>;
-    saveTemplates: (templates: ShapeTemplate[]) => Promise<void>;
+    updateData: (symbol: string, strategyName: string) => Promise<void>;
+    saveShapes: (shapes: Shape[]) => void;  
+
     addOnShapeDataChange: (id: string, callback: () => void) => void;
-    removeOnShapeDataChange: (id: string) => void;
+    removeOnShapeDataChange: (id: string) => void;    
+
+    // Template
+    getTemplates: () => ShapeTemplate[];
+    setTemplates: (templates: ShapeTemplate[]) => void;
+    saveTemplates: (templates: ShapeTemplate[]) => Promise<void>;
+    removeTemplate: (templateId: number) => Promise<void>;
+
     addOnShapeTemplateChange: (id: string, callback: () => void) => void;
     removeOnShapeTemplateChange: (id: string) => void;
 };
@@ -110,7 +118,12 @@ export default function useShapeData(
     }, [notifyShapeListeners]);
 
     const saveTemplates = useCallback(async (templates: ShapeTemplate[]) => {
+        console.log(templates)
         await shapeApis.saveTemplates(strategyRef.current, symbolRef.current, templates);
+    }, []);
+
+    const removeTemplate = useCallback(async (templateId: number) => {
+        await shapeApis.removeTemplate(strategyRef.current, symbolRef.current, templateId);
     }, []);
     
 
@@ -212,6 +225,7 @@ export default function useShapeData(
             remove,
             removeByType,
             saveTemplates,
+            removeTemplate,
             addOnShapeDataChange: (id, cb) => onShapeDataChangeCallbacks.current.set(id, cb),
             removeOnShapeDataChange: (id) => onShapeDataChangeCallbacks.current.delete(id),
             addOnShapeTemplateChange: (id, cb) => onShapeTemplateChangeCallbacks.current.set(id, cb),
