@@ -75,13 +75,13 @@ export const DEFAULT_THEME: Theme = {
         },
         danger: {
             background: [58, 28, 34, 1],
-            border:     [145, 82, 90, 1],
-            font:       [245, 235, 236],
+            border:     [180, 50, 50, 1],
+            font:       [255, 100, 100],
         },
         success: {
             background: [24, 50, 46, 1],
             border:     [74, 145, 130, 1],
-            font:       [235, 245, 242],
+            font:       [100, 255, 100],
         },
         disable: {
             background: [25, 27, 32, 1],
