@@ -122,7 +122,6 @@ export default function ColorInput({
     useEffect(() => {
         themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
         colorApi.getAll().then((colors) => setCustomColors(colors)).catch(console.error);
-        console.log(customColors)
         return () => themeContext.removeOnSelectedThemeChange(instanceId);
     }, [themeContext, instanceId]);
 

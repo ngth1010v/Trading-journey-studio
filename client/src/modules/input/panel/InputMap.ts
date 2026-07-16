@@ -30,23 +30,30 @@ export const INPUT_MAP = {
     string: {
         format: "string",
         component: TextInput,
-        props: {}
+        props: {newLine: false}
     },
     
-
+    
     //==============================================================================
     // COMPLEX
     //==============================================================================
+    
+    text: {
+        format: "string",
+        component: TextInput,
+        props: {newLine: true}
+    },
+
     timestamp: {
         format: "number",
         component: TimeInput,
-        props: {} //use component default
+        props: {editMode: "millis", newLine: true} //use component default
     },
     
     price: {
         format: "number",
         component: PriceInput,
-        props: {} //use component default
+        props: {newLine: true} //use component default
     },
     
     rgb: {
