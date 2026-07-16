@@ -8,12 +8,13 @@ import styles from "./Input.module.css";
 
 // --- Helpers ---
 const toRGBString = (color: RGB | RGBA) => `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-const toRGBAString = (color: RGBA | RGB) => `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] ?? 1})`;
+const toRGBAString = (color: RGBA | RGB) =>
+    `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${(color[3] ?? 255)})`;
 const toHexString = (color: RGBA | RGB) => {
     const toHex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
     return `#${toHex(color[0])}${toHex(color[1])}${toHex(color[2])}`.toUpperCase();
 };
-const hexToRGBA = (hex: string, alpha: number = 1): RGBA => {
+const hexToRGBA = (hex: string, alpha: number = 255): RGBA => {
     const clean = hex.replace("#", "");
     if (clean.length !== 6) return [0, 0, 0, alpha];
     return [
@@ -22,7 +23,12 @@ const hexToRGBA = (hex: string, alpha: number = 1): RGBA => {
         parseInt(clean.substring(4, 6), 16),
         alpha,
     ];
-};
+}; 
+const alphaToPercent = (alpha: number) =>
+    Math.round((Math.max(0, Math.min(255, alpha)) / 255) * 100);
+
+const percentToAlpha = (percent: number) =>
+    Math.round((Math.max(0, Math.min(100, percent)) / 100) * 255);
 
 const DUPLICATE_LIMIT = 10;
 function isDuplicate(a: RGBA, b: RGBA) {
@@ -47,7 +53,7 @@ function extractThemeColors(theme: Theme): RGBA[] {
         if (depth > 10 || !obj || typeof obj !== "object") return;
         if (Array.isArray(obj)) {
             if ((obj.length === 3 || obj.length === 4) && obj.every((n) => typeof n === "number")) {
-                colors.push([obj[0], obj[1], obj[2], obj[3] ?? 1]);
+                colors.push([obj[0], obj[1], obj[2], obj[3] ?? 255]);
                 return;
             }
         }
@@ -84,7 +90,7 @@ const generateBaseColors = (): { group1: RGBA[]; group2: RGBA[] } => {
                 r = g = b = Math.max(0, Math.min(255, gray));
             }
 
-            const color: RGBA = [r, g, b, 1];
+            const color: RGBA = [r, g, b, 255];
             if (row < 1) group1.push(color);
             else group2.push(color);
         }
@@ -142,7 +148,7 @@ export default function ColorInput({
 
     const handleOpacityChange = (opacityVal: number, isFinal: boolean = false) => {
         if (!alpha) return;
-        const newColor: RGBA = [tempValue[0], tempValue[1], tempValue[2], opacityVal];
+        const newColor: RGBA = [tempValue[0], tempValue[1], tempValue[2], percentToAlpha(opacityVal),];
         setTempValue(newColor);
         if (isFinal) {
             commitValue(newColor);
@@ -184,7 +190,7 @@ export default function ColorInput({
         };
 
         const handleSave = async () => {
-            const finalColor: RGBA = [editRgb[0], editRgb[1], editRgb[2], 1];
+            const finalColor: RGBA = [editRgb[0], editRgb[1], editRgb[2], 255];
             try {
                 const res = await colorApi.save(finalColor, dbColor?.id);
                 if (res.id != null && res.id != undefined) {
@@ -196,7 +202,7 @@ export default function ColorInput({
                     }
                     
                     setCustomColors(updatedList);
-                    commitValue([finalColor[0], finalColor[1], finalColor[2], tempValue[3] ?? 1]);
+                    commitValue([finalColor[0], finalColor[1], finalColor[2], tempValue[3] ?? 255]);
                     setRemountKey(prev => prev + 1); // Auto remount on changes
                     document.body.click(); 
                 }
@@ -237,7 +243,7 @@ export default function ColorInput({
             <div 
                 className={styles.colorSquare} 
                 style={{ backgroundColor: toRGBString(dbColor!.color) }} 
-                onClick={() => commitValue([dbColor!.color[0], dbColor!.color[1], dbColor!.color[2], tempValue[3] ?? 1])} 
+                onClick={() => commitValue([dbColor!.color[0], dbColor!.color[1], dbColor!.color[2], tempValue[3] ?? 255])} 
             />
         );
 
@@ -257,12 +263,12 @@ export default function ColorInput({
             <div className={styles.colorSection}>
                 <div className={styles.colorGrid}>
                     {BASE_G1.map((c, i) => (
-                        <div key={`g1-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 1])} />
+                        <div key={`g1-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 255])} />
                     ))}
                 </div>
                 <div className={styles.colorGrid}>
                     {BASE_G2.map((c, i) => (
-                        <div key={`g2-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 1])} />
+                        <div key={`g2-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 255])} />
                     ))}
                 </div>
             </div>
@@ -272,7 +278,7 @@ export default function ColorInput({
             <div className={styles.colorSection}>
                 <div className={styles.colorGrid}>
                     {themeColors.slice(0, 30).map((c, i) => (
-                        <div key={`thm-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 1])} />
+                        <div key={`thm-${i}`} className={styles.colorSquare} style={{ backgroundColor: toRGBString(c) }} onClick={() => commitValue([c[0], c[1], c[2], tempValue[3] ?? 255])} />
                     ))}
                 </div>
             </div>
@@ -300,15 +306,36 @@ export default function ColorInput({
                     <input 
                         type="range" 
                         min="0" max="100" 
-                        value={Math.round((tempValue[3] ?? 1) * 100)} 
-                        onChange={(e) => handleOpacityChange(Number(e.target.value) / 100, false)}
-                        onMouseUp={(e) => handleOpacityChange(Number((e.target as HTMLInputElement).value) / 100, true)}
+                        value={alphaToPercent(tempValue[3] ?? 255)}
+                        onChange={(e) =>
+                            handleOpacityChange(
+                                Number(e.target.value),
+                                false
+                            )
+                        }
+                        onMouseUp={(e) =>
+                            handleOpacityChange(
+                                Number((e.target as HTMLInputElement).value),
+                                true
+                            )
+                        }
                         className={styles.opacitySlider}
                     />
                     <input 
                         type="text" 
-                        value={`${Math.round((tempValue[3] ?? 1) * 100)}%`}
-                        onChange={(e) => handleOpacityChange(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) / 100, true)}
+                        value={`${alphaToPercent(tempValue[3] ?? 255)}%`}
+                        onChange={(e) =>
+                            handleOpacityChange(
+                                Math.max(
+                                    0,
+                                    Math.min(
+                                        100,
+                                        parseInt(e.target.value) || 0
+                                    )
+                                ),
+                                true
+                            )
+                        }
                         className={styles.opacityNumber}
                     />
                 </div>
