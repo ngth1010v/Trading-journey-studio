@@ -32,12 +32,39 @@ export default function ShapeEditor({
 }: {
     shapeEditorController: ShapeEditorController;
     shapeData: ShapeData;
-    candleData: CandleData
+    candleData: CandleData;
 }) {
     const { isOpen, shapeId, position, setPosition, handleChange } =
         shapeEditorController;
 
     const panelRef = useRef<HTMLDivElement>(null);
+
+    // Track active rendering state and exit animations
+    const [shouldRender, setShouldRender] = useState(isOpen);
+    const [isExiting, setIsExiting] = useState(false);
+    const [activeShapeId, setActiveShapeId] = useState<number | null>(shapeId);
+
+    useEffect(() => {
+        if (isOpen) {
+            setShouldRender(true);
+            setIsExiting(false);
+            if (shapeId !== null) {
+                setActiveShapeId(shapeId);
+            }
+        } else if (shouldRender) {
+            setIsExiting(true);
+        }
+    }, [isOpen, shapeId]);
+
+    const handleAnimationEnd = (e: React.AnimationEvent) => {
+        if (e.target !== panelRef.current) return;
+
+        if (isExiting) {
+            setShouldRender(false);
+            setIsExiting(false);
+            setActiveShapeId(null);
+        }
+    };
 
     //---------------------------------------
     // Theme
@@ -62,13 +89,15 @@ export default function ShapeEditor({
         [key: string]: string;
     } = buttonTheme
         ? {
-              "--bg-color"          : toRGBAString(buttonTheme.background),
-              "--border-color"      : toRGBAString(buttonTheme.border),
-              "--font-color"        : toRGBString(buttonTheme.font),
-              "--danger-font-color" : toRGBString(currentTheme?.button?.danger?.font ?? buttonTheme.font),
+              "--bg-color": toRGBAString(buttonTheme.background),
+              "--border-color": toRGBAString(buttonTheme.border),
+              "--font-color": toRGBString(buttonTheme.font),
+              "--danger-font-color": toRGBString(
+                  currentTheme?.button?.danger?.font ?? buttonTheme.font
+              ),
               "--hover-bg": toRGBAString(
-                    currentTheme?.button?.primary2?.background ??
-                    buttonTheme.background
+                  currentTheme?.button?.primary2?.background ??
+                      buttonTheme.background
               ),
               "--hover-font": toRGBString(
                   currentTheme?.button?.primary2?.font ??
@@ -85,9 +114,9 @@ export default function ShapeEditor({
 
     //---------------------------------------
 
-    if (!isOpen || shapeId === null) return null;
+    if (!shouldRender || activeShapeId === null) return null;
 
-    const shape = shapeData.getShapes().find((s) => s.id === shapeId);
+    const shape = shapeData.getShapes().find((s) => s.id === activeShapeId);
     if (!shape) return null;
 
     const shapeDef = (SHAPE_MAP as any)[shape.type];
@@ -151,7 +180,8 @@ export default function ShapeEditor({
         <div
             ref={panelRef}
             data-shape-editor="true"
-            className={style.Panel}
+            className={`${style.Panel} ${isExiting ? style.PanelExiting : ""}`}
+            onAnimationEnd={handleAnimationEnd}
             style={{
                 left: position.x,
                 top: position.y,

@@ -1,3 +1,25 @@
+@keyframes popupIn {
+    from {
+        opacity: 0;
+        transform: translate(var(--offset-x, 0px), var(--offset-y, -10px));
+    }
+    to {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes popupOut {
+    from {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+    to {
+        opacity: 0;
+        transform: translate(var(--offset-x, 0px), var(--offset-y, -10px));
+    }
+}
+
 .Panel {
     position: absolute;
     display: flex;
@@ -12,6 +34,14 @@
 
     z-index: 1000;
     user-select: none;
+
+    --offset-x: 0px;
+    --offset-y: -10px;
+    animation: popupIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.PanelExiting {
+    animation: popupOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .Divider {
