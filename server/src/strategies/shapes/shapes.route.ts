@@ -103,7 +103,7 @@ router.post(
   }
 );
 
-// DELETE: Delete all shapes with a matching typeName
+// 1. Specific route path MUST BE FIRST
 router.delete(
   '/api/strateries/:strateryName/:symbol/shapes/type/:typeName',
   async (req: Request, res: Response): Promise<void> => {
@@ -122,7 +122,7 @@ router.delete(
   }
 );
 
-// DELETE: Delete a specific shape by numeric ID
+// 2. Generic route path AFTER
 router.delete(
   '/api/strateries/:strateryName/:symbol/shapes/:id',
   async (req: Request, res: Response): Promise<void> => {
@@ -139,6 +139,7 @@ router.delete(
         return;
       }
 
+      console.log("delete")
       await ShapesService.deleteShape(strateryName, symbol, numericId);
       res.status(200).json({ message: 'Shape deleted successfully' });
     } catch (error: any) {

@@ -19,10 +19,17 @@ export class ShapesRepository {
     const cached = this.connections.get(cacheKey);
 
     if (cached) {
-      // Reset the idle countdown timer
+      // Clear old timer and reset idle countdown timer
       clearTimeout(cached.timer);
       cached.timer = this.createIdleTimer(cacheKey);
-      return cached.instance;
+
+      // Check if instance is still open before returning
+      if (cached.instance.open) {
+        return cached.instance;
+      }
+      
+      // If closed unexpectedly, delete stale reference
+      this.connections.delete(cacheKey);
     }
 
     // Ensure directory exists
@@ -31,7 +38,10 @@ export class ShapesRepository {
     const dbPath = path.join(dirPath, 'shapes.db');
 
     const db = new Database(dbPath);
-    
+
+    // CRITICAL FIX: Enable Write-Ahead Logging (WAL) to prevent lock issues/crashes
+    db.pragma('journal_mode = WAL');
+
     // Initialize standard table structure safely with AUTOINCREMENT for numeric IDs
     db.exec(`
       CREATE TABLE IF NOT EXISTS shapes (
@@ -44,17 +54,14 @@ export class ShapesRepository {
         creater TEXT,
         editable INTEGER,
         lastModifyTimestamp INTEGER
-      )
-    `);
+      );
 
-    // Initialize templateShapes table matching ShapeTemplate definition
-    db.exec(`
       CREATE TABLE IF NOT EXISTS templateShapes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT,
         name TEXT,
         styles TEXT
-      )
+      );
     `);
 
     // Store reference with its auto-eviction timer
@@ -71,8 +78,15 @@ export class ShapesRepository {
     return setTimeout(() => {
       const cached = this.connections.get(cacheKey);
       if (cached) {
-        cached.instance.close();
-        this.connections.delete(cacheKey);
+        try {
+          if (cached.instance.open) {
+            cached.instance.close();
+          }
+        } catch (err) {
+          console.error(`[SQLite Error] Failed to auto-close connection for ${cacheKey}:`, err);
+        } finally {
+          this.connections.delete(cacheKey);
+        }
       }
     }, CONNECTION_IDLE_TIMEOUT_MS);
   }
