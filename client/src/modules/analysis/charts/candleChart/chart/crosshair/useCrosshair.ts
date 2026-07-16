@@ -423,8 +423,8 @@ export default function useCrosshair(
     const { x, y } = calculatedCrosshairPos.current;
 
     return {
-      timestamp: viewport.pixelToTimestamp(x),
-      price: viewport.pixelToPrice(y),
+      timestamp: Math.round(viewport.pixelToTimestamp(x)),
+      price    : Math.round(viewport.pixelToPrice(y)),
     };
   };
 

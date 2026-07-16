@@ -1,66 +1,75 @@
 import { useState, useCallback, useRef } from 'react';
-import type { Shape } from '../data/type';
+import type { ShapeData } from '../data/useShapeData';
+import type { ShapeController } from '../useShapeController';
 
 export type ShapeEditorController = {
     isOpen: boolean;
-    shape: Shape | null;
+    shapeId: number | null;
     position: { x: number; y: number };
-    open: (newShape: Shape, onChange?: (shape: Shape) => void, onClose?: (shape: Shape) => void) => void;
-    close: () => Shape | null;
+    open: (shapeId: number, onChange?: (shapeId: number) => void, onClose?: (shapeId: number) => void) => void;
+    close: () => number | null;
     setPosition: (pos: { x: number; y: number }) => void;
-    handleChange: (newSectionData: any, type: 'data' | 'styles') => void;
+    handleChange: (newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => void;
 };
 
-export default function useShapeEditorController(initialPosition: { x: number; y: number }): ShapeEditorController {
+export default function useShapeEditorController(initialPosition: { x: number; y: number }, shapeController: ShapeController): ShapeEditorController {
     const [isOpen, setIsOpen] = useState(false);
-    const [shape, setShape] = useState<Shape | null>(null);
+    const [shapeId, setShapeId] = useState<number | null>(null);
     const [position, setPosition] = useState(initialPosition);
 
-    const onChangeRef = useRef<((shape: Shape) => void) | null>(null);
-    const onCloseRef = useRef<((shape: Shape) => void) | null>(null);
+    const onChangeRef = useRef<((shapeId: number) => void) | null>(null);
+    const onCloseRef = useRef<((shapeId: number) => void) | null>(null);
 
-    const open = useCallback((newShape: Shape, onChange?: (shape: Shape) => void, onClose?: (shape: Shape) => void) => {
+    const open = useCallback((newShapeId: number, onChange?: (shapeId: number) => void, onClose?: (shapeId: number) => void) => {
         // Trigger onClose on the old shape if one is currently open
-        if (isOpen && shape && onCloseRef.current) {
-            onCloseRef.current(shape);
+        if (isOpen && shapeId !== null && onCloseRef.current) {
+            onCloseRef.current(shapeId);
         }
         
-        setShape(newShape);
+        setShapeId(newShapeId);
         setIsOpen(true);
         onChangeRef.current = onChange || null;
         onCloseRef.current = onClose || null;
-    }, [isOpen, shape]);
+    }, [isOpen, shapeId]);
 
     const close = useCallback(() => {
-        if (!isOpen || !shape) return null;
+        if (!isOpen || shapeId === null) return null;
         
-        const closedShape = shape;
+        const closedShapeId = shapeId;
         if (onCloseRef.current) {
-            onCloseRef.current(closedShape);
+            onCloseRef.current(closedShapeId);
         }
         
         setIsOpen(false);
-        setShape(null);
+        setShapeId(null);
         onChangeRef.current = null;
         onCloseRef.current = null;
         
-        return closedShape;
-    }, [isOpen, shape]);
+        return closedShapeId;
+    }, [isOpen, shapeId]);
 
-    const handleChange = useCallback((newSectionData: any, type: 'data' | 'styles') => {
-        if (!shape) return;
-        
-        const updatedShape = { ...shape, [type]: newSectionData };
-        setShape(updatedShape);
-        
+    const handleChange = useCallback((newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => {
+        if (shapeId === null) return;
+
+        const shapes = shapeData.getShapes();
+        const targetShape = shapes.find(s => s.id === shapeId);
+        if (!targetShape) return;
+
+        // Update target shape property
+        targetShape[type] = newSectionData;
+
+        // Auto-save updated shape back to ShapeData
+        // shapeData.saveShapes([]);
+        shapeController.set(targetShape)
+
         if (onChangeRef.current) {
-            onChangeRef.current(updatedShape);
+            onChangeRef.current(shapeId);
         }
-    }, [shape]);
+    }, [shapeId]);
 
     return { 
         isOpen, 
-        shape, 
+        shapeId, 
         position, 
         open, 
         close, 

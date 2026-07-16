@@ -19,7 +19,7 @@ import Navigation         from './navigation/Navigation';
 
 import ShapeEditor from './shape/editor/ShapeEditor';
 import useShapeEditorController from './shape/editor/useShapeEditorController';
-
+import useShapeData from './shape/data/useShapeData';
 
 
 const DEFAULT_FROMTS = 1782432000000;
@@ -65,9 +65,12 @@ export default function CandleChart() {
   const gridAxes          = useGridAxes(viewport, candleData);
   const axes              = useAxes(candleData, viewport, gridAxes);
   const axesController    = useAxesController(candleData, viewport, viewController, crosshair, gridAxes, axes);
-  const shapeController   = useShapeController(candleData, strateryData, viewport, crosshair,viewController);
+  
+  const shapeData         = useShapeData(viewport)
+  const shapeController   = useShapeController(candleData, shapeData, strateryData, viewport, crosshair,viewController);
 
-  const shapeEditorController = useShapeEditorController({ x: 50, y: 50 });
+
+  const shapeEditorController = useShapeEditorController({ x: 50, y: 50 }, shapeController);
 
   //=============================================================================================
   // Init / destroy
@@ -200,16 +203,19 @@ export default function CandleChart() {
 
       // 1. Hook into Start Edit
       shapeController.addOnStartEdit(EDITOR_ID, (shape) => {
+        if (shape.id){
           shapeEditorController.open(
-              shape, 
-              (updatedShape) => {
-                  // When data/styles change via PanelInput, sync back to ShapeController
-                  shapeController.set(updatedShape);
-                },
-                (closedShape) => {
-                  // Optional: Logic when editor is overridden by a new shape
-              }
-          );
+              shape.id, 
+              // (updatedShape) => {
+              //     // When data/styles change via PanelInput, sync back to ShapeController
+              //     shapeController.set(updatedShape);
+              //   },
+              //   (closedShape) => {
+              //     // Optional: Logic when editor is overridden by a new shape
+              // }
+          );          
+        }
+
       });
 
       // 2. Hook into End Edit (deselecting, right clicking, clicking blank space)
@@ -385,7 +391,7 @@ export default function CandleChart() {
           if (containerRef.current) containerRef.current.blur();
         }}
       />     
-      <ShapeEditor shapeEditorController={shapeEditorController}/>
+      <ShapeEditor shapeEditorController={shapeEditorController} shapeData={shapeData}/>
       <Navigation candleData={candleData} strateryData={strateryData}/>
     </div>
   );

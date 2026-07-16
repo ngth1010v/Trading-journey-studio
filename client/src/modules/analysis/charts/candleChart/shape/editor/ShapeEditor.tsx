@@ -1,10 +1,10 @@
 import React, { useRef } from 'react';
 import style from './ShapeEditor.module.css';
 import type { ShapeEditorController } from './useShapeEditorController';
+import type { ShapeData } from '../data/useShapeData';
 import { SHAPE_MAP } from '../shapeMap';
 import ButtonWithPopover from '../../../../../../shared/components/ButtonWithPopover';
 
-// Assuming PanelInput location based on App.tsx testing component imports
 import PanelInput from '../../../../../input/panel/PanelInput'; 
 
 import DragIcon from '../../../../../../assets/icons/dots-six-vertical.svg?react';
@@ -13,13 +13,19 @@ import StyleIcon from '../../../../../../assets/icons/paint-brush-broad.svg?reac
 
 export default function ShapeEditor({
     shapeEditorController,
+    shapeData
 }: {
     shapeEditorController: ShapeEditorController;
+    shapeData: ShapeData;
 }) {
-    const { isOpen, shape, position, setPosition, handleChange } = shapeEditorController;
+    const { isOpen, shapeId, position, setPosition, handleChange } = shapeEditorController;
     const panelRef = useRef<HTMLDivElement>(null);
 
-    if (!isOpen || !shape) return null;
+    if (!isOpen || shapeId === null) return null;
+
+    // Dynamically retrieve shape directly from ShapeData using shapeId
+    const shape = shapeData.getShapes().find(s => s.id === shapeId);
+    if (!shape) return null;
 
     const shapeDef = (SHAPE_MAP as any)[shape.type];
     if (!shapeDef) return null;
@@ -88,10 +94,10 @@ export default function ShapeEditor({
                         layout={shapeDef.data} 
                         data={shape.data} 
                         minWidth='300px'
-                        onDataChange={(newData: any) => handleChange(newData, 'data')} 
-                        />
-                    }
+                        onDataChange={(newData: any) => handleChange(newData, 'data', shapeData)} 
                     />
+                }
+            />
 
             <ButtonWithPopover
                 type="hover"
@@ -99,7 +105,6 @@ export default function ShapeEditor({
                 align="start"
                 button={
                     <div className={style.IconButton}>
-                        {/* Reusing DataIcon for Style Editor as explicitly requested */}
                         <StyleIcon className={style.Icon} />
                     </div>
                 }
@@ -108,7 +113,7 @@ export default function ShapeEditor({
                         layout={shapeDef.styles} 
                         minWidth='300px'
                         data={shape.styles} 
-                        onDataChange={(newStyles: any) => handleChange(newStyles, 'styles')} 
+                        onDataChange={(newStyles: any) => handleChange(newStyles, 'styles', shapeData)} 
                     />
                 }
             />

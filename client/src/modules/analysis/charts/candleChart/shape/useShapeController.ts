@@ -11,7 +11,7 @@ import { renderShapeToLayers } from "./utils/renderShapeUtils";
 import type { ViewController }  from "../chart/viewport/useViewController";
 import type { CandleData }      from "../market/hooks/useCandleData";
 import type { StrateryData }    from "../market/hooks/useStrateryData";
-import useShapeData from "./data/useShapeData";
+import type { ShapeData } from "./data/useShapeData";
 
 import useLineLayer     from "./layers/useLineLayer";
 import useTriangleLayer from "./layers/useTriangleLayer";
@@ -37,15 +37,13 @@ export type ShapeController = {
 
 export default function useShapeController(
     candleData: CandleData, 
+    shapeData: ShapeData,
     strateryData: StrateryData, 
     viewport: Viewport, 
     crosshair: Crosshair, 
     viewController: ViewController
 ): ShapeController {
     const appRef = useRef<Application | null>(null);
-    
-    // Core Data Sync Hook
-    const shapeData = useShapeData(viewport);
     
     // Main Background Layers
     const lineLayer = useLineLayer();
