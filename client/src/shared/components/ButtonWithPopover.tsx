@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
 import style from "./ButtonWithPopover.module.css";
 
+interface ButtonWithPopoverProps {
+    type?: "hover" | "click";
+    position?: "top" | "right" | "bottom" | "left";
+    align?: "start" | "center" | "end";
+    buttonWidth?: string;
+    buttonHeight?: string;
+    popupWidth?: string;
+    popupHeight?: string;
+    onPopupOpen?: () => void;
+    onPopupClose?: () => void;
+    button: React.ReactNode;
+    popup: React.ReactNode;
+    open?: boolean | null;
+    setOpen?: React.Dispatch<React.SetStateAction<boolean>> | ((open: boolean) => void) | null;
+}
+
 export default function ButtonWithPopover({
     type = "click",
     position = "bottom",
@@ -12,22 +28,29 @@ export default function ButtonWithPopover({
     onPopupOpen,
     onPopupClose,
     button,
-    popup
-}: {
-    type?: "hover" | "click";
-    position?: "top" | "right" | "bottom" | "left";
-    align?: "start" | "center" | "end";
-    buttonWidth ?: string;
-    buttonHeight?: string;
-    popupWidth  ?: string;
-    popupHeight ?: string;
-    onPopupOpen?: () => void;
-    onPopupClose?: () => void;
-    button: React.ReactNode;
-    popup: React.ReactNode;
-}) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [isRendered, setIsRendered] = useState(false);
+    popup,
+    open: externalOpen,
+    setOpen: externalSetOpen
+}: ButtonWithPopoverProps) {
+    // Internal state used when uncontrolled
+    const [internalOpen, setInternalOpen] = useState(false);
+    
+    // Determine controlled vs uncontrolled state
+    const isControlled = externalOpen !== undefined && externalOpen !== null;
+    const isOpen = isControlled ? externalOpen : internalOpen;
+
+    const setIsOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+        const nextValue = typeof value === "function" ? value(isOpen) : value;
+        
+        if (externalSetOpen) {
+            externalSetOpen(nextValue);
+        }
+        if (!isControlled) {
+            setInternalOpen(nextValue);
+        }
+    };
+
+    const [isRendered, setIsRendered] = useState(isOpen);
     
     const buttonRef = useRef<HTMLDivElement>(null);
     const bufferRef = useRef<HTMLDivElement>(null);

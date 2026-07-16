@@ -1,6 +1,6 @@
 import { useRef, useCallback } from "react";
 import type { Viewport } from "../../chart/viewport/useViewport";
-import type { Shape, ShapeTemplate } from "../data/type";
+import type { Shape, ShapeTemplate } from "./type";
 import { shapeApis } from "../api/shapeApis";
 import { CONFIG } from "../../shared/config";
 import { SHAPE_MAP } from "../shapeMap";
