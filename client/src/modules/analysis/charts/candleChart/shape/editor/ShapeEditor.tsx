@@ -8,6 +8,8 @@ import { SHAPE_MAP } from "../shapeMap";
 import ButtonWithPopover from "../../../../../../shared/components/ButtonWithPopover";
 import PanelInput from "../../../../../input/panel/PanelInput";
 
+import type { CandleData } from "../../market/hooks/useCandleData";
+
 import { useThemeData } from "../../../../../theme/useThemeData";
 import type { Theme } from "../../../../../theme/type";
 import type { RGB, RGBA } from "../../../../../../shared/types/color.type";
@@ -26,9 +28,11 @@ const toRGBAString = (color: RGBA) =>
 export default function ShapeEditor({
     shapeEditorController,
     shapeData,
+    candleData,
 }: {
     shapeEditorController: ShapeEditorController;
     shapeData: ShapeData;
+    candleData: CandleData
 }) {
     const { isOpen, shapeId, position, setPosition, handleChange } =
         shapeEditorController;
@@ -183,6 +187,7 @@ export default function ShapeEditor({
                     <PanelInput
                         layout={shapeDef.data}
                         data={shape.data}
+                        points={candleData.getPoint()}
                         minWidth="300px"
                         onDataChange={(newData: any) =>
                             handleChange(
@@ -209,6 +214,7 @@ export default function ShapeEditor({
                         layout={shapeDef.styles}
                         minWidth="300px"
                         data={shape.styles}
+                        points={candleData.getPoint()}
                         onDataChange={(newStyles: any) =>
                             handleChange(
                                 newStyles,

@@ -8,6 +8,8 @@ interface PanelInputProps {
   layout: any;
   data: any;
 
+  points?: number,
+
   onDataChange?: (data: any) => void;
 
   header?: React.ReactNode;
@@ -106,6 +108,7 @@ function CollapsibleGroup({
 export default function PanelInput({
   layout,
   data,
+  points = 0,
   onDataChange,
   header,
   footer,
@@ -212,6 +215,11 @@ export default function PanelInput({
         data: value,
         setData: (val: any) => updateField(path, val),
         ...config.props,
+
+        // Auto inject chart points for PriceInput
+        ...(config.component?.name === "PriceInput" && {
+          points,
+        }),
       };
 
       return (

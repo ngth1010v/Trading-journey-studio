@@ -391,7 +391,7 @@ export default function CandleChart() {
           if (containerRef.current) containerRef.current.blur();
         }}
       />     
-      <ShapeEditor shapeEditorController={shapeEditorController} shapeData={shapeData}/>
+      <ShapeEditor shapeEditorController={shapeEditorController} shapeData={shapeData} candleData={candleData}/>
       <Navigation candleData={candleData} strateryData={strateryData}/>
     </div>
   );
