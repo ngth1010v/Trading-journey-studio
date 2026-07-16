@@ -539,9 +539,7 @@ export default function useShapeController(
             });
         }
 
-        shapes.splice(idx, 1);
-
-        shapeData.saveShapes(shapes);
+        shapeData.remove(shapeId);
 
         flushShapes();
         flushActiveShape();

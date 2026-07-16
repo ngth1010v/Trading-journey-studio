@@ -14,6 +14,8 @@ export type ShapeData = {
     getStrategyName: () => string;
     updateData: (symbol: string, strategyName: string) => Promise<void>;
     saveShapes: (shapes: Shape[]) => void;
+    remove: (shapeId: number) => Promise<void>;
+    removeByType: (shapeType: string) => Promise<void>;
     saveTemplates: (templates: ShapeTemplate[]) => Promise<void>;
     addOnShapeDataChange: (id: string, callback: () => void) => void;
     removeOnShapeDataChange: (id: string) => void;
@@ -79,9 +81,38 @@ export default function useShapeData(
         shapeApis.saveShapes(strategyRef.current, symbolRef.current, shapes);
     }, []);
 
+    const remove = useCallback(async (shapeId: number) => {
+        await shapeApis.removeShape(
+            strategyRef.current,
+            symbolRef.current,
+            shapeId
+        );
+
+        shapesRef.current = shapesRef.current.filter(
+            shape => shape.id !== shapeId
+        );
+
+        notifyShapeListeners();
+    }, [notifyShapeListeners]);
+
+    const removeByType = useCallback(async (shapeType: string) => {
+        await shapeApis.removeShapesByType(
+            strategyRef.current,
+            symbolRef.current,
+            shapeType
+        );
+
+        shapesRef.current = shapesRef.current.filter(
+            shape => shape.type !== shapeType
+        );
+
+        notifyShapeListeners();
+    }, [notifyShapeListeners]);
+
     const saveTemplates = useCallback(async (templates: ShapeTemplate[]) => {
         await shapeApis.saveTemplates(strategyRef.current, symbolRef.current, templates);
     }, []);
+    
 
     const pollUpdates = useCallback(async () => {
         if (!symbolRef.current || !strategyRef.current) return;
@@ -178,6 +209,8 @@ export default function useShapeData(
             getStrategyName: () => strategyRef.current,
             updateData,
             saveShapes,
+            remove,
+            removeByType,
             saveTemplates,
             addOnShapeDataChange: (id, cb) => onShapeDataChangeCallbacks.current.set(id, cb),
             removeOnShapeDataChange: (id) => onShapeDataChangeCallbacks.current.delete(id),

@@ -139,7 +139,6 @@ router.delete(
         return;
       }
 
-      console.log("delete")
       await ShapesService.deleteShape(strateryName, symbol, numericId);
       res.status(200).json({ message: 'Shape deleted successfully' });
     } catch (error: any) {

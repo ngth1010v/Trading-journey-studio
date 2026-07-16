@@ -159,7 +159,7 @@ async function saveShapes(
 /**
  * DELETE /api/strateries/:strategyName/:symbol/shapes/type/:typeName
  */
-async function deleteShapesByType(
+async function removeShapesByType(
   strategyName: string,
   symbol: string,
   typeName: string
@@ -174,7 +174,7 @@ async function deleteShapesByType(
 /**
  * DELETE /api/strateries/:strategyName/:symbol/shapes/:id
  */
-async function deleteShape(
+async function removeShape(
   strategyName: string,
   symbol: string,
   id: number
@@ -242,8 +242,8 @@ export const shapeApis = {
   getShapes,
   getChangedShapes,
   saveShapes,
-  deleteShapesByType,
-  deleteShape,
+  removeShapesByType,
+  removeShape,
   getTemplates,
   saveTemplates,
   deleteTemplate,
