@@ -512,8 +512,9 @@ export default function useShapeController(
         const idx = shapes.findIndex(s => s.id === shape.id);
         if (idx >= 0) shapes[idx] = shape;
         else shapes.push(shape);
-        shapeData.setShapes(shapes);
+        shapeData.saveShapes(shapes)
         flushShapes();
+        flushActiveShape();
     };
 
     const apiRef = useRef<ShapeController | null>(null);

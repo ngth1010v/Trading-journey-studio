@@ -205,8 +205,8 @@ export default function CandleChart() {
               (updatedShape) => {
                   // When data/styles change via PanelInput, sync back to ShapeController
                   shapeController.set(updatedShape);
-              },
-              (closedShape) => {
+                },
+                (closedShape) => {
                   // Optional: Logic when editor is overridden by a new shape
               }
           );
