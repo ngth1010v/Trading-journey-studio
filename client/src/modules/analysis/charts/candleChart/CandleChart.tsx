@@ -17,6 +17,8 @@ import useAxesController                    from './chart/axes/useAxesController
 import useShapeController from './shape/useShapeController';
 import Navigation         from './navigation/Navigation';
 
+import ShapeEditor from './shape/editor/ShapeEditor';
+import useShapeEditorController from './shape/editor/useShapeEditorController';
 
 
 
@@ -64,6 +66,8 @@ export default function CandleChart() {
   const axes              = useAxes(candleData, viewport, gridAxes);
   const axesController    = useAxesController(candleData, viewport, viewController, crosshair, gridAxes, axes);
   const shapeController   = useShapeController(candleData, strateryData, viewport, crosshair,viewController);
+
+  const shapeEditorController = useShapeEditorController({ x: 50, y: 50 });
 
   //=============================================================================================
   // Init / destroy
@@ -191,6 +195,40 @@ export default function CandleChart() {
   //=============================================================================================
   // Event Handlers
   //=============================================================================================
+  useEffect(() => {
+      const EDITOR_ID = "main-shape-editor";
+
+      // 1. Hook into Start Edit
+      shapeController.addOnStartEdit(EDITOR_ID, (shape) => {
+          shapeEditorController.open(
+              shape, 
+              (updatedShape) => {
+                  // When data/styles change via PanelInput, sync back to ShapeController
+                  shapeController.set(updatedShape);
+              },
+              (closedShape) => {
+                  // Optional: Logic when editor is overridden by a new shape
+              }
+          );
+      });
+
+      // 2. Hook into End Edit (deselecting, right clicking, clicking blank space)
+      shapeController.addOnEndEdit(EDITOR_ID, () => {
+          shapeEditorController.close();
+      });
+
+      return () => {
+          shapeController.removeOnStartEdit(EDITOR_ID);
+          shapeController.removeOnEndEdit(EDITOR_ID);
+      };
+  }, [shapeController, shapeEditorController]);
+
+
+
+
+  //=============================================================================================
+  // Event Handlers
+  //=============================================================================================
   const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     const x = e.nativeEvent.offsetX;
@@ -228,7 +266,7 @@ export default function CandleChart() {
     crosshair.onMouseLeave();
     
     // Clean interactive drafts if mouse snaps off boundary
-    shapeController.onMouseLeave();
+    shapeController.onMouseLeave(e);
   };
 
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -346,7 +384,8 @@ export default function CandleChart() {
           onMouseLeave(e);
           if (containerRef.current) containerRef.current.blur();
         }}
-      />      
+      />     
+      <ShapeEditor shapeEditorController={shapeEditorController}/>
       <Navigation candleData={candleData} strateryData={strateryData}/>
     </div>
   );

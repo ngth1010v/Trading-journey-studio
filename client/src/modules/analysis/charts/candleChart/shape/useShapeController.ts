@@ -24,7 +24,7 @@ export type ShapeController = {
     onMouseDown: (x: number, y: number, button: number) => void;
     onMouseMove: () => void;
     onMouseUp: (button: number) => void;
-    onMouseLeave: () => void;
+    onMouseLeave: (e?: React.MouseEvent<HTMLDivElement>) => void;
     
     create: (shapeType: string) => void;
     set: (shape: Shape) => void;
@@ -447,7 +447,14 @@ export default function useShapeController(
         }
     };
 
-    const onMouseLeave = () => {
+    const onMouseLeave = (e?: React.MouseEvent<HTMLDivElement>) => {
+        // Check if the mouse is moving into the ShapeEditor overlay or its popovers
+        if (e?.relatedTarget && e.relatedTarget instanceof Element) {
+            if (e.relatedTarget.closest('[data-shape-editor]')) {
+                return; // Ignore canvas mouse leave
+            }
+        }
+
         if (activeEditShapeIdRef.current !== null) {
             const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape) {

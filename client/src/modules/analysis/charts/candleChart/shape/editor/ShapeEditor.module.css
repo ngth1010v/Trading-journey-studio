@@ -1,0 +1,67 @@
+.Panel {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 4px;
+    gap: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    user-select: none;
+}
+
+.DragZone {
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    color: #888;
+    border-radius: 4px;
+}
+
+.DragZone:hover {
+    background-color: #2a2a2a;
+}
+
+.DragZone:active {
+    cursor: grabbing;
+}
+
+.ShapeInfo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    border-right: 1px solid #333;
+    border-left: 1px solid #333;
+    color: #fff;
+    font-size: 12px;
+}
+
+.Icon {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    color: #ccc;
+}
+
+.IconButton {
+    width: 20px;
+    height: 20px;
+    fill: #ccc;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background 0.2s, fill 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.IconButton:hover {
+    background-color: #333;
+    fill: #fff;
+}
