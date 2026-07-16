@@ -113,6 +113,77 @@ export const SHAPE_MAP = {
         },
     },
 
+    // HORIZONTAL TRENDLINE
+    horizontalTrendline: {
+        name: "Horizontal trendline",
+        icon: HorizontalTrendlineIcon,
+
+        data: {
+            t0: "timestamp",
+            t1: "timestamp",
+            p0: "price",
+            te: "text"
+        },
+
+        styles: {
+            color: "rgba",
+            thickness: "uNumber",
+            text : {
+                color: "rgb",
+                size: "uNumber",
+                alignX: "positionX",
+                alignY: "positionY",
+            },
+        },
+
+        defaultStyle: {
+            color: [255,255,255,255] as RGBA,
+            thickness: 2,
+            text : {
+                color: [255,255,255] as RGB,
+                size: 15,
+                alignX: "center",
+                alignY: "center",
+            },
+        },
+
+        render: [
+            {
+                type: "line",
+                pos: ["t0 p0", "t1 p0"],
+                style: {
+                    color: "style.color",
+                    thickness: "style.thickness"
+                }
+            },
+
+            {type: "text", pos: ["min(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'right'" , alignY:"'top'"   }, condition:"style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", pos: ["(t0+t1)/2 p0"],   data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'center'", alignY:"'top'"   }, condition:"style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", pos: ["max(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'left'"  , alignY:"'top'"   }, condition:"style.text.alignX=='right'  && style.text.alignY=='top'"},
+
+            {type: "text", pos: ["min(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'right'" , alignY:"'center'"}, condition:"style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", pos: ["(t0+t1)/2 p0"],   data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'center'", alignY:"'center'"}, condition:"style.text.alignX=='center' && style.text.alignY=='center'"},
+            {type: "text", pos: ["max(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'left'"  , alignY:"'center'"}, condition:"style.text.alignX=='right'  && style.text.alignY=='center'"},
+
+            {type: "text", pos: ["min(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'right'" , alignY:"'bottom'"}, condition:"style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["(t0+t1)/2 p0"],   data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'center'", alignY:"'bottom'"}, condition:"style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", pos: ["max(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'left'"  , alignY:"'bottom'"}, condition:"style.text.alignX=='right'  && style.text.alignY=='bottom'"},
+        ],
+
+        editPoints: {
+            create: {
+                "t0 p0": "t0 p0",
+                "t1 p0": "t1",
+            },
+
+            edit: {
+                "t0 p0"        : "t0 p0",
+                "(t0+t1)/2 p0" : "p0",
+                "t1 p0"        : "t1",
+            },
+        },
+    },
+
     // RECTANGLE
     rectangle: {
         name: "Rectangle",
@@ -197,7 +268,7 @@ export const SHAPE_GROUPS = [
     {
         name: "Line",
         icon: TrendlineIcon,
-        shapes: ["trendline","verticalTrendline"]
+        shapes: ["trendline","verticalTrendline", "horizontalTrendline"]
     },
     {
         name: "Other shapes",
