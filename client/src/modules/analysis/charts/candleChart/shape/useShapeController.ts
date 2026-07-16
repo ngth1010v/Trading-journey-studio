@@ -28,6 +28,7 @@ export type ShapeController = {
     
     create: (shapeType: string) => void;
     set: (shape: Shape) => void;
+    remove: (shapeId: number) => void;
     
     addOnStartEdit: (id: string, callback: (shape: Shape) => void) => void;
     removeOnStartEdit: (id: string) => void;
@@ -515,11 +516,42 @@ export default function useShapeController(
         flushActiveShape();
     };
 
+    const remove = (shapeId: number) => {
+        const shapes = shapeData.getShapes();
+        const idx = shapes.findIndex(s => s.id === shapeId);
+        if (idx < 0) return;
+
+        // Stop editing this shape if it is active
+        if (activeEditShapeIdRef.current === shapeId) {
+            const activeShape = shapes[idx];
+            onEndEditCallbacks.current.forEach(cb => cb(activeShape));
+
+            activeEditShapeIdRef.current = null;
+            draggingAnchorRef.current = null;
+            isDraggingEntireShapeRef.current = false;
+            dragStartShapeDataRef.current = null;
+
+            viewController.setEnable({
+                scaleTimestamp: true,
+                scalePrice: true,
+                panTimestamp: true,
+                panPrice: true
+            });
+        }
+
+        shapes.splice(idx, 1);
+
+        shapeData.saveShapes(shapes);
+
+        flushShapes();
+        flushActiveShape();
+    };
+
     const apiRef = useRef<ShapeController | null>(null);
     if (!apiRef.current) {
         apiRef.current = {
             init, updateData, onMouseDown, onMouseMove, onMouseUp, onMouseLeave,
-            create, set,
+            create, set, remove,
             addOnStartEdit: (id, cb) => onStartEditCallbacks.current.set(id, cb),
             removeOnStartEdit: (id) => onStartEditCallbacks.current.delete(id),
             addOnEndEdit: (id, cb) => onEndEditCallbacks.current.set(id, cb),

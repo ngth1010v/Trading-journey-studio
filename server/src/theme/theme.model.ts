@@ -15,9 +15,10 @@ export interface Theme {
         normal2 : BBF;
         danger  : BBF;
         success : BBF;
+        warning : BBF;
         disable : BBF;
     };
-
+    
     // Button
     button: {
         primary1: BBF;
@@ -26,6 +27,7 @@ export interface Theme {
         normal2 : BBF;
         danger  : BBF;
         success : BBF;
+        warning : BBF;
         disable : BBF;
     };
 
@@ -83,6 +85,11 @@ export const DEFAULT_THEME: Theme = {
             border:     [74, 145, 130, 1],
             font:       [100, 255, 100],
         },
+        warning: {
+            background: [24, 50, 46, 1],
+            border:     [74, 145, 130, 1],
+            font:       [255, 255, 100],
+        },
         disable: {
             background: [25, 27, 32, 1],
             border:     [42, 45, 52, 1],
@@ -115,12 +122,17 @@ export const DEFAULT_THEME: Theme = {
         danger: {
             background: [150, 70, 78, 1],
             border:     [175, 95, 104, 1],
-            font:       [250, 250, 250],
+            font:       [255, 100, 100],
         },
         success: {
             background: [58, 130, 118, 1],
             border:     [84, 156, 143, 1],
-            font:       [248, 250, 249],
+            font:       [100, 255, 100],
+        },
+        warning: {
+            background: [58, 130, 118, 1],
+            border:     [84, 156, 143, 1],
+            font:       [255, 255, 100],
         },
         disable: {
             background: [34, 36, 42, 1],

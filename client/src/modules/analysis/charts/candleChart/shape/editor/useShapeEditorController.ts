@@ -8,6 +8,7 @@ export type ShapeEditorController = {
     position: { x: number; y: number };
     open: (shapeId: number, onChange?: (shapeId: number) => void, onClose?: (shapeId: number) => void) => void;
     close: () => number | null;
+    removeShape: () => void;
     setPosition: (pos: { x: number; y: number }) => void;
     handleChange: (newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => void;
 };
@@ -48,6 +49,14 @@ export default function useShapeEditorController(initialPosition: { x: number; y
         return closedShapeId;
     }, [isOpen, shapeId]);
 
+    const removeShape = useCallback(() => {
+        if (shapeId){
+            const lastShapeId = shapeId
+            close()
+            shapeController.remove(lastShapeId)
+        }
+    },[shapeId])
+
     const handleChange = useCallback((newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => {
         if (shapeId === null) return;
 
@@ -72,7 +81,8 @@ export default function useShapeEditorController(initialPosition: { x: number; y
         shapeId, 
         position, 
         open, 
-        close, 
+        close,
+        removeShape, 
         setPosition, 
         handleChange 
     };

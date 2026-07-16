@@ -1,30 +1,89 @@
-import React, { useRef } from 'react';
-import style from './ShapeEditor.module.css';
-import type { ShapeEditorController } from './useShapeEditorController';
-import type { ShapeData } from '../data/useShapeData';
-import { SHAPE_MAP } from '../shapeMap';
-import ButtonWithPopover from '../../../../../../shared/components/ButtonWithPopover';
+import React, { useRef, useState, useEffect, useId } from "react";
+import style from "./ShapeEditor.module.css";
 
-import PanelInput from '../../../../../input/panel/PanelInput'; 
+import type { ShapeEditorController } from "./useShapeEditorController";
+import type { ShapeData } from "../data/useShapeData";
+import { SHAPE_MAP } from "../shapeMap";
 
-import DragIcon from '../../../../../../assets/icons/dots-six-vertical.svg?react';
-import DataIcon from '../../../../../../assets/icons/database.svg?react';
-import StyleIcon from '../../../../../../assets/icons/paint-brush-broad.svg?react';
+import ButtonWithPopover from "../../../../../../shared/components/ButtonWithPopover";
+import PanelInput from "../../../../../input/panel/PanelInput";
+
+import { useThemeData } from "../../../../../theme/useThemeData";
+import type { Theme } from "../../../../../theme/type";
+import type { RGB, RGBA } from "../../../../../../shared/types/color.type";
+
+import DragIcon from "../../../../../../assets/icons/dots-six-vertical.svg?react";
+import DataIcon from "../../../../../../assets/icons/database.svg?react";
+import StyleIcon from "../../../../../../assets/icons/paint-brush-broad.svg?react";
+import RemoveIcon from "../../../../../../assets/icons/trash.svg?react";
+
+const toRGBString = (color: RGB) =>
+    `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+
+const toRGBAString = (color: RGBA) =>
+    `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
 export default function ShapeEditor({
     shapeEditorController,
-    shapeData
+    shapeData,
 }: {
     shapeEditorController: ShapeEditorController;
     shapeData: ShapeData;
 }) {
-    const { isOpen, shapeId, position, setPosition, handleChange } = shapeEditorController;
+    const { isOpen, shapeId, position, setPosition, handleChange } =
+        shapeEditorController;
+
     const panelRef = useRef<HTMLDivElement>(null);
+
+    //---------------------------------------
+    // Theme
+    //---------------------------------------
+
+    const themeContext = useThemeData();
+    const instanceId = useId();
+
+    const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() =>
+        themeContext.get(themeContext.getSelectedName())
+    );
+
+    useEffect(() => {
+        themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
+        return () =>
+            themeContext.removeOnSelectedThemeChange(instanceId);
+    }, [themeContext, instanceId]);
+
+    const buttonTheme = currentTheme?.button?.normal1;
+
+    const inlineStyles: React.CSSProperties & {
+        [key: string]: string;
+    } = buttonTheme
+        ? {
+              "--bg-color"          : toRGBAString(buttonTheme.background),
+              "--border-color"      : toRGBAString(buttonTheme.border),
+              "--font-color"        : toRGBString(buttonTheme.font),
+              "--danger-font-color" : toRGBString(currentTheme?.button?.danger?.font ?? buttonTheme.font),
+              "--hover-bg": toRGBAString(
+                    currentTheme?.button?.primary2?.background ??
+                    buttonTheme.background
+              ),
+              "--hover-font": toRGBString(
+                  currentTheme?.button?.primary2?.font ??
+                      buttonTheme.font
+              ),
+          }
+        : {
+              "--bg-color": "#1e1e1e",
+              "--border-color": "#333",
+              "--font-color": "#ffffff",
+              "--hover-bg": "#2a2a2a",
+              "--hover-font": "#ffffff",
+          };
+
+    //---------------------------------------
 
     if (!isOpen || shapeId === null) return null;
 
-    // Dynamically retrieve shape directly from ShapeData using shapeId
-    const shape = shapeData.getShapes().find(s => s.id === shapeId);
+    const shape = shapeData.getShapes().find((s) => s.id === shapeId);
     if (!shape) return null;
 
     const shapeDef = (SHAPE_MAP as any)[shape.type];
@@ -34,8 +93,10 @@ export default function ShapeEditor({
 
     const handleDragStart = (e: React.MouseEvent) => {
         e.preventDefault();
+
         const startX = e.clientX;
         const startY = e.clientY;
+
         const startPosX = position.x;
         const startPosY = position.y;
 
@@ -43,42 +104,71 @@ export default function ShapeEditor({
             let newX = startPosX + (moveEvent.clientX - startX);
             let newY = startPosY + (moveEvent.clientY - startY);
 
-            // Restrict panel to stay inside the parent chart container
-            if (panelRef.current && panelRef.current.parentElement) {
-                const parentRect = panelRef.current.parentElement.getBoundingClientRect();
-                const panelRect = panelRef.current.getBoundingClientRect();
-                
-                newX = Math.max(0, Math.min(newX, parentRect.width - panelRect.width));
-                newY = Math.max(0, Math.min(newY, parentRect.height - panelRect.height));
+            if (panelRef.current?.parentElement) {
+                const parentRect =
+                    panelRef.current.parentElement.getBoundingClientRect();
+
+                const panelRect =
+                    panelRef.current.getBoundingClientRect();
+
+                newX = Math.max(
+                    0,
+                    Math.min(newX, parentRect.width - panelRect.width)
+                );
+
+                newY = Math.max(
+                    0,
+                    Math.min(newY, parentRect.height - panelRect.height)
+                );
             }
 
-            setPosition({ x: newX, y: newY });
+            setPosition({
+                x: newX,
+                y: newY,
+            });
         };
 
         const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener(
+                "mousemove",
+                onMouseMove
+            );
+            document.removeEventListener(
+                "mouseup",
+                onMouseUp
+            );
         };
 
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
     };
 
     return (
-        <div 
+        <div
             ref={panelRef}
             data-shape-editor="true"
-            className={style.Panel} 
-            style={{ left: position.x, top: position.y }}
+            className={style.Panel}
+            style={{
+                left: position.x,
+                top: position.y,
+                ...inlineStyles,
+            }}
         >
-            <div className={style.DragZone} onMouseDown={handleDragStart}>
+            <div
+                className={style.DragZone}
+                onMouseDown={handleDragStart}
+            >
                 <DragIcon className={style.Icon} />
             </div>
 
+            <div className={style.Divider} />
+
             <div className={style.ShapeInfo}>
                 {ShapeIcon && <ShapeIcon className={style.Icon} />}
-                <span className={style.ShapeName}>{shapeDef.name}</span>
+                <span>{shapeDef.name}</span>
             </div>
+
+            <div className={style.Divider} />
 
             <ButtonWithPopover
                 type="hover"
@@ -90,11 +180,17 @@ export default function ShapeEditor({
                     </div>
                 }
                 popup={
-                    <PanelInput 
-                        layout={shapeDef.data} 
-                        data={shape.data} 
-                        minWidth='300px'
-                        onDataChange={(newData: any) => handleChange(newData, 'data', shapeData)} 
+                    <PanelInput
+                        layout={shapeDef.data}
+                        data={shape.data}
+                        minWidth="300px"
+                        onDataChange={(newData: any) =>
+                            handleChange(
+                                newData,
+                                "data",
+                                shapeData
+                            )
+                        }
                     />
                 }
             />
@@ -109,14 +205,26 @@ export default function ShapeEditor({
                     </div>
                 }
                 popup={
-                    <PanelInput 
-                        layout={shapeDef.styles} 
-                        minWidth='300px'
-                        data={shape.styles} 
-                        onDataChange={(newStyles: any) => handleChange(newStyles, 'styles', shapeData)} 
+                    <PanelInput
+                        layout={shapeDef.styles}
+                        minWidth="300px"
+                        data={shape.styles}
+                        onDataChange={(newStyles: any) =>
+                            handleChange(
+                                newStyles,
+                                "styles",
+                                shapeData
+                            )
+                        }
                     />
                 }
             />
+
+            <div className={style.Divider} />
+
+            <div className={style.IconButton} onClick={shapeEditorController.removeShape}>
+                <RemoveIcon className={`${style.Icon} ${style.DangerIcon}`}/>
+            </div>
         </div>
     );
 }
