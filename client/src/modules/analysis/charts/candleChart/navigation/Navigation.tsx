@@ -3,10 +3,13 @@ import styles from './Navigation.module.css';
 
 import { type CandleData }   from '../market/hooks/useCandleData';
 import { type StrateryData } from '../market/hooks/useStrateryData';
+import { type ShapeData } from '../shape/data/useShapeData';
+import { type ShapeController } from '../shape/useShapeController';
 
 import ButtonWithPopover from '../../../../../shared/components/ButtonWithPopover';
 
 import SourceBar from './sourceBar/SourceBar';
+import ShapeBar from '../shape/creater/ShapeBar';
 
 import HouseIcon      from '../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon     from '../../../../../assets/icons/git-branch.svg?react';
@@ -18,11 +21,15 @@ export default function Navigation(
   {
     candleData,
     strateryData,
+    shapeData,
+    shapeController,
     onMouseEnter,
     onMouseLeave
   }: {
     candleData: CandleData
     strateryData: StrateryData
+    shapeData: ShapeData
+    shapeController:ShapeController
     onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>)=> void
     onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>)=> void
   }
@@ -110,7 +117,10 @@ export default function Navigation(
         {/* DRAW */}
         {openChildren[2] && (
           <div className={styles.childWrapper}>
-            <div>This is a test 3</div>
+            <ShapeBar
+              shapeData={shapeData}
+              shapeController={shapeController}
+            />
           </div>
         )}
 

@@ -1,0 +1,137 @@
+.Panel {
+    display: flex;
+    align-items: center;
+
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--font-color);
+
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+    height: 34px;
+    padding: 4px;
+    box-sizing: border-box;
+
+    user-select: none;
+
+    gap: 4px
+}
+
+.Divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color);
+}
+
+.LastShapeButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 0px 10px;
+    height: 100%;
+
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--font-color);
+    border-radius: 4px;
+
+    transition:
+        background-color 0.15s,
+        color 0.15s;
+}
+
+.LastShapeButton:hover {
+    background: var(--hover-bg);
+    color: var(--hover-font);
+}
+
+.GroupsContainer {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.IconButton {
+    width: 26px;
+    height: 26px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+
+    color: var(--font-color);
+    border-radius: 4px;
+
+    transition:
+        background-color 0.15s,
+        color 0.15s;
+}
+
+.IconButton:hover {
+    background: var(--hover-bg);
+    color: var(--hover-font);
+}
+
+.Icon {
+    width: 15px;
+    height: 15px;
+
+    fill: currentColor;
+    color: inherit;
+}
+
+.PopoverList {
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    min-width: 200px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    gap: 4px;
+}
+
+.ShapeRowContainer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+    height: 26px;
+}
+
+.ShapeRowContainer:hover {
+    background: var(--hover-bg);
+}
+
+.ShapeRowButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    padding: 6px 8px;
+
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--font-color);
+    text-align: left;
+}
+
+.TemplateButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 3px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--font-color);
+    transition: background-color 0.15s;
+}

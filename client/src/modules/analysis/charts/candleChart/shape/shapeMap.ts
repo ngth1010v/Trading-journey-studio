@@ -259,12 +259,10 @@ export const SHAPE_MAP = {
 
 export const SHAPE_GROUPS = [
     {
-        name: "Line",
         icon: TrendlineIcon,
         shapes: ["trendline","verticalTrendline", "horizontalTrendline"]
     },
     {
-        name: "Other shapes",
         icon: RectangleIcon,
         shapes: ["rectangle"]
     }

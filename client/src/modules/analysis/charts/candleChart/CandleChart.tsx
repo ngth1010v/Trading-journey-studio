@@ -392,7 +392,7 @@ export default function CandleChart() {
         }}
       />     
       <ShapeEditor shapeEditorController={shapeEditorController} shapeData={shapeData} candleData={candleData}/>
-      <Navigation candleData={candleData} strateryData={strateryData}/>
+      <Navigation candleData={candleData} strateryData={strateryData} shapeData={shapeData} shapeController={shapeController}/>
     </div>
   );
 }
