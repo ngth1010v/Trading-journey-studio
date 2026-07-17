@@ -8,7 +8,8 @@
   box-sizing: border-box;
   user-select: none;
   font-size: 12px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: padding 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              gap 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   padding: var(--padding);
   gap: var(--gap);
 }
@@ -23,13 +24,14 @@
   align-items: center;
 }
 
-/* Auto-Shrink hover behavior (Matches Panel expand effect) */
+/* Auto-Shrink base state */
 .autoShrink {
   padding: 0;
-  gap:0;
+  gap: 0;
 }
 
-.autoShrink:hover {
+/* Explicit extended state controlled by JS */
+.autoShrink.extended {
   padding: var(--padding);
   gap: var(--gap);
 }
@@ -37,17 +39,16 @@
 .divider {
   background-color: var(--border-color);
 }
-.vertical .divider{
-  align-self:stretch;
+.vertical .divider {
+  align-self: stretch;
   height: 1px;
-  margin:0 5px;
+  margin: 0 5px;
 }
-.horizontal .divider{
-  align-self:stretch;
+.horizontal .divider {
+  align-self: stretch;
   width: 1px;
-  margin:5px 0;
+  margin: 5px 0;
 }
-
 
 /* Row Item Wrappers */
 .rowWrapper {
@@ -71,7 +72,6 @@
 .selectedRow {
   background: var(--selected-bg);
   color: var(--selected-font);
-  /* border: 1px solid var(--selected-border, transparent); */
 }
 
 .selectedRow:hover {

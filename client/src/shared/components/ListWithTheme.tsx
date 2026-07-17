@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useId, Children } from "react";
+import React, { useState, useEffect, useRef, useId, Children } from "react";
 import style from "./ListWithTheme.module.css";
 
-import { useThemeData }     from "../../modules/theme/useThemeData";
-import type { Theme }       from "../../modules/theme/type";
-import type { RGB, RGBA }   from "../types/color.type";
+import { useThemeData } from "../../modules/theme/useThemeData";
+import type { Theme } from "../../modules/theme/type";
+import type { RGB, RGBA } from "../types/color.type";
 
 const toRGBString = (color: RGB) =>
   `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -12,16 +12,16 @@ const toRGBAString = (color: RGBA) =>
   `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
 interface ListWithThemeProps {
-  type          ?: "vertical" | "horizontal";
-  children       : any;
+  type ?: "vertical" | "horizontal";
+  children : any;
 
-  selectedList  ?: boolean[];
-  autoShrink    ?: boolean;
-  dividerList   ?: boolean[];
+  selectedList ?: boolean[];
+  autoShrink ?: boolean;
+  dividerList ?: boolean[];
 
-  padding   ?: string;
-  gap       ?: string;
-  maxWidth  ?: string;
+  padding ?: string;
+  gap ?: string;
+  maxWidth ?: string;
   maxHeight ?: string;
 }
 
@@ -51,6 +51,73 @@ export default function ListWithTheme({
     themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
     return () => themeContext.removeOnSelectedThemeChange(instanceId);
   }, [themeContext, instanceId]);
+
+  //---------------------------------------
+  // Animation state locking for autoShrink
+  //---------------------------------------
+  const [isExtended, setIsExtended] = useState(false);
+  const isAnimatingRef = useRef(false);
+  const isHoveredRef = useRef(false);
+  
+  // Track current mouse coordinates to re-verify on transitionend
+  const mousePosRef = useRef({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    mousePosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseEnter = () => {
+    if (!autoShrink) return;
+    isHoveredRef.current = true;
+
+    // Trigger extend only if not currently mid-animation
+    if (!isAnimatingRef.current && !isExtended) {
+      isAnimatingRef.current = true;
+      setIsExtended(true);
+    }
+    console.log("START")
+  };
+
+  const handleMouseLeave = () => {
+    if (!autoShrink) return;
+    isHoveredRef.current = false;
+
+    // Trigger shrink only if not currently mid-animation
+    if (!isAnimatingRef.current && isExtended) {
+      isAnimatingRef.current = true;
+      setIsExtended(false);
+    }
+    console.log("END")
+  };
+
+  const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
+    // Only respond to transitions on the container itself
+    if (e.target !== e.currentTarget) return;
+
+    // Re-check: verify if current mouse pointer is actually inside the container's final bounds
+    const rect = e.currentTarget.getBoundingClientRect();
+    const { x, y } = mousePosRef.current;
+    
+    const isStillInside = 
+      x >= rect.left && 
+      x <= rect.right && 
+      y >= rect.top && 
+      y <= rect.bottom;
+
+    // Correct the hover state if pointer left during transition
+    isHoveredRef.current = isStillInside;
+
+    isAnimatingRef.current = false;
+
+    // Check if state needs to catch up after animation completes
+    if (isHoveredRef.current && !isExtended) {
+      isAnimatingRef.current = true;
+      setIsExtended(true);
+    } else if (!isHoveredRef.current && isExtended) {
+      isAnimatingRef.current = true;
+      setIsExtended(false);
+    }
+  };
 
   const normalTheme = currentTheme?.button?.normal1;
   const primaryTheme = currentTheme?.button?.primary1;
@@ -93,7 +160,6 @@ export default function ListWithTheme({
         "--selected-border": "#3b82f6",
       };
 
-  // Combine theme custom CSS variables with container layout dimension properties
   const combinedContainerStyle: React.CSSProperties = {
     ...inlineThemeStyle,
     maxWidth,
@@ -102,28 +168,37 @@ export default function ListWithTheme({
 
   const childrenArray = Children.toArray(children);
 
+  const containerClasses = [
+    style.ListWithTheme,
+    type === "horizontal" ? style.horizontal : style.vertical,
+    autoShrink ? style.autoShrink : "",
+    autoShrink && isExtended ? style.extended : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className={`${style.ListWithTheme} ${
-        type === "horizontal" ? style.horizontal : style.vertical
-      } ${autoShrink ? style.autoShrink : ""}`}
+      className={containerClasses}
       style={combinedContainerStyle}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onTransitionEnd={handleTransitionEnd}
     >
       {childrenArray.map((child, index) => {
         const isSelected = Boolean(selectedList[index]);
         return (
-          <>
+          <React.Fragment key={index}>
             <div
-              key={index}
               className={`${style.rowWrapper} ${
                 isSelected ? style.selectedRow : ""
               }`}
             >
               {child}
-            </div>      
-            {dividerList[index] && <div className={style.divider}/>}    
-          </>
-
+            </div>
+            {dividerList[index] && <div className={style.divider} />}
+          </React.Fragment>
         );
       })}
     </div>

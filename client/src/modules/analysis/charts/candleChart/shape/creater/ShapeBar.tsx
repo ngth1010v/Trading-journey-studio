@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId, useCallback } from "react";
+import { useState } from "react";
 import style from "./ShapeBar.module.css";
 
 import type { ShapeController } from "../useShapeController";
@@ -6,19 +6,10 @@ import type { ShapeData } from "../data/useShapeData";
 import { SHAPE_MAP, SHAPE_GROUPS } from "../shapeMap";
 
 import ButtonWithPopover from "../../../../../../shared/components/ButtonWithPopover";
+import ListWithTheme from "../../../../../../shared/components/ListWithTheme";
 import ShapeTemplatePanel from "../template/ShapeTemplatePanel";
 
-import { useThemeData } from "../../../../../theme/useThemeData";
-import type { Theme } from "../../../../../theme/type";
-import type { RGB, RGBA } from "../../../../../../shared/types/color.type";
-
 import TemplateIcon from "../../../../../../assets/icons/bookmark-simple.svg?react";
-
-const toRGBString = (color: RGB) =>
-    `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-
-const toRGBAString = (color: RGBA) =>
-    `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
 export default function ShapeBar({
     shapeData,
@@ -27,100 +18,39 @@ export default function ShapeBar({
     shapeData: ShapeData;
     shapeController: ShapeController;
 }) {
-    // Track the last created shape type (defaulting to "trendline")
-    const [lastShapeType, setLastShapeType] = useState<string>("trendline");
+    const [lastShapeType, setLastShapeType] = useState("trendline");
 
-    // Master popover key to force close all popovers across ShapeBar
-    const [popoverKey, setPopoverKey] = useState<number>(0);
-
-    // States for controlling main shape group popovers
+    const [popoverKey, setPopoverKey] = useState(0);
     const [openGroupIndex, setOpenGroupIndex] = useState<number | null>(null);
-
-    // States for controlling nested template popovers
     const [openTemplateShapeType, setOpenTemplateShapeType] = useState<string | null>(null);
 
-    const closeAllPopovers = useCallback(() => {
+    const closeAllPopovers = () => {
         setOpenGroupIndex(null);
         setOpenTemplateShapeType(null);
-        setPopoverKey((prev) => prev + 1);
-    }, []);
-
-    //---------------------------------------
-    // Theme setup
-    //---------------------------------------
-    const themeContext = useThemeData();
-    const instanceId = useId();
-
-    const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() =>
-        themeContext.get(themeContext.getSelectedName())
-    );
-
-    useEffect(() => {
-        themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
-        return () => themeContext.removeOnSelectedThemeChange(instanceId);
-    }, [themeContext, instanceId]);
-
-    const buttonTheme = currentTheme?.button?.normal1;
-
-    const inlinestyle: React.CSSProperties & {
-        [key: string]: string;
-    } = buttonTheme
-        ? {
-              "--bg-color": toRGBAString(buttonTheme.background),
-              "--border-color": toRGBAString(buttonTheme.border),
-              "--font-color": toRGBString(buttonTheme.font),
-              "--hover-bg": toRGBAString(
-                  currentTheme?.button?.primary2?.background ??
-                      buttonTheme.background
-              ),
-              "--hover-font": toRGBString(
-                  currentTheme?.button?.primary2?.font ?? buttonTheme.font
-              ),
-          }
-        : {
-              "--bg-color": "#1e1e1e",
-              "--border-color": "#333",
-              "--font-color": "#ffffff",
-              "--hover-bg": "#2a2a2a",
-              "--hover-font": "#ffffff",
-          };
-
-    //---------------------------------------
-    // Action Handlers
-    //---------------------------------------
-
-    // 1. Click on last shape display panel
-    const handleCreateLastShape = () => {
-        shapeController.create(lastShapeType);
+        setPopoverKey((v) => v + 1);
     };
 
-    // 2. Click on a specific shape row (*row1)
-    const handleSelectShapeRow = (shapeType: string) => {
+    const handleSelectShape = (shapeType: string) => {
         setLastShapeType(shapeType);
         closeAllPopovers();
         shapeController.create(shapeType);
     };
 
-    // 3. Select a template inside the nested template popover
     const handleSelectTemplate = (shapeType: string, templateId: number) => {
         closeAllPopovers();
 
         const templates = shapeData.getTemplates();
-        const selectedTemplate = templates.find((t) => t.id === templateId);
 
-        if (selectedTemplate && selectedTemplate.style) {
-            // Find default template for this type
-            const defaultTemplate = templates.find(
-                (t) => t.type === shapeType && t.name === "<<<DEFAULT>>>"
-            );
+        const selected = templates.find((t) => t.id === templateId);
+        const defaultTemplate = templates.find(
+            (t) => t.type === shapeType && t.name === "<<<DEFAULT>>>"
+        );
 
-            if (defaultTemplate) {
-                // Apply selected template style onto the default template
-                shapeData.setTemplate({
-                    ...defaultTemplate,
-                    style: selectedTemplate.style,
-                });
-            }
+        if (selected?.style && defaultTemplate) {
+            shapeData.setTemplate({
+                ...defaultTemplate,
+                style: selected.style,
+            });
         }
 
         setLastShapeType(shapeType);
@@ -131,127 +61,117 @@ export default function ShapeBar({
     const LastShapeIcon = lastShapeDef?.icon;
 
     return (
-        <div
+        <ListWithTheme
+            type="horizontal"
+            autoShrink
+            dividerList={[true, false, false]}
             key={popoverKey}
-            className={style.Panel}
-            style={inlinestyle}
         >
-            {/* Last Created Shape Shortcut */}
+            {/* Last shape */}
             <div
                 className={style.LastShapeButton}
-                onClick={handleCreateLastShape}
+                onClick={() => shapeController.create(lastShapeType)}
             >
                 {LastShapeIcon && <LastShapeIcon className={style.Icon} />}
-                <span>{lastShapeDef?.name || lastShapeType}</span>
+                <span>{lastShapeDef?.name ?? lastShapeType}</span>
             </div>
 
-            <div className={style.Divider} />
+            {/* Shape groups */}
+            {SHAPE_GROUPS.map((group, groupIdx) => {
+                const GroupIcon = group.icon;
 
-            {/* Shape Groups Panel */}
-            <div className={style.GroupsContainer}>
-                {SHAPE_GROUPS.map((group, groupIdx) => {
-                    const GroupIcon = group.icon;
+                return (
+                    <ButtonWithPopover
+                        key={groupIdx}
+                        type="hover"
+                        position="bottom"
+                        align="start"
+                        bufferSize="10px"
+                        open={openGroupIndex === groupIdx}
+                        setOpen={(open: any) =>
+                            setOpenGroupIndex(open ? groupIdx : null)
+                        }
+                        button={
+                            <div className={style.Button}>
+                                <GroupIcon className={style.Icon} />
+                            </div>
+                        }
+                        popup={
+                            <ListWithTheme>
+                                {group.shapes.map((shapeType) => {
+                                    const shapeDef = (SHAPE_MAP as any)[shapeType];
+                                    if (!shapeDef) return null;
 
-                    return (
-                        <ButtonWithPopover
-                            key={groupIdx}
-                            type="hover"
-                            position="bottom"
-                            align="start"
-                            bufferSize="10px"
-                            open={openGroupIndex === groupIdx}
-                            setOpen={(isOpen : any) =>
-                                setOpenGroupIndex(isOpen ? groupIdx : null)
-                            }
-                            button={
-                                <div className={style.IconButton}>
-                                    <GroupIcon className={style.Icon} />
-                                </div>
-                            }
-                            popup={
-                                <div className={style.PopoverList}>
-                                    {group.shapes.map((shapeType) => {
-                                        const shapeDef = (SHAPE_MAP as any)[
-                                            shapeType
-                                        ];
-                                        if (!shapeDef) return null;
-                                        const RowIcon = shapeDef.icon;
+                                    const RowIcon = shapeDef.icon;
 
-                                        return (
-                                            <div
-                                                key={shapeType}
-                                                className={style.ShapeRowContainer}
+                                    return (
+                                        <div
+                                            key={shapeType}
+                                            className={style.ShapeRow}
+                                        >
+                                            <button
+                                                type="button"
+                                                className={style.ShapeRowButton}
+                                                onClick={() =>
+                                                    handleSelectShape(shapeType)
+                                                }
                                             >
-                                                {/* Left/Row Button: Triggers shape creation */}
-                                                <button
-                                                    type="button"
-                                                    className={style.ShapeRowButton}
-                                                    onClick={() =>
-                                                        handleSelectShapeRow(
-                                                            shapeType
-                                                        )
-                                                    }
-                                                >
-                                                    {RowIcon && (
-                                                        <RowIcon
-                                                            className={style.Icon}
-                                                        />
-                                                    )}
-                                                    <span>{shapeDef.name}</span>
-                                                </button>
+                                                {RowIcon && (
+                                                    <RowIcon
+                                                        className={style.Icon}
+                                                    />
+                                                )}
+                                                <span>{shapeDef.name}</span>
+                                            </button>
 
-                                                {/* Right: Template Popover Button */}
-                                                <ButtonWithPopover
-                                                    type="hover"
-                                                    position="right"
-                                                    align="start"
-                                                    bufferSize="10px"
-                                                    open={
-                                                        openTemplateShapeType ===
-                                                        shapeType
-                                                    }
-                                                    setOpen={(isOpen: any) =>
-                                                        setOpenTemplateShapeType(
-                                                            isOpen
-                                                                ? shapeType
-                                                                : null
-                                                        )
-                                                    }
-                                                    button={
-                                                        <div
+                                            <ButtonWithPopover
+                                                type="hover"
+                                                position="right"
+                                                align="start"
+                                                bufferSize="10px"
+                                                open={
+                                                    openTemplateShapeType ===
+                                                    shapeType
+                                                }
+                                                setOpen={(open: any) =>
+                                                    setOpenTemplateShapeType(
+                                                        open ? shapeType : null
+                                                    )
+                                                }
+                                                button={
+                                                    <div
+                                                        className={
+                                                            style.TemplateButton
+                                                        }
+                                                    >
+                                                        <TemplateIcon
                                                             className={
-                                                                style.TemplateButton
-                                                            }
-                                                        >
-                                                            <TemplateIcon
-                                                                className={
-                                                                    style.Icon
-                                                                }
-                                                            />
-                                                        </div>
-                                                    }
-                                                    popup={
-                                                        <ShapeTemplatePanel
-                                                            shapeType={shapeType}
-                                                            shapeData={shapeData}
-                                                            onSelected={(templateId) =>
-                                                                handleSelectTemplate(
-                                                                    shapeType,
-                                                                    templateId
-                                                                )
+                                                                style.Icon
                                                             }
                                                         />
-                                                    }
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            }
-                        />
-                    );
-                })}
-            </div>
-        </div>
+                                                    </div>
+                                                }
+                                                popup={
+                                                    <ShapeTemplatePanel
+                                                        shapeType={shapeType}
+                                                        shapeData={shapeData}
+                                                        onSelected={(id) =>
+                                                            handleSelectTemplate(
+                                                                shapeType,
+                                                                id
+                                                            )
+                                                        }
+                                                    />
+                                                }
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </ListWithTheme>
+                        }
+                    />
+                );
+            })}
+        </ListWithTheme>
     );
 }
