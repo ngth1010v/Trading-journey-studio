@@ -1,11 +1,98 @@
 /**
- * A lightweight, safe mathematical string evaluator for shapeMap formulas and conditions.
- * Implements a basic Shunting-yard algorithm to convert infix to RPN, then evaluates.
- * Caches the compiled RPN for maximum real-time performance.
+ * A highly performant pre-compiled mathematical evaluator.
+ * It compiles all shape definition strings (render data, conditions, and edit points)
+ * into native functions on initialization, eliminating parsing overhead during real-time rendering.
  */
 
-// type Token = string | number | { isVar: boolean; name: string };
-const cache = new Map<string, any[]>();
+export type CompiledExpr = (ctx: any) => any;
+
+let compiledShapeMap: Record<string, any>;
+
+export function getCompiledShapeMap(): Record<string, any> {
+    return compiledShapeMap;
+}
+
+export function initShapeParser(shapeMap: Record<string, any>) {
+    compiledShapeMap = {};
+    for (const key in shapeMap) {
+        const shape = shapeMap[key];
+        
+        // Define explicitly typed fallback function expecting context parameter
+        let compiledCondition: CompiledExpr = (_ctx: any) => true;
+        if (shape.style && shape.style.condition) {
+            compiledCondition = compileExpr(shape.style.condition);
+        }
+
+        compiledShapeMap[key] = {
+            ...shape,
+            compiledCondition,
+            compiledRender: (shape.render || []).map((r: any) => ({
+                type: r.type,
+                compiledCondition: r.condition ? compileExpr(r.condition) : (_ctx: any) => true,
+                compiledData: compileObject(r.data || {})
+            })),
+            compiledEditPoints: {
+                create: shape.editPoints?.create ?? {},
+                edit: compileEditPoints(shape.editPoints?.edit ?? {})
+            }
+        };
+    }
+}
+
+function compileEditPoints(editObj: Record<string, string>) {
+    const compiled: Array<{
+        evaluateX: CompiledExpr;
+        evaluateY: CompiledExpr;
+        targetKeysStr: string;
+    }> = [];
+
+    for (const posFormula in editObj) {
+        const targetKeysStr = editObj[posFormula];
+        const parts = posFormula.match(/(?:[^ (]+|\([^)]*\))+/g);
+        if (parts && parts.length >= 2) {
+            compiled.push({
+                evaluateX: compileExpr(parts[0]),
+                evaluateY: compileExpr(parts[1]),
+                targetKeysStr
+            });
+        }
+    }
+    return compiled;
+}
+
+function compileObject(obj: Record<string, any>): CompiledExpr {
+    const compiledKeys: Record<string, CompiledExpr> = {};
+    for (const k in obj) {
+        compiledKeys[k] = compileExpr(obj[k]);
+    }
+    return (ctx: any) => {
+        const res: Record<string, any> = {};
+        for (const k in compiledKeys) {
+            res[k] = compiledKeys[k](ctx);
+        }
+        return res;
+    };
+}
+
+function compileExpr(expr: any): CompiledExpr {
+    if (typeof expr === 'number') return (_ctx: any) => expr;
+    if (typeof expr === 'string') {
+        if ((expr.startsWith("'") && expr.endsWith("'")) || (expr.startsWith('"') && expr.endsWith('"'))) {
+            const str = expr.slice(1, -1);
+            return (_ctx: any) => str;
+        }
+        const rpn = toRPN(tokenize(expr));
+        return (ctx: any) => evaluateRPN(rpn, ctx);
+    }
+    if (Array.isArray(expr)) {
+        const compiledArr = expr.map(compileExpr);
+        return (ctx: any) => compiledArr.map(fn => fn(ctx));
+    }
+    if (typeof expr === 'object' && expr !== null) {
+        return compileObject(expr);
+    }
+    return (_ctx: any) => expr;
+}
 
 function tokenize(expr: string): string[] {
     const regex = /'[^']*'|"[^"]*"|&&|\|\||==|!=|<=|>=|[A-Za-z0-9_.]+|\d+\.\d+|\d+|[()+\-*/<>,]/g;
@@ -50,7 +137,7 @@ function toRPN(tokens: string[]): any[] {
     const output: any[] = [];
     const operators: string[] = [];
     const precedence: Record<string, number> = {
-        '| |': 1, '||': 1,
+        '||': 1,
         '&&': 2,
         '==': 3, '!=': 3, '<': 4, '>': 4, '<=': 4, '>=': 4,
         '+': 5, '-': 5,
@@ -97,21 +184,11 @@ function toRPN(tokens: string[]): any[] {
     return output;
 }
 
-export function evaluateFormula(formula: string, context: Record<string, any>): any {
-    if (!isNaN(Number(formula))) return Number(formula);
-    if (context[formula] !== undefined) return context[formula];
-
-    let rpn = cache.get(formula);
-    if (!rpn) {
-        rpn = toRPN(tokenize(formula));
-        cache.set(formula, rpn);
-    }
-
+function evaluateRPN(rpn: any[], context: Record<string, any>): any {
     const stack: any[] = [];
     
     const resolveValue = (val: any) => {
         if (val && typeof val === 'object' && val.isVar) {
-            // Returns NaN if the variable is unselected/missing
             return context[val.name] !== undefined ? context[val.name] : NaN; 
         }
         return val;
@@ -152,11 +229,6 @@ export function evaluateFormula(formula: string, context: Record<string, any>): 
     return stack.length ? resolveValue(stack[0]) : NaN;
 }
 
-export function evaluateCondition(expr: string, context: Record<string, any>): boolean {
-    if (!expr || expr.trim() === "") return true;
-    return Boolean(evaluateFormula(expr, context));
-}
-
 export function flattenContext(shape: any): Record<string, any> {
     const flat: Record<string, any> = {};
     if (shape.data) {
@@ -175,47 +247,6 @@ export function flattenContext(shape: any): Record<string, any> {
             }
         }
     };
-    flattenObj(shape.styles, "style");
+    flattenObj(shape.style, "style");
     return flat;
-}
-/**
- * Parses a combined position string like "(t0+t1)/2 p0" into [timestamp, price]
- */
-export function parsePosition(posStr: string, context: Record<string, number>): [number, number] {
-    const parts = posStr.match(/(?:[^ (]+|\([^)]*\))+/g);
-    if (!parts || parts.length < 2) return [NaN, NaN];
-    
-    return [
-        Number(evaluateFormula(parts[0], context)),
-        Number(evaluateFormula(parts[1], context))
-    ];
-}
-
-export function resolveValue(value: any, context: any): any {
-    if (typeof value !== "string") return value;
-    
-    // Arguments wrapped in quotes are treated as literal values
-    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
-        return value.slice(1, -1);
-    }
-
-    // Arguments without quotes are treated as formula code expressions evaluated against the full flattened context
-    return evaluateFormula(value, context);
-}
-
-export function resolveStyle(styleDef: any, context: any): any {
-    if (!styleDef) return {};
-
-    const out: any = {};
-
-    for (const key in styleDef) {
-        const value = styleDef[key];
-
-        out[key] =
-            value && typeof value === "object" && !Array.isArray(value)
-                ? resolveStyle(value, context)
-                : resolveValue(value, context);
-    }
-
-    return out;
 }

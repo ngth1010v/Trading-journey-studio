@@ -11,7 +11,7 @@ export type ShapeEditorController = {
     close: () => number | null;
     removeShape: () => void;
     setPosition: (pos: { x: number; y: number }) => void;
-    handleChange: (newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => void;
+    handleChange: (newSectionData: any, type: 'data' | 'style', shapeData: ShapeData) => void;
     flushStyleDefault:(shapeData: ShapeData) => void
 };
 
@@ -75,14 +75,14 @@ export default function useShapeEditorController(initialPosition: { x: number; y
             id: existingDefault?.id, // ✅ Retains undefined if new, or real ID if existing
             type: targetShape.type,
             name: "<<<DEFAULT>>>",
-            styles: structuredClone(targetShape.styles) // ✅ Clean deep clone
+            style: structuredClone(targetShape.style) // ✅ Clean deep clone
         };
 
         shapeData.setTemplate(template);
 
     }, [shapeId]);
 
-    const handleChange = useCallback((newSectionData: any, type: 'data' | 'styles', shapeData: ShapeData) => {
+    const handleChange = useCallback((newSectionData: any, type: 'data' | 'style', shapeData: ShapeData) => {
         if (shapeId === null) return;
 
         const shapes = shapeData.getShapes();
@@ -97,7 +97,7 @@ export default function useShapeEditorController(initialPosition: { x: number; y
         shapeController.set(targetShape)
 
         //DEFAULT template update
-        if (type === 'styles'){
+        if (type === 'style'){
             flushStyleDefault(shapeData)
         }
 

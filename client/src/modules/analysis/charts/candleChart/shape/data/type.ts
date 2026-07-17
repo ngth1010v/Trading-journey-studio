@@ -4,7 +4,7 @@ export interface Shape {
   fromTs  : number; 
   toTs    : number;
   data    : any;
-  styles  : any;
+  style   : any;
   creater : string;   // new
   editable: boolean;  // new
 }
@@ -13,5 +13,5 @@ export interface ShapeTemplate {
   id?: number; 
   type: string;
   name: string;
-  styles: any; 
+  style: any; 
 }

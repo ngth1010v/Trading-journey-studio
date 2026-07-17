@@ -1,6 +1,5 @@
 import type { Shape } from "../data/type";
-import { SHAPE_MAP } from "../shapeMap";
-import { parsePosition } from "./mathParser";
+import { getCompiledShapeMap, flattenContext } from "./mathParser";
 import type { Viewport } from "../../chart/viewport/useViewport";
 
 function distToSegmentSquared(p: {x: number, y: number}, v: {x: number, y: number}, w: {x: number, y: number}) {
@@ -23,19 +22,19 @@ export function getClosestShape(
 ): Shape | null {
     let closestShape: Shape | null = null;
     let minDistanceSq = tolerance * tolerance;
+    const compiledMap = getCompiledShapeMap();
 
     for (const shape of shapes) {
-        const shapeDef = (SHAPE_MAP as any)[shape.type];
+        const shapeDef = compiledMap[shape.type];
         if (!shapeDef) continue;
 
-        const context = { ...shape.data };
+        const context = flattenContext(shape);
 
-        // Test each render primitive against the mouse position
-        for (const renderItem of shapeDef.render) {
-            // Simplified hit testing based on bounding boxes/lines
-            if (renderItem.type === "line" && renderItem.pos.length >= 2) {
-                const [t1, p1] = parsePosition(renderItem.pos[0], context);
-                const [t2, p2] = parsePosition(renderItem.pos[1], context);
+        // Test each compiled render primitive against the mouse position
+        for (const renderItem of shapeDef.compiledRender) {
+            if (renderItem.type === "line") {
+                const data = renderItem.compiledData(context);
+                const { timestamp1: t1, price1: p1, timestamp2: t2, price2: p2 } = data;
 
                 // Skip hit testing if the point hasn't been selected yet
                 if (isNaN(t1) || isNaN(p1) || isNaN(t2) || isNaN(p2)) continue;

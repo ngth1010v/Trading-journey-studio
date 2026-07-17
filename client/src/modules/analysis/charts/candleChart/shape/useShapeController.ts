@@ -5,7 +5,7 @@ import type { Crosshair }   from "../chart/crosshair/useCrosshair";
 import type { Shape }       from "./data/type";
 import { CONFIG }           from "../shared/config";
 import { SHAPE_MAP }        from "./shapeMap";
-import { parsePosition }    from "./utils/mathParser";
+import { initShapeParser, getCompiledShapeMap, flattenContext } from "./utils/mathParser";
 import { getClosestShape }  from "./utils/hitTestUtils";
 import { renderShapeToLayers } from "./utils/renderShapeUtils";
 import type { ViewController }  from "../chart/viewport/useViewController";
@@ -130,12 +130,16 @@ export default function useShapeController(
         const activeShape = shapeData.getShapes().find(s => s.id === activeEditShapeIdRef.current);
         if (!activeShape) return;
 
-        const shapeDef = (SHAPE_MAP as any)[activeShape.type];
-        if (!shapeDef) return;
+        const compiledMap = getCompiledShapeMap();
+        const compiledShapeDef = compiledMap[activeShape.type];
+        if (!compiledShapeDef) return;
 
-        const editPoints = shapeDef.editPoints.edit;
-        Object.keys(editPoints).forEach(posFormula => {
-            const [t, p] = parsePosition(posFormula, activeShape.data);
+        const context = flattenContext(activeShape);
+        const editPoints = compiledShapeDef.compiledEditPoints.edit;
+        
+        editPoints.forEach((ep: any) => {
+            const t = ep.evaluateX(context);
+            const p = ep.evaluateY(context);
             
             // Validate that evaluation resolved to numeric screen coordinates
             if (t === undefined || p === undefined || isNaN(t) || isNaN(p)) return;
@@ -186,6 +190,9 @@ export default function useShapeController(
     const init = async (app: Application) => {
         appRef.current = app;
         
+        // Compile parsing and mapping of definitions immediately at initialization
+        initShapeParser(SHAPE_MAP);
+
         lineLayer.init(app, viewport);
         triangleLayer.init(app, viewport);
         await textLayer.init(app, viewport);
@@ -256,8 +263,9 @@ export default function useShapeController(
 
         // Creating Mode
         if (createShapeTypeRef.current && tempShapeRef.current) {
-            const shapeDef = (SHAPE_MAP as any)[createShapeTypeRef.current];
-            const keys = Object.values(shapeDef.editPoints.create) as string[];
+            const compiledMap = getCompiledShapeMap();
+            const shapeDef = compiledMap[createShapeTypeRef.current];
+            const keys = Object.values(shapeDef.compiledEditPoints.create) as string[];
             
             if (createPointsRef.current < keys.length) {
                 // Determine which keys to fill (e.g. "t1 p1")
@@ -287,12 +295,15 @@ export default function useShapeController(
         if (activeEditShapeIdRef.current !== null) {
             const activeShape = shapes.find(s => s.id === activeEditShapeIdRef.current);
             if (activeShape && activeShape.editable) {
-                const shapeDef = (SHAPE_MAP as any)[activeShape.type];
-                const editPoints = shapeDef.editPoints.edit;
+                const compiledMap = getCompiledShapeMap();
+                const shapeDef = compiledMap[activeShape.type];
+                const context = flattenContext(activeShape);
+                const editPoints = shapeDef.compiledEditPoints.edit;
                 let hitAnchor = false;
                 
-                for (const [posFormula, targetKeysStr] of Object.entries(editPoints)) {
-                    const [t, p] = parsePosition(posFormula, activeShape.data);
+                for (const ep of editPoints) {
+                    const t = ep.evaluateX(context);
+                    const p = ep.evaluateY(context);
                     if (isNaN(t) || isNaN(p)) continue; // Skip unselected anchors
 
                     const px = viewport.timestampToPixel(t);
@@ -300,7 +311,7 @@ export default function useShapeController(
                     
                     // If clicked within anchor bounds
                     if (Math.abs(x - px) < 10 && Math.abs(y - py) < 10) {
-                        draggingAnchorRef.current = targetKeysStr as string;
+                        draggingAnchorRef.current = ep.targetKeysStr as string;
                         viewController.setEnable({scaleTimestamp:false,scalePrice:false,panTimestamp:false,panPrice:false});
                         hitAnchor = true;
                         return;
@@ -364,8 +375,9 @@ export default function useShapeController(
 
         // Handle dragging create point
         if (createShapeTypeRef.current && tempShapeRef.current) {
-            const shapeDef = (SHAPE_MAP as any)[createShapeTypeRef.current];
-            const keys = Object.values(shapeDef.editPoints.create) as string[];
+            const compiledMap = getCompiledShapeMap();
+            const shapeDef = compiledMap[createShapeTypeRef.current];
+            const keys = Object.values(shapeDef.compiledEditPoints.create) as string[];
             
             if (createPointsRef.current < keys.length) {
                 const targetKeys = keys[createPointsRef.current].split(" ");
@@ -483,21 +495,22 @@ export default function useShapeController(
             activeEditShapeIdRef.current = null;
         }
 
-        const shapeDef = (SHAPE_MAP as any)[shapeType];
+        const compiledMap = getCompiledShapeMap();
+        const shapeDef = compiledMap[shapeType];
         if (!shapeDef) return;
 
         createShapeTypeRef.current = shapeType;
         createPointsRef.current = 0;
         
         // Load default style directly from map
-        const defaultStyles = JSON.parse(JSON.stringify(shapeDef.defaultStyle || {}));
+        const defaultstyle = JSON.parse(JSON.stringify(shapeDef.defaultStyle || {}));
 
         tempShapeRef.current = {
             type: shapeType,
             fromTs: 0,
             toTs: 0,
             data: {}, // Points start undefined
-            styles: defaultStyles,
+            style: defaultstyle,
             creater: "<user>", // Injects new creation defaults
             editable: true
         } as unknown as Shape;

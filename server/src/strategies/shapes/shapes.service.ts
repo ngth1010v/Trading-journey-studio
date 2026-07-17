@@ -9,14 +9,14 @@ export class ShapesService {
     
     // SQLite upsert: updates existing fields and sets the automated internal timestamp on modification
     const stmt = db.prepare(`
-      INSERT INTO shapes (id, type, fromTs, toTs, data, styles, creater, editable, lastModifyTimestamp)
+      INSERT INTO shapes (id, type, fromTs, toTs, data, style, creater, editable, lastModifyTimestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         fromTs = excluded.fromTs,
         toTs = excluded.toTs,
         data = excluded.data,
-        styles = excluded.styles,
+        style = excluded.style,
         creater = excluded.creater,
         editable = excluded.editable,
         lastModifyTimestamp = excluded.lastModifyTimestamp
@@ -30,7 +30,7 @@ export class ShapesService {
           shape.fromTs === undefined ||
           shape.toTs === undefined ||
           shape.data === undefined ||
-          shape.styles === undefined ||
+          shape.style === undefined ||
           shape.creater === undefined ||
           shape.editable === undefined
         ) {
@@ -46,7 +46,7 @@ export class ShapesService {
           shape.fromTs,
           shape.toTs,
           shape.data,
-          shape.styles,
+          shape.style,
           shape.creater,
           shape.editable ? 1 : 0, // Map boolean to SQLite INTEGER (1/0)
           currentTimestamp
@@ -132,12 +132,12 @@ export class ShapesService {
     const db = ShapesRepository.getConnection(strateryName, symbol);
     
     const stmt = db.prepare(`
-      INSERT INTO templateShapes (id, type, name, styles)
+      INSERT INTO templateShapes (id, type, name, style)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         name = excluded.name,
-        styles = excluded.styles
+        style = excluded.style
     `);
 
     const transaction = db.transaction((templatesList: ShapeTemplate[]) => {
@@ -145,7 +145,7 @@ export class ShapesService {
         if (
           template.type === undefined ||
           template.name === undefined ||
-          template.styles === undefined
+          template.style === undefined
         ) {
           throw new Error('Cannot save template: Missing required fields.');
         }
@@ -156,7 +156,7 @@ export class ShapesService {
           bindId,
           template.type,
           template.name,
-          template.styles
+          template.style
         );
       }
     });
@@ -171,7 +171,7 @@ export class ShapesService {
       id: row.id,
       type: row.type,
       name: row.name,
-      styles: row.styles
+      style: row.style
     }));
   }
 
@@ -187,7 +187,7 @@ export class ShapesService {
       fromTs: row.fromTs,
       toTs: row.toTs,
       data: row.data,
-      styles: row.styles,
+      style: row.style,
       creater: row.creater,
       editable: row.editable === 1, // Map SQLite INTEGER back to boolean
       // lastModifyTimestamp is intentionally excluded to keep the Interface and payload pristine

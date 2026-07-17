@@ -50,7 +50,7 @@ export class ShapesRepository {
         fromTs INTEGER,
         toTs INTEGER,
         data TEXT,
-        styles TEXT,
+        style TEXT,
         creater TEXT,
         editable INTEGER,
         lastModifyTimestamp INTEGER
@@ -60,7 +60,7 @@ export class ShapesRepository {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT,
         name TEXT,
-        styles TEXT
+        style TEXT
       );
     `);
 

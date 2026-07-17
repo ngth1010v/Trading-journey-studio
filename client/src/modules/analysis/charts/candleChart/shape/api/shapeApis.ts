@@ -9,7 +9,7 @@ interface RawServerShape {
   fromTs: number;
   toTs: number;
   data: string;   // Server stores this as a raw JSON string
-  styles: string; // Server stores this as a raw JSON string
+  style: string; // Server stores this as a raw JSON string
   creater: string;
   editable: boolean;
 }
@@ -21,7 +21,7 @@ interface RawServerShapeTemplate {
   id?: number;
   type: string;
   name: string;
-  styles: string; // Server stores this as a raw JSON string
+  style: string; // Server stores this as a raw JSON string
 }
 
 const API_BASE = "/api/strateries";
@@ -52,33 +52,33 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 /**
- * Helper to parse raw server shape data and styles fields back into live JS types
+ * Helper to parse raw server shape data and style fields back into live JS types
  */
 function mapRawToShape(shape: RawServerShape): Shape {
   let parsedData = shape.data;
-  let parsedStyles = shape.styles;
+  let parsedstyle = shape.style;
 
   try { if (typeof shape.data === "string") parsedData = JSON.parse(shape.data); } catch { /* Fallback if already parsed or corrupt */ }
-  try { if (typeof shape.styles === "string") parsedStyles = JSON.parse(shape.styles); } catch { /* Fallback if already parsed or corrupt */ }
+  try { if (typeof shape.style === "string") parsedstyle = JSON.parse(shape.style); } catch { /* Fallback if already parsed or corrupt */ }
 
   return {
     ...shape,
     data: parsedData,
-    styles: parsedStyles,
+    style: parsedstyle,
   };
 }
 
 /**
- * Helper to parse raw server template styles field back into live JS types
+ * Helper to parse raw server template style field back into live JS types
  */
 function mapRawToTemplate(template: RawServerShapeTemplate): ShapeTemplate {
-  let parsedStyles = template.styles;
+  let parsedstyle = template.style;
 
-  try { if (typeof template.styles === "string") parsedStyles = JSON.parse(template.styles); } catch { /* Fallback if already parsed or corrupt */ }
+  try { if (typeof template.style === "string") parsedstyle = JSON.parse(template.style); } catch { /* Fallback if already parsed or corrupt */ }
 
   return {
     ...template,
-    styles: parsedStyles,
+    style: parsedstyle,
   };
 }
 
@@ -144,7 +144,7 @@ async function saveShapes(
   const payload: RawServerShape[] = shapes.map((shape) => ({
     ...shape,
     data: typeof shape.data === "string" ? shape.data : JSON.stringify(shape.data),
-    styles: typeof shape.styles === "string" ? shape.styles : JSON.stringify(shape.styles),
+    style: typeof shape.style === "string" ? shape.style : JSON.stringify(shape.style),
   }));
 
   return request<{ message: string }>(url, {
@@ -211,7 +211,7 @@ async function saveTemplates(
 
   const payload: RawServerShapeTemplate[] = templates.map((template) => ({
     ...template,
-    styles: typeof template.styles === "string" ? template.styles : JSON.stringify(template.styles),
+    style: typeof template.style === "string" ? template.style : JSON.stringify(template.style),
   }));
 
   return request<{ message: string }>(url, {

@@ -92,7 +92,7 @@ export default function ShapeEditor({
 
     const buttonTheme = currentTheme?.button?.normal1;
 
-    const inlineStyles: React.CSSProperties & {
+    const inlinestyle: React.CSSProperties & {
         [key: string]: string;
     } = buttonTheme
         ? {
@@ -127,9 +127,9 @@ export default function ShapeEditor({
             const templates = shapeData.getTemplates();
             const selectedTemplate = templates.find((t) => t.id === templateId);
 
-            if (selectedTemplate && selectedTemplate.styles) {
-                // 1. Apply template styles to current shape
-                handleChange(selectedTemplate.styles, "styles", shapeData);
+            if (selectedTemplate && selectedTemplate.style) {
+                // 1. Apply template style to current shape
+                handleChange(selectedTemplate.style, "style", shapeData);
 
                 // 2. Close the template panel by re-mounting/closing the popover state
                 setIsTemplatePanelOpen(false);
@@ -210,7 +210,7 @@ export default function ShapeEditor({
             style={{
                 left: position.x,
                 top: position.y,
-                ...inlineStyles,
+                ...inlinestyle,
             }}
         >
             <div
@@ -268,14 +268,14 @@ export default function ShapeEditor({
                 }
                 popup={
                     <PanelInput
-                        layout={shapeDef.styles}
+                        layout={shapeDef.style}
                         minWidth="300px"
-                        data={shape.styles}
+                        data={shape.style}
                         points={candleData.getPoint()}
-                        onDataChange={(newStyles: any) =>
+                        onDataChange={(newstyle: any) =>
                             handleChange(
-                                newStyles,
-                                "styles",
+                                newstyle,
+                                "style",
                                 shapeData
                             )
                         }

@@ -51,7 +51,7 @@ export default function ShapeTemplatePanel({
     //---------------------------------------
     // Handlers
     //---------------------------------------
-    const handleStyleChange = useCallback((templateId: number | undefined, newStyles: any) => {
+    const handleStyleChange = useCallback((templateId: number | undefined, newstyle: any) => {
         if (templateId === undefined) return;
 
         const targetTemplate = shapeData.getTemplates().find(t => t.id === templateId);
@@ -59,7 +59,7 @@ export default function ShapeTemplatePanel({
 
         const updatedTemplate: ShapeTemplate = {
             ...targetTemplate,
-            styles: newStyles
+            style: newstyle
         };
 
         shapeData.setTemplate(updatedTemplate);
@@ -121,7 +121,7 @@ export default function ShapeTemplatePanel({
     const primary1 = currentTheme?.button?.primary1;
     const danger = currentTheme?.button?.danger;
 
-    const inlineStyles: React.CSSProperties & { [key: string]: string } = normal1
+    const inlinestyle: React.CSSProperties & { [key: string]: string } = normal1
         ? {
               "--bg-color": toRGBAString(normal1.background),
               "--border-color": toRGBAString(normal1.border),
@@ -165,10 +165,10 @@ export default function ShapeTemplatePanel({
     );
 
     return (
-        <div className={style.Panel} style={inlineStyles}>
+        <div className={style.Panel} style={inlinestyle}>
             {filteredTemplates.map((template, index) => {
                 const shapeDef = (SHAPE_MAP as any)[template.type];
-                const layout = shapeDef?.styles;
+                const layout = shapeDef?.style;
                 return (
                     <ButtonWithPopover
                         key={index}
@@ -197,15 +197,15 @@ export default function ShapeTemplatePanel({
                             layout ? (
                                 <PanelInput
                                     layout={layout}
-                                    data={template.styles}
+                                    data={template.style}
                                     minWidth="250px"
-                                    onDataChange={(newStyles: any) =>
-                                        handleStyleChange(template.id, newStyles)
+                                    onDataChange={(newstyle: any) =>
+                                        handleStyleChange(template.id, newstyle)
                                     }
                                 />
                             ) : (
                                 <div style={{ padding: "8px", color: "var(--font-color)" }}>
-                                    No styles available.
+                                    No style available.
                                 </div>
                             )
                         }

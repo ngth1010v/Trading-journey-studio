@@ -20,7 +20,7 @@ export const SHAPE_MAP = {
             p1: "price",
         },
 
-        styles: {
+        style: {
             color: "rgba",
             thickness: "uNumber",
         },
@@ -30,9 +30,8 @@ export const SHAPE_MAP = {
             thickness: 2,
         },
 
-
         render: [
-            {type: "line",pos: ["t0 p0", "t1 p1"],style: {color: "style.color",thickness: "style.thickness"}},
+            {type: "line", data: {timestamp1: "t0", timestamp2: "t1", price1: "p0", price2: "p1", color: "style.color", thickness: "style.thickness"}},
         ],
 
         editPoints: {
@@ -57,10 +56,10 @@ export const SHAPE_MAP = {
             t0: "timestamp",
             p0: "price",
             p1: "price",
-            te: "text"
         },
-
-        styles: {
+        
+        style: {
+            te: "text",
             color: "rgba",
             thickness: "uNumber",
             text : {
@@ -72,6 +71,7 @@ export const SHAPE_MAP = {
         },
 
         defaultStyle: {
+            te: "",
             color: [255,255,255,255] as RGBA,
             thickness: 2,
             text : {
@@ -82,21 +82,20 @@ export const SHAPE_MAP = {
             },
         },
 
-
         render: [
-            {type: "line", pos: ["t0 p0", "t0 p1"], style: {color: "style.color", thickness: "style.thickness"}},
+            {type: "line", data: {timestamp1: "t0", timestamp2: "t0", price1: "p0", price2: "p1", color: "style.color", thickness: "style.thickness"}},
 
-            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
-            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
-            {type: "text", pos: ["t0 max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "t0", price: "max(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'top'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "t0", price: "max(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'top'"}, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "t0", price: "max(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'top'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
 
-            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
-            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
-            {type: "text", pos: ["t0 (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "t0", price: "(p0+p1)/2", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "t0", price: "(p0+p1)/2", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "t0", price: "(p0+p1)/2", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
 
-            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["t0 min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "t0", price: "min(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "t0", price: "min(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "t0", price: "min(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},
         ],
 
         editPoints: {
@@ -122,10 +121,10 @@ export const SHAPE_MAP = {
             t0: "timestamp",
             t1: "timestamp",
             p0: "price",
-            te: "text",
         },
         
-        styles: {
+        style: {
+            te: "text",
             color: "rgba",
             thickness: "uNumber",
             text : {
@@ -137,6 +136,7 @@ export const SHAPE_MAP = {
         },
 
         defaultStyle: {
+            te: "",
             color: [255,255,255,255] as RGBA,
             thickness: 2,
             text : {
@@ -148,19 +148,19 @@ export const SHAPE_MAP = {
         },
 
         render: [
-            {type: "line",pos: ["t0 p0", "t1 p0"],style: {color: "style.color",thickness: "style.thickness"}},
+            {type: "line", data: {timestamp1: "t0", timestamp2: "t1", price1: "p0", price2: "p0", color: "style.color", thickness: "style.thickness"}},
 
-            {type: "text", pos: ["min(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'right'" , alignY:"'top'"   }, condition:"style.text.alignX=='left'   && style.text.alignY=='top'"},
-            {type: "text", pos: ["(t0+t1)/2 p0"],  data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'center'", alignY:"'top'"   }, condition:"style.text.alignX=='center' && style.text.alignY=='top'"},
-            {type: "text", pos: ["max(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'left'"  , alignY:"'top'"   }, condition:"style.text.alignX=='right'  && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "min(t0,t1)", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'top'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "(t0+t1)/2", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'top'"}, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "max(t0,t1)", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'top'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
             
-            {type: "text", pos: ["min(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'right'" , alignY:"'center'"}, condition:"style.text.alignX=='left'   && style.text.alignY=='center'"},
-            {type: "text", pos: ["(t0+t1)/2  p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'center'", alignY:"'center'"}, condition:"style.text.alignX=='center' && style.text.alignY=='center'"},
-            {type: "text", pos: ["max(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'left'"  , alignY:"'center'"}, condition:"style.text.alignX=='right'  && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "min(t0,t1)", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "(t0+t1)/2", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "max(t0,t1)", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
 
-            {type: "text", pos: ["min(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'right'" , alignY:"'bottom'"}, condition:"style.text.alignX=='left'   && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["(t0+t1)/2 p0"],  data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'center'", alignY:"'bottom'"}, condition:"style.text.alignX=='center' && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["max(t0,t1) p0"], data:{text:"te"}, style:{color:"style.text.color", size:"style.text.size", alignX:"'left'"  , alignY:"'bottom'"}, condition:"style.text.alignX=='right'  && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "min(t0,t1)", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "(t0+t1)/2", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "max(t0,t1)", price: "p0", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},
         ],
 
         editPoints: {
@@ -187,9 +187,9 @@ export const SHAPE_MAP = {
             p0: "price",
             t1: "timestamp",
             p1: "price",
-            te: "text",
         },
-        styles      : {
+        style      : {
+            te: "text",
             color : "rgba",
             text : {
                 color: "rgb",
@@ -203,6 +203,7 @@ export const SHAPE_MAP = {
             }
         },
         defaultStyle: {
+            te: "",
             color : [255,255,100,10] as RGBA,
             text : {
                 color: [255,255,255] as RGB,
@@ -216,27 +217,26 @@ export const SHAPE_MAP = {
             }
         },
 
-
         render: [
-            {type: "triangle", pos: ["t0 p0", "t1 p0", "t1 p1"], style: {color: "style.color"}},
-            {type: "triangle", pos: ["t0 p0", "t1 p1", "t0 p1"], style: {color: "style.color"}},
+            {type: "triangle", data: {timestamp: ["t0", "t1", "t1"], price: ["p0", "p0", "p1"], color: "style.color"}},
+            {type: "triangle", data: {timestamp: ["t0", "t1", "t0"], price: ["p0", "p1", "p1"], color: "style.color"}},
 
-            {type: "line", pos: ["t0 p0", "t1 p0"], style: {color: "style.border.color", thickness: "style.border.thickness"}},
-            {type: "line", pos: ["t1 p0", "t1 p1"], style: {color: "style.border.color", thickness: "style.border.thickness"}},
-            {type: "line", pos: ["t0 p1", "t1 p1"], style: {color: "style.border.color", thickness: "style.border.thickness"}},
-            {type: "line", pos: ["t0 p0", "t0 p1"], style: {color: "style.border.color", thickness: "style.border.thickness"}},
+            {type: "line", data: {timestamp1: "t0", timestamp2: "t1", price1: "p0", price2: "p0", color: "style.border.color", thickness: "style.border.thickness"}},
+            {type: "line", data: {timestamp1: "t1", timestamp2: "t1", price1: "p0", price2: "p1", color: "style.border.color", thickness: "style.border.thickness"}},
+            {type: "line", data: {timestamp1: "t1", timestamp2: "t0", price1: "p1", price2: "p1", color: "style.border.color", thickness: "style.border.thickness"}},
+            {type: "line", data: {timestamp1: "t0", timestamp2: "t0", price1: "p1", price2: "p0", color: "style.border.color", thickness: "style.border.thickness"}},
 
-            {type: "text", pos: ["min(t0,t1) max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'top'"   }, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
-            {type: "text", pos: ["(t0+t1)/2 max(p0,p1)"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'top'"   }, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
-            {type: "text", pos: ["max(t0,t1) max(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'top'"   }, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "min(t0,t1)", price: "max(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'top'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "(t0+t1)/2", price: "max(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'top'"}, condition: "style.text.alignX=='center' && style.text.alignY=='top'"},
+            {type: "text", data: {timestamp: "max(t0,t1)", price: "max(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'top'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='top'"},
 
-            {type: "text", pos: ["min(t0,t1) (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
-            {type: "text", pos: ["(t0+t1)/2 (p0+p1)/2"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
-            {type: "text", pos: ["max(t0,t1) (p0+p1)/2"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "min(t0,t1)", price: "(p0+p1)/2", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'center'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "(t0+t1)/2", price: "(p0+p1)/2", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'center'"}, condition: "style.text.alignX=='center' && style.text.alignY=='center'"},
+            {type: "text", data: {timestamp: "max(t0,t1)", price: "(p0+p1)/2", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'center'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='center'"},
 
-            {type: "text", pos: ["min(t0,t1) min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'right'"  , alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["(t0+t1)/2 min(p0,p1)"] , data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'center'" , alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
-            {type: "text", pos: ["max(t0,t1) min(p0,p1)"], data: {text: "te"}, style: {color: "style.text.color", size: "style.text.size", alignX: "'left'"   , alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},        
+            {type: "text", data: {timestamp: "min(t0,t1)", price: "min(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'right'", alignY: "'bottom'"}, condition: "style.text.alignX=='left'   && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "(t0+t1)/2", price: "min(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'center'", alignY: "'bottom'"}, condition: "style.text.alignX=='center' && style.text.alignY=='bottom'"},
+            {type: "text", data: {timestamp: "max(t0,t1)", price: "min(p0,p1)", text: "style.te", color: "style.text.color", size: "style.text.size", alignX: "'left'", alignY: "'bottom'"}, condition: "style.text.alignX=='right'  && style.text.alignY=='bottom'"},        
         ],        
         editPoints  : {
             create: {

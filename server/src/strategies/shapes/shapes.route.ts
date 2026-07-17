@@ -95,6 +95,7 @@ router.post(
         return;
       }
 
+      
       await ShapesService.saveShapes(strateryName, symbol, shapes);
       res.status(200).json({ message: 'Shapes saved successfully' });
     } catch (error: any) {
