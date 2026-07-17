@@ -237,7 +237,7 @@ export default function ShapeTemplatePanel({
                                 label="Save current style as ..."
                                 data={newTemplateName}
                                 setData={setNewTemplateName}
-                                dataheight="2.2rem"
+                                oneLine={true}
                             />
                         </div>
                         <button
