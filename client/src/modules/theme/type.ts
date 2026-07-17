@@ -14,9 +14,10 @@ export interface Theme {
         normal2 : BBF;
         danger  : BBF;
         success : BBF;
+        warning : BBF;
         disable : BBF;
     };
-
+    
     // Button
     button: {
         primary1: BBF;
@@ -25,6 +26,7 @@ export interface Theme {
         normal2 : BBF;
         danger  : BBF;
         success : BBF;
+        warning : BBF;
         disable : BBF;
     };
 

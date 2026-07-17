@@ -6,12 +6,11 @@
   border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
-  padding: 4px;
-  gap: 4px;
-  overflow: auto;
   user-select: none;
   font-size: 12px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: var(--padding);
+  gap: var(--gap);
 }
 
 /* Direction Variants */
@@ -26,18 +25,34 @@
 
 /* Auto-Shrink hover behavior (Matches Panel expand effect) */
 .autoShrink {
-  padding: 2px;
+  padding: 0;
+  gap:0;
 }
 
 .autoShrink:hover {
-  padding: 6px;
+  padding: var(--padding);
+  gap: var(--gap);
 }
+
+.divider {
+  background-color: var(--border-color);
+}
+.vertical .divider{
+  align-self:stretch;
+  height: 1px;
+  margin:0 5px;
+}
+.horizontal .divider{
+  align-self:stretch;
+  width: 1px;
+  margin:5px 0;
+}
+
 
 /* Row Item Wrappers */
 .rowWrapper {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
   border-radius: 4px;
   box-sizing: border-box;
   color: var(--font-color);
@@ -56,7 +71,7 @@
 .selectedRow {
   background: var(--selected-bg);
   color: var(--selected-font);
-  border: 1px solid var(--selected-border, transparent);
+  /* border: 1px solid var(--selected-border, transparent); */
 }
 
 .selectedRow:hover {

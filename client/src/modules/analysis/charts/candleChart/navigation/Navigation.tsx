@@ -1,21 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect, useId } from 'react';
 import styles from './Navigation.module.css';
 
 import { type CandleData }   from '../market/hooks/useCandleData';
 import { type StrateryData } from '../market/hooks/useStrateryData';
-import { type ShapeData } from '../shape/data/useShapeData';
+import { type ShapeData }    from '../shape/data/useShapeData';
 import { type ShapeController } from '../shape/useShapeController';
 
 import ButtonWithPopover from '../../../../../shared/components/ButtonWithPopover';
+import ListWithTheme from '../../../../../shared/components/ListWithTheme';
 
 import SourceBar from './sourceBar/SourceBar';
 import ShapeBar from '../shape/creater/ShapeBar';
+
+import { useThemeData } from '../../../../theme/useThemeData';
+import type { Theme }   from '../../../../theme/type';
+import type { RGB, RGBA } from '../../../../../shared/types/color.type';
 
 import HouseIcon      from '../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon     from '../../../../../assets/icons/git-branch.svg?react';
 import SyncIcon       from '../../../../../assets/icons/arrows-clockwise.svg?react';
 import DrawIcon       from '../../../../../assets/icons/pencil.svg?react';
 import CalculatorIcon from '../../../../../assets/icons/calculator.svg?react';
+
+const toRGBString = (color: RGB) =>
+  `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+
+const toRGBAString = (color: RGBA) =>
+  `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
 export default function Navigation(
   {
@@ -29,12 +40,11 @@ export default function Navigation(
     candleData: CandleData
     strateryData: StrateryData
     shapeData: ShapeData
-    shapeController:ShapeController
+    shapeController: ShapeController
     onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>)=> void
     onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>)=> void
   }
 ) {
-  // Quản lý trạng thái mở riêng biệt cho các nội dung con (Index: 0, 1, 2, 3)
   const [openChildren, setOpenChildren] = useState<boolean[]>([false, false, false, false]);
 
   const toggleChild = (index: number) => {
@@ -45,28 +55,73 @@ export default function Navigation(
     });
   };
 
+  //---------------------------------------
+  // Theme Setup
+  //---------------------------------------
+  const themeContext = useThemeData();
+  const instanceId = useId();
+
+  const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() =>
+    themeContext.get(themeContext.getSelectedName())
+  );
+
+  useEffect(() => {
+    themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
+    return () => themeContext.removeOnSelectedThemeChange(instanceId);
+  }, [themeContext, instanceId]);
+
+  const buttonTheme = currentTheme?.button?.normal1;
+  const activeTheme = currentTheme?.button?.primary1;
+  const hoverTheme  = currentTheme?.button?.primary2;
+
+  const inlineStyle: React.CSSProperties & { [key: string]: string } = buttonTheme
+    ? {
+        '--bg-color': toRGBAString(buttonTheme.background),
+        '--border-color': toRGBAString(buttonTheme.border),
+        '--font-color': toRGBString(buttonTheme.font),
+        '--hover-bg': toRGBAString(hoverTheme?.background ?? buttonTheme.background),
+        '--hover-font': toRGBString(hoverTheme?.font ?? buttonTheme.font),
+        '--active-bg': toRGBAString(activeTheme?.background ?? buttonTheme.background),
+        '--active-border': toRGBAString(activeTheme?.border ?? buttonTheme.border),
+        '--active-font': toRGBString(activeTheme?.font ?? buttonTheme.font),
+      }
+    : {
+        '--bg-color': 'rgba(22, 22, 24, 1)',
+        '--border-color': 'rgb(50, 50, 50)',
+        '--font-color': '#ffffff',
+        '--hover-bg': 'rgba(40, 40, 45, 1)',
+        '--hover-font': '#ffffff',
+        '--active-bg': 'rgba(50, 100, 200, 1)',
+        '--active-border': '#2563eb',
+        '--active-font': '#ffffff',
+      };
+
   return (
-    <div className={styles.navigation} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+    <div className={styles.navigation} style={inlineStyle} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       {/* Nút Toggle Panel chính sử dụng ButtonWithPopover hiển thị dạng hover */}
       <ButtonWithPopover
         type="hover"
         position="bottom"
         align="center"
         button={
-          <div className={styles.toggleButton} title="Toggle Navigation Panel">
-            <HouseIcon width="15" height="15"/>
+          <div className={styles.mainToggleWrapper}>
+            <div className={styles.mainToggleButton} title="Toggle Navigation Panel">
+              <HouseIcon width="15" height="15"/>
+            </div>
           </div>
         }
         popup={
-          <div className={styles.togglePanel}>
-            <button
-              type="button"
-              className={`${styles.toggleButton} ${openChildren[0] ? styles.toggleButtonActive : ''}`}
-              title="Source"
-              onClick={() => toggleChild(0)}
-            >
-              <SourceIcon width="15" height="15"/>
-            </button>
+          <ListWithTheme
+            selectedList={openChildren}
+          >
+              <button
+                type="button"
+                className={`${styles.toggleButton} ${openChildren[0] ? styles.toggleButtonActive : ''}`}
+                title="Source"
+                onClick={() => toggleChild(0)}
+              >
+                <SourceIcon width="15" height="15"/>
+              </button>              
 
             <button
               type="button"
@@ -94,7 +149,8 @@ export default function Navigation(
             >
               <CalculatorIcon width="15" height="15"/>
             </button>
-          </div>
+            
+          </ListWithTheme>
         }
       />
 

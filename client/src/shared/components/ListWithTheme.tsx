@@ -12,17 +12,17 @@ const toRGBAString = (color: RGBA) =>
   `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
 interface ListWithThemeProps {
-  children?: React.ReactNode;
-  selectedList?: boolean[];
-  type?: "vertical" | "horizontal";
-  autoShrink?: boolean;
+  type          ?: "vertical" | "horizontal";
+  children       : any;
 
-  width?: string;
-  minWidth?: string;
-  maxWidth?: string;
-  height?: string;
-  minHeight?: string;
-  maxHeight?: string;
+  selectedList  ?: boolean[];
+  autoShrink    ?: boolean;
+  dividerList   ?: boolean[];
+
+  padding   ?: string;
+  gap       ?: string;
+  maxWidth  ?: string;
+  maxHeight ?: string;
 }
 
 export default function ListWithTheme({
@@ -30,13 +30,12 @@ export default function ListWithTheme({
   selectedList = [],
   type = "vertical",
   autoShrink = false,
+  dividerList = [],
 
-  width,
-  minWidth,
-  maxWidth = "200px",
-  height,
-  minHeight,
-  maxHeight = "10rem",
+  padding = "4px",
+  gap = "5px",
+  maxWidth,
+  maxHeight,
 }: ListWithThemeProps) {
   //---------------------------------------
   // Theme setup (Matches SourceBar pattern)
@@ -58,6 +57,8 @@ export default function ListWithTheme({
 
   const inlineThemeStyle: React.CSSProperties & { [key: string]: string } = normalTheme
     ? {
+        "--padding": padding,
+        "--gap": gap,
         "--bg-color": toRGBAString(normalTheme.background),
         "--border-color": toRGBAString(normalTheme.border),
         "--font-color": toRGBString(normalTheme.font),
@@ -80,6 +81,8 @@ export default function ListWithTheme({
           : toRGBAString(normalTheme.border),
       }
     : {
+        "--padding": padding,
+        "--gap": gap,
         "--bg-color": "#1e1e1e",
         "--border-color": "#333333",
         "--font-color": "#ffffff",
@@ -93,11 +96,7 @@ export default function ListWithTheme({
   // Combine theme custom CSS variables with container layout dimension properties
   const combinedContainerStyle: React.CSSProperties = {
     ...inlineThemeStyle,
-    width,
-    minWidth,
     maxWidth,
-    height,
-    minHeight,
     maxHeight,
   };
 
@@ -113,14 +112,18 @@ export default function ListWithTheme({
       {childrenArray.map((child, index) => {
         const isSelected = Boolean(selectedList[index]);
         return (
-          <div
-            key={index}
-            className={`${style.rowWrapper} ${
-              isSelected ? style.selectedRow : ""
-            }`}
-          >
-            {child}
-          </div>
+          <>
+            <div
+              key={index}
+              className={`${style.rowWrapper} ${
+                isSelected ? style.selectedRow : ""
+              }`}
+            >
+              {child}
+            </div>      
+            {dividerList[index] && <div className={style.divider}/>}    
+          </>
+
         );
       })}
     </div>
