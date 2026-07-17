@@ -503,7 +503,15 @@ export default function useShapeController(
         createPointsRef.current = 0;
         
         // Load default style directly from map
-        const defaultstyle = JSON.parse(JSON.stringify(shapeDef.defaultStyle || {}));
+        const defaultTemplate = shapeData.getTemplates().find((t: any) => t.type == shapeType && t.name == "<<<DEFAULT>>>")
+        const defaultstyle = defaultTemplate ? defaultTemplate.style : JSON.parse(JSON.stringify(shapeDef.defaultStyle || {}));
+        if (!defaultTemplate){
+            shapeData.setTemplate({
+                name: "<<<DEFAULT>>>",
+                style: defaultstyle,
+                type: shapeType
+            })
+        }
 
         tempShapeRef.current = {
             type: shapeType,

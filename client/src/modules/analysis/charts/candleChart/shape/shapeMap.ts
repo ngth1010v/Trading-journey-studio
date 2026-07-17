@@ -71,7 +71,7 @@ export const SHAPE_MAP = {
         },
 
         defaultStyle: {
-            te: "",
+            te: " ",
             color: [255,255,255,255] as RGBA,
             thickness: 2,
             text : {
@@ -136,7 +136,7 @@ export const SHAPE_MAP = {
         },
 
         defaultStyle: {
-            te: "",
+            te: " ",
             color: [255,255,255,255] as RGBA,
             thickness: 2,
             text : {
@@ -203,7 +203,7 @@ export const SHAPE_MAP = {
             }
         },
         defaultStyle: {
-            te: "",
+            te: " ",
             color : [255,255,100,10] as RGBA,
             text : {
                 color: [255,255,255] as RGB,
