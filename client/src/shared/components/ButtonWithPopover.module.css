@@ -36,14 +36,14 @@
 /* --- TOP --- */
 .Top > .PopupContainer {
     bottom: 100%;
-    margin-bottom: 5px;
+    margin-bottom: var(--buffer-size, 5px);
     --offset-y: 10px;
 }
 .Top > .Buffer {
     bottom: 100%;
     left: 0;
     right: 0;
-    height: 5px;
+    height: var(--buffer-size, 5px);
 }
 .Top.AlignStart > .PopupContainer { left: 0; }
 .Top.AlignCenter > .PopupContainer { 
@@ -57,14 +57,14 @@
 /* --- BOTTOM --- */
 .Bottom > .PopupContainer {
     top: 100%;
-    margin-top: 5px;
+    margin-top: var(--buffer-size, 5px);
     --offset-y: -10px;
 }
 .Bottom > .Buffer {
     top: 100%;
     left: 0;
     right: 0;
-    height: 5px;
+    height: var(--buffer-size, 5px);
 }
 .Bottom.AlignStart > .PopupContainer { left: 0; }
 .Bottom.AlignCenter > .PopupContainer { 
@@ -78,14 +78,14 @@
 /* --- LEFT --- */
 .Left > .PopupContainer {
     right: 100%;
-    margin-right: 5px;
+    margin-right: var(--buffer-size, 5px);
     --offset-x: 10px;
 }
 .Left > .Buffer {
     right: 100%;
     top: 0;
     bottom: 0;
-    width: 5px;
+    width: var(--buffer-size, 5px);
 }
 .Left.AlignStart > .PopupContainer { top: 0; }
 .Left.AlignCenter > .PopupContainer { 
@@ -99,14 +99,14 @@
 /* --- RIGHT --- */
 .Right > .PopupContainer {
     left: 100%;
-    margin-left: 5px;
+    margin-left: var(--buffer-size, 5px);
     --offset-x: -10px;
 }
 .Right > .Buffer {
     left: 100%;
     top: 0;
     bottom: 0;
-    width: 5px;
+    width: var(--buffer-size, 5px);
 }
 .Right.AlignStart > .PopupContainer { top: 0; }
 .Right.AlignCenter > .PopupContainer { 

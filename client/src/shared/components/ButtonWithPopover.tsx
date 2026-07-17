@@ -9,6 +9,7 @@ interface ButtonWithPopoverProps {
     buttonHeight?: string;
     popupWidth?: string;
     popupHeight?: string;
+    bufferSize?: string;
     onPopupOpen?: () => void;
     onPopupClose?: () => void;
     button: React.ReactNode;
@@ -25,6 +26,7 @@ export default function ButtonWithPopover({
     buttonHeight = "fit-content",
     popupWidth = "fit-content",
     popupHeight = "fit-content",
+    bufferSize = "5px",
     onPopupOpen,
     onPopupClose,
     button,
@@ -111,7 +113,13 @@ export default function ButtonWithPopover({
         <div 
             ref={containerRef}
             className={combinedClassName} 
-            style={{ width: buttonWidth, height: buttonHeight }}
+            style={
+                { 
+                    width: buttonWidth, 
+                    height: buttonHeight, 
+                    "--buffer-size": bufferSize 
+                } as React.CSSProperties
+            }
         >
             {/* 1. BUTTON PART */}
             <div 
