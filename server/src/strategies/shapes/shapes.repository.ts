@@ -17,19 +17,17 @@ export class ShapesRepository {
   public static getConnection(strateryName: string, symbol: string): Database.Database {
     const cacheKey = `${strateryName}:::${symbol}`;
     const cached = this.connections.get(cacheKey);
-
     if (cached) {
-      // Clear old timer and reset idle countdown timer
-      clearTimeout(cached.timer);
-      cached.timer = this.createIdleTimer(cacheKey);
-
-      // Check if instance is still open before returning
-      if (cached.instance.open) {
+      // If the connection is no longer usable, clean it up.
+      if (!cached.instance.open) {
+        clearTimeout(cached.timer);
+        this.connections.delete(cacheKey);
+      } else {
+        // Refresh the idle timeout.
+        clearTimeout(cached.timer);
+        cached.timer = this.createIdleTimer(cacheKey);
         return cached.instance;
       }
-      
-      // If closed unexpectedly, delete stale reference
-      this.connections.delete(cacheKey);
     }
 
     // Ensure directory exists
