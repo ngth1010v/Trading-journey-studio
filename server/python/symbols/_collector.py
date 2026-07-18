@@ -45,7 +45,24 @@ def getSymbolsFromMt5() -> list[Symbol]:
             continue
 
         point = 10 ** int(digits)
-        result.append(Symbol(symbol=name, point=point))
+        
+        # Extract new data fields with fallback handling
+        contract_size = getattr(symbol_info, "trade_contract_size", None)
+        if contract_size is None or float(contract_size) <= 0:
+            contract_size = 1.0
+        else:
+            contract_size = float(contract_size)
+
+        currency = getattr(symbol_info, "currency_profit", None)
+        if not currency:
+            currency = "UNKNOWN"
+            
+        result.append(Symbol(
+            symbol=name, 
+            point=point,
+            contractSize=contract_size,
+            currency=str(currency)
+        ))
         seen.add(name)
 
     return result
@@ -73,6 +90,17 @@ def getSymbolFromMt5(symbol_name: str) -> Symbol | None:
 
     point = 10 ** int(digits)
     
+    # Extract new data fields with fallback handling
+    contract_size = getattr(symbol_info, "trade_contract_size", None)
+    if contract_size is None or float(contract_size) <= 0:
+        contract_size = 1.0
+    else:
+        contract_size = float(contract_size)
+
+    currency = getattr(symbol_info, "currency_profit", None)
+    if not currency:
+        currency = "UNKNOWN"
+        
     # Lấy giá ask và bid hiện tại từ symbol_info
     ask = int(getattr(symbol_info, "ask", None) * point)
     bid = int(getattr(symbol_info, "bid", None) * point)
@@ -80,6 +108,8 @@ def getSymbolFromMt5(symbol_name: str) -> Symbol | None:
     return Symbol(
         symbol=symbol_name, 
         point=point, 
+        contractSize=contract_size,
+        currency=str(currency),
         ask=ask, 
         bid=bid
     )

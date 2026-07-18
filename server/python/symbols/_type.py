@@ -5,8 +5,10 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class Symbol:
-    symbol  : str
-    point   : int
+    symbol       : str
+    point        : int
+    contractSize : float
+    currency     : str
 
-    ask     : int = None
-    bid     : int = None
+    ask          : int = None
+    bid          : int = None

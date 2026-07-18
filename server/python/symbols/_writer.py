@@ -14,7 +14,9 @@ _DB_PATH = Path(DATABASE_PATH) / "markets.db"
 _TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS symbols (
     symbol TEXT PRIMARY KEY,
-    point INTEGER NOT NULL
+    point INTEGER NOT NULL,
+    contract_size REAL NOT NULL,
+    currency TEXT NOT NULL
 )
 """
 
@@ -38,8 +40,8 @@ def writeSymbols(symbols: list[Symbol]) -> None:
             conn.execute("DELETE FROM symbols")
             if symbols:
                 conn.executemany(
-                    "INSERT INTO symbols(symbol, point) VALUES (?, ?)",
-                    [(item.symbol, int(item.point)) for item in symbols],
+                    "INSERT INTO symbols(symbol, point, contract_size, currency) VALUES (?, ?, ?, ?)",
+                    [(item.symbol, int(item.point), float(item.contractSize), str(item.currency)) for item in symbols],
                 )
             conn.commit()
 
