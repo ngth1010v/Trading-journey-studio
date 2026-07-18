@@ -1,5 +1,5 @@
-import { throwAppError } from "../appError";
-import type { Trade, TradeTag, TradeTemplate } from "../types/trades.type";
+import { throwAppError } from "../../../../shared/appError";
+import type { Trade, TradeTag, TradeTemplate } from "../type";
 
 // Base request wrapper preserving your application's customized error envelope logic
 async function request<T>(url: string, method = "GET", body?: any): Promise<T> {

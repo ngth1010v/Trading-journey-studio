@@ -1,4 +1,4 @@
-import type { RGBA, RGB } from "./color.type.js";
+import type { RGBA, RGB } from "../../shared/types/color.type.js";
 
 export interface Trade {
   id?: number; // Primary key (optional on create)
