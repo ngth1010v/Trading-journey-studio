@@ -13,20 +13,18 @@ export function createThemeRouter(service: ThemeService): Router {
         }
     });
 
-    router.post('/api/themes/:id', (req: Request, res: Response) => {
+    // Updated to handle both dynamic creations and explicitly targeted ID updates
+    router.post('/api/themes', (req: Request, res: Response) => {
         try {
-            const { id } = req.params;
-            const parsedId = Number(id);
-
-            if (isNaN(parsedId)) {
-                res.status(400).json({ success: false, error: 'Invalid ID format. Theme ID must be a number.' });
-                return;
-            }
-
-            const updatedTheme = service.save(parsedId, req.body);
-            res.json({ success: true, data: updatedTheme });
+            const result = service.save(req.body);
+            res.json({ id: result.id });
         } catch (err: any) {
-            const status = err.message.includes("Validation failed") ? 400 : 500;
+            let status = 500;
+            if (err.message.includes("Validation failed")) {
+                status = 400;
+            } else if (err.message.includes("not found")) {
+                status = 404;
+            }
             res.status(status).json({ success: false, error: err.message });
         }
     });

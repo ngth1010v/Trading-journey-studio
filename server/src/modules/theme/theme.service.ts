@@ -8,22 +8,26 @@ export class ThemeService {
         return this.repo.getAllThemes();
     }
 
-    save(id: number, incomingData: PartialTheme): Theme {
-        const existingTheme = this.repo.getThemeById(id);
+    save(incomingData: PartialTheme): Theme {
+        const id = incomingData.id;
         const selected = incomingData.selected ?? false;
-
         let mergedTheme: Theme;
 
-        if (existingTheme) {
+        if (id !== undefined) {
+            // Update mode: check existence first
+            const existingTheme = this.repo.getThemeById(id);
+            if (!existingTheme) {
+                throw new Error(`Theme with ID ${id} not found.`);
+            }
             mergedTheme = this.deepMerge({}, existingTheme, incomingData) as Theme;
             mergedTheme.id = id;
         } else {
+            // Creation mode
             if (!incomingData.name || incomingData.name.trim() === "") {
                 throw new Error("Validation failed: Theme name is required for new themes.");
             }
-            // Strip out ID so SQLite assigns a new auto-incrementing key naturally
             mergedTheme = { ...incomingData } as Theme;
-            delete mergedTheme.id;
+            delete mergedTheme.id; // Let SQLite generate the id automatically
         }
 
         mergedTheme.selected = selected;
