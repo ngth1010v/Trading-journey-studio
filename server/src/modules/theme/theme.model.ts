@@ -3,6 +3,7 @@ import type { RGB, RGBA } from "../../type.js";
 type BBF  = { background: RGBA, border: RGBA, font: RGB };
 
 export interface Theme {
+    id             ?: number;
     name            : string;
     selected        : boolean;
     background      : RGBA;
@@ -38,8 +39,8 @@ export interface Theme {
     };
 }
 
-// Deep Partial helper type for permissive validation/merging
 export type PartialTheme = {
+    id?: number;
     name?: string;
     selected?: boolean;
     background?: RGBA;
@@ -49,6 +50,7 @@ export type PartialTheme = {
 };
 
 export const DEFAULT_THEME: Theme = {
+    id: 0,
     name: "Default",
     selected: true,
     background: [13, 16, 23, 1],

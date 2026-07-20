@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { Theme } from './theme.model.js';
+import { Theme, DEFAULT_THEME } from './theme.model.js';
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,19 +18,35 @@ export class ThemeRepository {
         }
 
         this.db = new Database(this.dbPath);
-        
-        // Optimize SQLite operations via WAL mode
         this.db.pragma('journal_mode = WAL');
 
-        // Added lastModifyTimestamp column to themes table
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS themes (
-                name TEXT PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
                 selected INTEGER NOT NULL DEFAULT 0,
                 json TEXT NOT NULL,
                 lastModifyTimestamp INTEGER NOT NULL DEFAULT 0
             )
         `);
+
+        this.ensureDefaultThemeExists();
+    }
+
+    private ensureDefaultThemeExists() {
+        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM themes WHERE id = 0');
+        const result = stmt.get() as { count: number };
+        
+        if (result.count === 0) {
+            const { id, name, selected, ...restData } = DEFAULT_THEME;
+            const jsonStr = JSON.stringify(restData);
+            
+            // Explicitly force ID 0 for the default theme using an dynamic insert statement
+            this.db.prepare(`
+                INSERT INTO themes (id, name, selected, json, lastModifyTimestamp)
+                VALUES (0, ?, ?, ?, ?)
+            `).run(name, selected ? 1 : 0, jsonStr, Date.now());
+        }
     }
 
     shutdown() {
@@ -40,79 +56,84 @@ export class ThemeRepository {
     }
 
     getAllThemes(): Theme[] {
-        const stmt = this.db.prepare('SELECT name, selected, json FROM themes');
-        const rows = stmt.all() as { name: string; selected: number; json: string }[];
+        const stmt = this.db.prepare('SELECT id, name, selected, json FROM themes');
+        const rows = stmt.all() as { id: number; name: string; selected: number; json: string }[];
         
         return rows.map(row => ({
+            id: row.id,
             name: row.name,
             selected: row.selected === 1,
             ...JSON.parse(row.json)
         }));
     }
 
-    getThemeByName(name: string): Theme | null {
-        const stmt = this.db.prepare('SELECT name, selected, json FROM themes WHERE name = ?');
-        const row = stmt.get(name) as { name: string; selected: number; json: string } | undefined;
+    getThemeById(id: number): Theme | null {
+        const stmt = this.db.prepare('SELECT id, name, selected, json FROM themes WHERE id = ?');
+        const row = stmt.get(id) as { id: number; name: string; selected: number; json: string } | undefined;
         
         if (!row) return null;
         return {
+            id: row.id,
             name: row.name,
             selected: row.selected === 1,
             ...JSON.parse(row.json)
         };
     }
 
-    // Fetches names of themes modified after a given timestamp
-    getChangedThemeNames(timestamp: number): string[] {
-        const stmt = this.db.prepare('SELECT name FROM themes WHERE lastModifyTimestamp > ?');
-        const rows = stmt.all(timestamp) as { name: string }[];
-        return rows.map(row => row.name);
+    getChangedThemeIds(timestamp: number): number[] {
+        const stmt = this.db.prepare('SELECT id FROM themes WHERE lastModifyTimestamp > ?');
+        const rows = stmt.all(timestamp) as { id: number }[];
+        return rows.map(row => row.id);
     }
 
-    saveTheme(theme: Theme, currentTimestamp: number) {
-        const { name, selected, ...restData } = theme;
+    saveTheme(theme: Theme, currentTimestamp: number): Theme {
+        const { id, name, selected, ...restData } = theme;
         const selectedInt = selected ? 1 : 0;
         const jsonStr = JSON.stringify(restData);
 
-        // Run updates inside a transaction to ensure atomic modifications across elements
+        let finalTheme = { ...theme };
+
         const transaction = this.db.transaction(() => {
             if (selected) {
                 this.clearAllSelectionsAndTrack(currentTimestamp);
             }
 
-            const stmt = this.db.prepare(`
-                INSERT INTO themes (name, selected, json, lastModifyTimestamp)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(name) DO UPDATE SET
-                    selected = excluded.selected,
-                    json = excluded.json,
-                    lastModifyTimestamp = excluded.lastModifyTimestamp
-            `);
-            stmt.run(name, selectedInt, jsonStr, currentTimestamp);
+            if (id !== undefined) {
+                const stmt = this.db.prepare(`
+                    INSERT INTO themes (id, name, selected, json, lastModifyTimestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        name = excluded.name,
+                        selected = excluded.selected,
+                        json = excluded.json,
+                        lastModifyTimestamp = excluded.lastModifyTimestamp
+                `);
+                stmt.run(id, name, selectedInt, jsonStr, currentTimestamp);
+            } else {
+                const stmt = this.db.prepare(`
+                    INSERT INTO themes (name, selected, json, lastModifyTimestamp)
+                    VALUES (?, ?, ?, ?)
+                `);
+                const info = stmt.run(name, selectedInt, jsonStr, currentTimestamp);
+                finalTheme.id = Number(info.lastInsertRowid);
+            }
         });
 
         transaction();
+        return finalTheme;
     }
 
-    // Clears all active choices and bumps timestamps for the newly deselected options
     private clearAllSelectionsAndTrack(currentTimestamp: number) {
-        const stmt = this.db.prepare(`
+        this.db.prepare(`
             UPDATE themes 
             SET selected = 0, lastModifyTimestamp = ? 
             WHERE selected = 1
-        `);
-        stmt.run(currentTimestamp);
+        `).run(currentTimestamp);
     }
 
-    deleteTheme(name: string): boolean {
-        const stmt = this.db.prepare('DELETE FROM themes WHERE name = ?');
-        const result = stmt.run(name);
+    deleteTheme(id: number): boolean {
+        const stmt = this.db.prepare('DELETE FROM themes WHERE id = ?');
+        const result = stmt.run(id);
         return result.changes > 0;
-    }
-
-    hasSelectedTheme(): boolean {
-        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM themes WHERE selected = 1');
-        const result = stmt.get() as { count: number } | undefined;
-        return (result?.count ?? 0) > 0;
     }
 }

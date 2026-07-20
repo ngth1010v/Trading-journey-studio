@@ -5,69 +5,71 @@ export class ThemeService {
     constructor(private repo: ThemeRepository) {}
 
     getAll(): Theme[] {
-        const dbThemes = this.repo.getAllThemes();
-        const hasCustomSelection = dbThemes.some(t => t.selected);
-
-        // Compute runtime default theme variant state
-        const runtimeDefault: Theme = {
-            ...DEFAULT_THEME,
-            selected: !hasCustomSelection
-        };
-
-        return [runtimeDefault, ...dbThemes];
+        return this.repo.getAllThemes();
     }
 
-    // New service layer entry point to isolate history tracking queries
-    getChangedThemesSince(timestamp: number): string[] {
-        return this.repo.getChangedThemeNames(timestamp);
+    getChangedThemesSince(timestamp: number): number[] {
+        return this.repo.getChangedThemeIds(timestamp);
     }
 
-    save(name: string, incomingData: PartialTheme): Theme {
-        if (!name || name.trim() === "") {
-            throw new Error("Theme name is required.");
-        }
-        if (name.toLowerCase() === "default") {
-            throw new Error("Cannot modify or create a theme named 'Default'.");
+    save(id: number, incomingData: PartialTheme): Theme {
+        // Intercept updates targeting the default theme archetype profile parameters 
+        if (id === 0) {
+            const keys = Object.keys(incomingData).filter(k => k !== 'selected');
+            if (keys.length > 0) {
+                throw new Error("Cannot modify configuration items on the template 'Default' theme except for the 'selected' field.");
+            }
+            
+            const existingDefault = this.repo.getThemeById(0) || DEFAULT_THEME;
+            const mergedDefault: Theme = {
+                ...existingDefault,
+                selected: incomingData.selected ?? existingDefault.selected
+            };
+            
+            return this.repo.saveTheme(mergedDefault, Date.now());
         }
 
-        const existingTheme = this.repo.getThemeByName(name);
+        const existingTheme = this.repo.getThemeById(id);
         const selected = incomingData.selected ?? false;
 
         let mergedTheme: Theme;
 
         if (existingTheme) {
-            // Fill missing structural pieces via previous item fallback strategy
             mergedTheme = this.deepMerge({}, existingTheme, incomingData) as Theme;
         } else {
-            // Fill missing structural pieces via base Default fallback strategy
+            if (!incomingData.name || incomingData.name.trim() === "") {
+                throw new Error("Validation failed: Theme name is required for new themes.");
+            }
             mergedTheme = this.deepMerge({}, DEFAULT_THEME, incomingData) as Theme;
+            // Clear baseline seed reference IDs to allow SQLite autoincrement actions to naturally hook in
+            delete mergedTheme.id; 
         }
 
-        // Enforce explicit primary rules overrides
-        mergedTheme.name = name;
+        if (mergedTheme.name.toLowerCase() === "default") {
+            throw new Error("Validation failed: Custom themes cannot be named 'Default'.");
+        }
+
         mergedTheme.selected = selected;
+        if (existingTheme) {
+            mergedTheme.id = id;
+        }
 
-        // Drive updates down with a consistent unified system timestamp boundary
-        const currentTimestamp = Date.now();
-        this.repo.saveTheme(mergedTheme, currentTimestamp);
-
-        return mergedTheme;
+        return this.repo.saveTheme(mergedTheme, Date.now());
     }
 
-    delete(name: string): void {
-        if (name.toLowerCase() === "default") {
+    delete(id: number): void {
+        if (id === 0) {
             throw new Error("Cannot delete the template 'Default' theme.");
         }
 
-        const targetTheme = this.repo.getThemeByName(name);
+        const targetTheme = this.repo.getThemeById(id);
         if (!targetTheme) {
-            throw new Error(`Theme '${name}' does not exist.`);
+            throw new Error(`Theme with ID '${id}' does not exist.`);
         }
 
-        this.repo.deleteTheme(name);
+        this.repo.deleteTheme(id);
     }
 
-    // Comprehensive structural dynamic helper object deep merging
     private deepMerge(target: any, ...sources: any[]): any {
         for (const source of sources) {
             if (!source) continue;
