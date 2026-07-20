@@ -13,24 +13,6 @@ export function createThemeRouter(service: ThemeService): Router {
         }
     });
 
-    // Changed return parameter type value to standard ID arrays matching internal structural adjustments
-    router.get('/api/themes/changed/:timestamp', (req: Request, res: Response) => {
-        try {
-            const { timestamp } = req.params;
-            const parsedTimestamp = Number(timestamp);
-
-            if (isNaN(parsedTimestamp)) {
-                res.status(400).json({ success: false, error: 'Timestamp must be a valid number.' });
-                return;
-            }
-
-            const changedThemeIds = service.getChangedThemesSince(parsedTimestamp);
-            res.json(changedThemeIds);
-        } catch (err: any) {
-            res.status(500).json({ success: false, error: err.message });
-        }
-    });
-
     router.post('/api/themes/:id', (req: Request, res: Response) => {
         try {
             const { id } = req.params;
@@ -44,7 +26,7 @@ export function createThemeRouter(service: ThemeService): Router {
             const updatedTheme = service.save(parsedId, req.body);
             res.json({ success: true, data: updatedTheme });
         } catch (err: any) {
-            const status = err.message.includes("Cannot modify") || err.message.includes("Validation failed") ? 400 : 500;
+            const status = err.message.includes("Validation failed") ? 400 : 500;
             res.status(status).json({ success: false, error: err.message });
         }
     });
@@ -62,7 +44,7 @@ export function createThemeRouter(service: ThemeService): Router {
             service.delete(parsedId);
             res.json({ success: true, message: `Theme with ID ${parsedId} deleted successfully.` });
         } catch (err: any) {
-            const status = err.message.includes("Cannot delete") || err.message.includes("does not exist") ? 400 : 500;
+            const status = err.message.includes("does not exist") ? 400 : 500;
             res.status(status).json({ success: false, error: err.message });
         }
     });

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { Theme, DEFAULT_THEME } from './theme.model.js';
+import { Theme } from './theme.model.js';
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,24 +29,6 @@ export class ThemeRepository {
                 lastModifyTimestamp INTEGER NOT NULL DEFAULT 0
             )
         `);
-
-        this.ensureDefaultThemeExists();
-    }
-
-    private ensureDefaultThemeExists() {
-        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM themes WHERE id = 0');
-        const result = stmt.get() as { count: number };
-        
-        if (result.count === 0) {
-            const { id, name, selected, ...restData } = DEFAULT_THEME;
-            const jsonStr = JSON.stringify(restData);
-            
-            // Explicitly force ID 0 for the default theme using an dynamic insert statement
-            this.db.prepare(`
-                INSERT INTO themes (id, name, selected, json, lastModifyTimestamp)
-                VALUES (0, ?, ?, ?, ?)
-            `).run(name, selected ? 1 : 0, jsonStr, Date.now());
-        }
     }
 
     shutdown() {
@@ -78,12 +60,6 @@ export class ThemeRepository {
             selected: row.selected === 1,
             ...JSON.parse(row.json)
         };
-    }
-
-    getChangedThemeIds(timestamp: number): number[] {
-        const stmt = this.db.prepare('SELECT id FROM themes WHERE lastModifyTimestamp > ?');
-        const rows = stmt.all(timestamp) as { id: number }[];
-        return rows.map(row => row.id);
     }
 
     saveTheme(theme: Theme, currentTimestamp: number): Theme {
