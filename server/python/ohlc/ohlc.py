@@ -7,6 +7,7 @@ import _logger as logger
 from ._controller import get_last_ohlc, get_ohlcs, get_ohlcs_bin
 
 _SECTION = "ohlc/ohlc.py"
+BASE = "/api/chartData/candles"
 
 bp = Blueprint("ohlc", __name__)
 
@@ -28,14 +29,14 @@ def shutdown():
     return jsonify({"status": "ok", "msg": "shutdown"}), 200
 
 
-@bp.route("/<symbol>/<timeframe>", methods=["GET"])
+@bp.route(f"{BASE}/<symbol>/<timeframe>", methods=["GET"])
 def getData(symbol: str, timeframe: str):
     from_ts = request.args.get("fromTs")
     to_ts = request.args.get("toTs")
     payload, code = get_ohlcs(symbol, timeframe, from_ts, to_ts)
     return jsonify(payload), code
 
-@bp.route("/<symbol>/<timeframe>/bin", methods=["GET"])
+@bp.route(f"{BASE}/<symbol>/<timeframe>/bin", methods=["GET"])
 def getDataBin(symbol: str, timeframe: str):
     from_ts = request.args.get("fromTs")
     to_ts = request.args.get("toTs")
@@ -66,7 +67,7 @@ def getDataBin(symbol: str, timeframe: str):
     return response
 
 
-@bp.route("/<symbol>/<timeframe>/last", methods=["GET"])
+@bp.route(f"{BASE}/<symbol>/<timeframe>/last", methods=["GET"])
 def getLast(symbol: str, timeframe: str):
     payload, code = get_last_ohlc(symbol, timeframe)
     return jsonify(payload), code

@@ -1,73 +1,80 @@
 import { logger } from "../logger.js";
-import { exec } from 'child_process';
-
-const _SECTION = "markets"
-
-//==============================================================================================
-// ROUTE
-//==============================================================================================
 import { Router, Request, Response } from 'express';
 
+const _SECTION = "chartData";
 const router = Router();
 
-router.all(/^\/api\/markets\/(.*)/, async (req, res) => {
-    const content = req.params[0];
+// Matches /api/chartData/symbols, /api/chartData/symbols/*, 
+// /api/chartData/candles, and /api/chartData/candles/*
+const routePattern = /^\/api\/chartData\/(symbols|candles)(\/.*)?$/;
 
-    if (content.toUpperCase() === 'SHUTDOWN') {
+router.all(routePattern, async (req: Request, res: Response) => {
+    // 1. SHUTDOWN Block Protection
+    if (req.path.toUpperCase().includes('/SHUTDOWN')) {
         logger.warn(
             _SECTION,
-            `Blocked attempt to access protected route: ${req.method} /api/markets/SHUTDOWN`
+            `Blocked attempt to access protected route: ${req.method} ${req.originalUrl}`
         );
 
         res.status(403).json({
             error: 'Access denied.'
         });
-
         return;
     }
 
-    const targetUrl = `http://localhost:5000/${content}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
+    // 2. Exact Path & Query String Forwarding
+    // Preserves the full original URL (e.g., /api/chartData/symbols?param=123)
+    const targetUrl = `http://localhost:5000${req.originalUrl}`;
+
+    // 3. Prepare Forwarding Headers
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+        if (value !== undefined && key.toLowerCase() !== 'host') {
+            headers[key] = Array.isArray(value) ? value.join(', ') : value;
+        }
+    }
+
+    // 4. Handle Incoming Request Body (Client -> Proxy -> Server)
+    let body: any = undefined;
+    if (!['GET', 'HEAD'].includes(req.method.toUpperCase())) {
+        if (Buffer.isBuffer(req.body) || typeof req.body === 'string') {
+            body = req.body;
+        } else if (req.body && Object.keys(req.body).length > 0) {
+            body = JSON.stringify(req.body);
+        }
+    }
 
     try {
         const response = await fetch(targetUrl, {
             method: req.method,
-            headers: req.headers as HeadersInit,
-            body: ['GET', 'HEAD'].includes(req.method.toUpperCase())
-                ? undefined
-                : JSON.stringify(req.body),
+            headers,
+            body: body as RequestInit['body'],
         });
 
         res.status(response.status);
 
-        // Copy toàn bộ header cần thiết từ Python Server sang
+        // Copy critical response headers back to client
         const contentType = response.headers.get('content-type');
         if (contentType) {
             res.setHeader('content-type', contentType);
         }
-        
+
         const contentLength = response.headers.get('content-length');
         if (contentLength) {
             res.setHeader('content-length', contentLength);
         }
 
-        // Kiểm tra xem route hiện tại có phải là API lấy file nhị phân (.bin) không
-        const isBinaryRoute = req.path.endsWith('/bin');
-
-        if (isBinaryRoute) {
-            // Triệt tiêu ETag của Express sinh ra cho route binary (nguyên nhân gây weak ETag W/"...")
+        // Remove ETag for binary routes to prevent weak ETag conflicts
+        if (req.path.endsWith('/bin')) {
             res.removeHeader('ETag');
-            
-            // Đọc dữ liệu dưới dạng ArrayBuffer thô không qua bộ giải mã Text
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            
-            // Gửi Buffer thô trực tiếp về Client
-            res.send(buffer);
-        } else {
-            // Với các route thường (JSON), xử lý bằng text như cũ cho an toàn
-            const text = await response.text();
-            res.send(text);
         }
+
+        // 5. Handle Response Payload (Server -> Proxy -> Client)
+        // ArrayBuffer handles both raw binary payloads and standard JSON seamlessly
+        const arrayBuffer = await response.arrayBuffer();
+        const responseBuffer = Buffer.from(arrayBuffer);
+
+        res.send(responseBuffer);
 
     } catch (error) {
         logger.error(
@@ -77,14 +84,13 @@ router.all(/^\/api\/markets\/(.*)/, async (req, res) => {
 
         res.status(502).json({
             error: 'Unable to connect to market service server.'
-         });
+        });
     }
 });
-
 
 //==============================================================================================
 // EXPORT
 //==============================================================================================
 export const marketServer = {
     router
-}
+};

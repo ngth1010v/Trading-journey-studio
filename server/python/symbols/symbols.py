@@ -16,6 +16,7 @@ bp = Blueprint(
 )
 
 _SECTION = "symbols/symbols.py"
+BASE = "/api/chartData/symbols"
 
 
 def init() -> None:
@@ -30,7 +31,7 @@ def init() -> None:
     )
 
 
-@bp.route("/")
+@bp.route(f"{BASE}")
 def symbols():
     try:
         symbols = getSymbols()
@@ -55,7 +56,7 @@ def symbols():
         }), 500
 
 
-@bp.route("/<symbol>")
+@bp.route(f"{BASE}/<symbol>")
 def get_symbol(symbol: str):
     try:
         data = getSymbolFromMt5(symbol)

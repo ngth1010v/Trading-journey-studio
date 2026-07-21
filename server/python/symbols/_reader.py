@@ -8,7 +8,7 @@ import _logger as logger
 
 _SECTION = "symbols/_reader.py"
 
-_DB_PATH = DATABASE_PATH / "markets.db"
+_DB_PATH = DATABASE_PATH / "chartData" / "symbol.db"
 
 
 def getSymbols() -> list[Symbol]:

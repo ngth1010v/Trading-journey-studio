@@ -10,7 +10,7 @@ from config import DATABASE_PATH
 from ._type import Symbol
 
 _SECTION = "symbols/_writer.py"
-_DB_PATH = Path(DATABASE_PATH) / "markets.db"
+_DB_PATH = DATABASE_PATH / "chartData" / "symbol.db"
 _TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS symbols (
     symbol TEXT PRIMARY KEY,
