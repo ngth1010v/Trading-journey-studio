@@ -43,7 +43,7 @@ def symbols():
             }), 500
 
         return jsonify([
-            item.symbol
+            asdict(item)
             for item in symbols
         ]), 200
 
@@ -54,36 +54,6 @@ def symbols():
             "status": "error",
             "msg": str(e),
         }), 500
-
-
-@bp.route(f"{BASE}/<symbol>")
-def get_symbol(symbol: str):
-    try:
-        data = getSymbolFromMt5(symbol)
-
-        if data is None:
-            logger.info(_SECTION, f"MT5 lookup for '{symbol}' failed or not found, falling back to DB.")
-            data = getSymbol(symbol)
-
-        if data is None:
-            return jsonify({
-                "status": "error",
-                "msg": f"Symbol '{symbol}' not found in both MT5 and database."
-            }), 404
-
-        return jsonify(asdict(data)), 200
-
-    except Exception as e:
-        logger.error(
-            _SECTION,
-            f"/symbols/{symbol} failed: {e}",
-        )
-
-        return jsonify({
-            "status": "error",
-            "msg": str(e),
-        }), 500
-
 
 @bp.route("/symbols/SHUTDOWN")
 def shutdown():
