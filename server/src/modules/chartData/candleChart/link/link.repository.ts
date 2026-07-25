@@ -2,10 +2,12 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Link } from "./link.model.js";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, "../../../../database/chartData/candleChart/link.db");
+const DB_DIR = path.join(__dirname, "../../../../../database/chartData/candleChart");
+const DB_PATH = path.join(DB_DIR, "link.db");
 
 export class LinkRepository {
   private db: Database.Database | null = null;
@@ -13,6 +15,7 @@ export class LinkRepository {
   init(): void {
     // Ensure database connection is active
     if (!this.db) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
       this.db = new Database(DB_PATH);
       // Enable WAL mode for better concurrency performance
       this.db.pragma("journal_mode = WAL");

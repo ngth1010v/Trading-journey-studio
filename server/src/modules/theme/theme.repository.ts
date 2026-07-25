@@ -7,17 +7,19 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const DB_DIR = path.join(__dirname, "../../../database");
+const DB_PATH = path.join(DB_DIR, "theme.db");
+
 export class ThemeRepository {
     private db!: Database.Database;
-    private readonly dbPath = path.join(__dirname, "../../../database/theme.db");
 
     init() {
-        const dir = path.dirname(this.dbPath);
+        const dir = path.dirname(DB_PATH);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        this.db = new Database(this.dbPath);
+        this.db = new Database(DB_PATH);
         this.db.pragma('journal_mode = WAL');
 
         this.db.exec(`

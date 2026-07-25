@@ -2,15 +2,18 @@ import Database from "better-sqlite3";
 import { Strategy, StrategyTag } from "./strategy.model.js";
 
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, "../../../database/chartData/strategy.db");
+const DB_DIR = path.join(__dirname, "../../../../database/chartData");
+const DB_PATH = path.join(DB_DIR, "strategy.db");
 
 export class StrategyRepository {
   private db!: Database.Database;
 
   public init(): void {
+    fs.mkdirSync(DB_DIR, { recursive: true });
     this.db = new Database(DB_PATH);
     
     // Enable WAL mode for better performance

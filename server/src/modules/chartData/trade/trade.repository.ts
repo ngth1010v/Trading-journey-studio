@@ -3,16 +3,19 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Trade, TradeTag, TradeStyle, DefaultTradeStyle } from "./trade.model.js";
 import { parseFilterToSql } from "./trade.service.js";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, "../../../database/chartData/trade.db");
+const DB_DIR = path.join(__dirname, "../../../../database/chartData");
+const DB_PATH = path.join(DB_DIR, "trade.db");
 
 let db: Database.Database;
 let lastChangeTimestamp = Date.now();
 
 export const TradeRepository = {
   init() {
+    fs.mkdirSync(DB_DIR, { recursive: true });
     lastChangeTimestamp = Date.now();
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");

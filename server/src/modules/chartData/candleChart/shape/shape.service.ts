@@ -18,7 +18,7 @@ class StrategyDbManager {
 
   private getDbPath(strategyName: string): string {
     // Escapes tracking to map safely into the required folder structure
-    return path.join(__dirname, `../../../../database/chartData/candleChart/shapes/${strategyName}.db`);
+    return path.join(__dirname, `../../../../../database/chartData/candleChart/shapes/${strategyName}.db`);
   }
 
   public getDb(strategyName: string): Database.Database {

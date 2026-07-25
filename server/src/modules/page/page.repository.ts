@@ -2,15 +2,18 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Page, PageSummary } from "./page.model.js";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, "../../../database/page.db");
+const DB_DIR = path.join(__dirname, "../../../database");
+const DB_PATH = path.join(DB_DIR, "page.db");
 
 export class PageRepository {
   private db!: Database.Database;
 
   public init(): void {
+    fs.mkdirSync(DB_DIR, { recursive: true });
     this.db = new Database(DB_PATH);
 
     this.db.exec(`

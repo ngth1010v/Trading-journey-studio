@@ -4,6 +4,7 @@ import { Server } from 'node:http';
 import { logger } from './logger.js';
 
 import { marketServer } from './service-servers/markets-server.js';
+import * as modules from "./modules/index.js"
 
 
 // =============================================================================================================
@@ -24,21 +25,6 @@ app.get('/', (_req: Request, res: Response) => {
 });
 
 
-// =============================================================================================================
-// MODULES
-// =============================================================================================================
-import * as modules from "./modules/index.js"
-app.use(modules.color.router)
-app.use(modules.theme.router)
-app.use(modules.page.router)
-app.use(modules.chartData.hotkey.router)
-app.use(modules.chartData.strategy.router)
-app.use(modules.chartData.trade.router)
-app.use(modules.chartData.candleChart.link.router)
-app.use(modules.chartData.candleChart.shape.router)
-
-
-
 
 // =============================================================================================================
 // LOGIC STARTUP & SHUTDOWN 
@@ -55,6 +41,17 @@ function startup(): void {
     modules.chartData.candleChart.shape.init()
 
     logger.info(_SECTION, 'Start up done!');
+}
+
+function useRouter(): void {
+    app.use(modules.color.router)
+    app.use(modules.theme.router)
+    app.use(modules.page.router)
+    app.use(modules.chartData.hotkey.router)
+    app.use(modules.chartData.strategy.router)
+    app.use(modules.chartData.trade.router)
+    app.use(modules.chartData.candleChart.link.router)
+    app.use(modules.chartData.candleChart.shape.router)
 }
 
 async function shutdown(): Promise<void> {
@@ -125,6 +122,8 @@ function startServer(): void {
     try {
         // 1. Chạy startup 100% trước
         startup();
+
+        // useRouter();
 
         // 2. Mở server / port
         server = app.listen(PORT, () => {
