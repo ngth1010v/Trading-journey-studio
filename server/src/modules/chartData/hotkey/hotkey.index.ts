@@ -6,7 +6,7 @@ const repo = new HotkeyRepository();
 const service = new HotkeyService(repo);
 const router = createHotkeyRouter(service);
 
-export const page = {
+export const hotkey = {
   router,
   init: () => {
     repo.init();

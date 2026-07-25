@@ -9,7 +9,7 @@ const router = Router();
 router.use("/strategies/tags", tagRouter);
 router.use("/strategies", strategyRouter);
 
-export const page = {
+export const strategy = {
   router,
   init: () => {
     repo.init();

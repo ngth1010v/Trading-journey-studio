@@ -12,7 +12,7 @@ router.use("/api/chartData/candleChart/shapes/tags", shapeTagRouter);
 router.use("/api/chartData/candleChart/shapes/templates", shapeTemplateRouter);
 router.use("/api/chartData/candleChart/shapes", shapeDataRouter);
 
-export const page = {
+export const shape = {
   router,
   init: () => {
     // Lazy system architecture: Connections open dynamically inside operations

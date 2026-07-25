@@ -5,11 +5,6 @@ import { logger } from './logger.js';
 
 import { marketServer } from './service-servers/markets-server.js';
 
-import { strategies } from './strategies/strategies/strategies.index.js';
-import { shapes } from './strategies/shapes/shapes.index.js';
-import { theme } from './theme/theme.index.js';
-import { color } from './color/color.index.js';
-
 
 // =============================================================================================================
 // GLOBAL
@@ -24,14 +19,24 @@ let isShuttingDown = false;
 // Middleware & Routes
 app.use(express.json());
 app.use(marketServer.router);
-app.use(strategies.router)
-app.use(shapes.router)
-app.use(theme.router)
-app.use(color.router)
-
 app.get('/', (_req: Request, res: Response) => {
     res.send('Hello World!');
 });
+
+
+// =============================================================================================================
+// MODULES
+// =============================================================================================================
+import * as modules from "./modules/index.js"
+app.use(modules.color.router)
+app.use(modules.theme.router)
+app.use(modules.page.router)
+app.use(modules.chartData.hotkey.router)
+app.use(modules.chartData.strategy.router)
+app.use(modules.chartData.trade.router)
+app.use(modules.chartData.candleChart.link.router)
+app.use(modules.chartData.candleChart.shape.router)
+
 
 
 
@@ -39,16 +44,31 @@ app.get('/', (_req: Request, res: Response) => {
 // LOGIC STARTUP & SHUTDOWN 
 // =============================================================================================================
 function startup(): void {
-    color.init()
-    theme.init()
-    strategies.init();
+    
+    modules.color.init()
+    modules.theme.init()
+    modules.page.init()
+    modules.chartData.hotkey.init()
+    modules.chartData.strategy.init()
+    modules.chartData.trade.init()
+    modules.chartData.candleChart.link.init()
+    modules.chartData.candleChart.shape.init()
+
     logger.info(_SECTION, 'Start up done!');
 }
 
 async function shutdown(): Promise<void> {
-    color.shutdown()
-    theme.shutdown()
-    await strategies.shutdown();
+
+    modules.color.shutdown()
+    modules.theme.shutdown()
+    modules.page.shutdown()
+    modules.chartData.hotkey.shutdown()
+    modules.chartData.strategy.shutdown()
+    modules.chartData.trade.shutdown()
+    modules.chartData.candleChart.link.shutdown()
+    modules.chartData.candleChart.shape.shutdown()
+
+
     logger.info(_SECTION, 'Shutdown done!');
 }
 

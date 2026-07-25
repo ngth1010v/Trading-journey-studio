@@ -10,7 +10,7 @@ router.use("/trades/tags", tradeTagRouter);
 router.use("/trades/style", tradeStyleRouter);
 router.use("/trades", tradeDataRouter);
 
-export const page = {
+export const trade = {
   router,
   init() {
     TradeRepository.init();
