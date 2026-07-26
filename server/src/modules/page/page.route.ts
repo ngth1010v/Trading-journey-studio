@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PageService } from './page.service.js';
 
-const BASE = "/api/pages"
+const BASE = "/api/pages";
 
 export function createPageRouter(service: PageService): Router {
   const router = Router();
@@ -38,9 +38,14 @@ export function createPageRouter(service: PageService): Router {
       }
 
       const result = service.savePage({ id, name, data });
-      res.status(id !== undefined ? 200 : 21).json(result);
+
+      // Return 200 OK for updates, 201 Created for new pages
+      const statusCode = id !== undefined ? 200 : 201;
+      return res.status(statusCode).json(result);
     } catch (error: any) {
-      res.status(404).json({ error: error.message });
+      // Differentiate unexpected errors (500) or missing items (404)
+      const isNotFound = error.message.includes('does not exist');
+      return res.status(isNotFound ? 404 : 500).json({ error: error.message });
     }
   });
 

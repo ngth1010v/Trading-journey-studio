@@ -123,7 +123,7 @@ function startServer(): void {
         // 1. Chạy startup 100% trước
         startup();
 
-        // useRouter();
+        useRouter();
 
         // 2. Mở server / port
         server = app.listen(PORT, () => {
