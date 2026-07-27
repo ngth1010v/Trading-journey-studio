@@ -1,8 +1,8 @@
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
-import path from "path";
-import { fileURLToPath } from "url";
-import { Link } from "./link.model.js";
-import fs from "fs";
+import { Link, LinkState } from "./link.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,81 +12,72 @@ const DB_PATH = path.join(DB_DIR, "link.db");
 export class LinkRepository {
   private db: Database.Database | null = null;
 
-  init(): void {
-    // Ensure database connection is active
-    if (!this.db) {
+  public init(): void {
+    if (!fs.existsSync(DB_DIR)) {
       fs.mkdirSync(DB_DIR, { recursive: true });
-      this.db = new Database(DB_PATH);
-      // Enable WAL mode for better concurrency performance
-      this.db.pragma("journal_mode = WAL");
     }
 
-    // Initialize schema: color object stored as text JSON string
+    this.db = new Database(DB_PATH);
+
+    // Initialize table schema with JSON storage for color, children, and state
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        color TEXT NOT NULL
-      );
+        color TEXT NOT NULL,
+        children TEXT NOT NULL,
+        state TEXT
+      )
     `);
   }
 
-  shutdown(): void {
+  public close(): void {
     if (this.db) {
       this.db.close();
       this.db = null;
     }
   }
 
-  private getDb(): Database.Database {
-    if (!this.db) {
-      throw new Error("Database not initialized. Call init() first.");
-    }
-    return this.db;
+  public getAll(): { id: number; name: string; color: any; children: any; state: any }[] {
+    if (!this.db) throw new Error("Database not initialized");
+    const stmt = this.db.prepare("SELECT id, name, color, children, state FROM links");
+    return stmt.all() as any[];
   }
 
-  findAll(): Link[] {
-    const db = this.getDb();
-    const rows = db.prepare("SELECT id, name, color FROM links").all() as any[];
-    
-    return rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      color: JSON.parse(row.color)
-    }));
+  public insert(link: Omit<Link, "id">, state?: LinkState): number {
+    if (!this.db) throw new Error("Database not initialized");
+    const stmt = this.db.prepare(`
+      INSERT INTO links (name, color, children, state)
+      VALUES (?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      link.name,
+      JSON.stringify(link.color),
+      JSON.stringify(link.children),
+      state ? JSON.stringify(state) : null
+    );
+    return Number(result.lastInsertRowid);
   }
 
-  findById(id: number): Link | null {
-    const db = this.getDb();
-    const row = db.prepare("SELECT id, name, color FROM links WHERE id = ?").get(id) as any;
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      name: row.name,
-      color: JSON.parse(row.color)
-    };
+  public update(id: number, link: Link, state?: LinkState): void {
+    if (!this.db) throw new Error("Database not initialized");
+    const stmt = this.db.prepare(`
+      UPDATE links
+      SET name = ?, color = ?, children = ?, state = ?
+      WHERE id = ?
+    `);
+    stmt.run(
+      link.name,
+      JSON.stringify(link.color),
+      JSON.stringify(link.children),
+      state ? JSON.stringify(state) : null,
+      id
+    );
   }
 
-  create(link: Link): number {
-    const db = this.getDb();
-    const stmt = db.prepare("INSERT INTO links (name, color) VALUES (?, ?)");
-    const result = stmt.run(link.name, JSON.stringify(link.color));
-    return result.lastInsertRowid as number;
-  }
-
-  update(link: Link): void {
-    const db = this.getDb();
-    const stmt = db.prepare("UPDATE links SET name = ?, color = ? WHERE id = ?");
-    stmt.run(link.name, JSON.stringify(link.color), link.id);
-  }
-
-  delete(id: number): boolean {
-    const db = this.getDb();
-    const stmt = db.prepare("DELETE FROM links WHERE id = ?");
-    const result = stmt.run(id);
-    return result.changes > 0;
+  public delete(id: number): void {
+    if (!this.db) throw new Error("Database not initialized");
+    const stmt = this.db.prepare("DELETE FROM links WHERE id = ?");
+    stmt.run(id);
   }
 }
-
-export const linkRepository = new LinkRepository();

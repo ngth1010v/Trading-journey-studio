@@ -1,14 +1,25 @@
-import { linkRouter } from "./link.route.js";
-import { linkRepository } from "./link.repository.js";
+import { Router } from "express";
+import { linkService } from "./link.service.js";
+import { dataRouter } from "./link.route.data.js";
+import { stateRouter } from "./link.route.state.js";
+
+const REFRESH_DURATION = 1000;
+
+const router = Router();
+router.use(dataRouter);
+router.use(stateRouter);
+
+function init(isElementExist: (pageId: number, elementId: number) => boolean | null): void {
+  linkService.init(isElementExist);
+}
+
+function shutdown(): void {
+  linkService.shutdown();
+}
 
 export const link = {
-  router: linkRouter,
-  
-  init(): void {
-    linkRepository.init();
-  },
-  
-  shutdown(): void {
-    linkRepository.shutdown();
-  }
+  init,
+  shutdown,
+  router,
+  REFRESH_DURATION,
 };

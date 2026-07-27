@@ -1,8 +1,8 @@
 import { RGB, RGBA } from "../../../../type.js";
 
 export interface LinkChild {
-  pageId: number
-  elementId: number
+  pageId: number;
+  elementId: number;
   color: {
     font: RGB;
     background: RGBA;
@@ -18,16 +18,28 @@ export interface Link {
     background: RGBA;
     border: RGBA;
   };
-  children: LinkChild[]
+  children: LinkChild[];
 }
 
-
-export interface LinkData {
-  symbol: string
+export interface LinkState {
+  lastEditor: {
+    pageId: number;
+    elementId: number;
+    timestamp: number;
+    release: boolean;
+  };
+  symbol: string;
   view: {
-    fromTs: number
-    toTs: number
-    fromPrice: number
-    toPrice: number
-  } 
+    fromTs: number;
+    toTs: number;
+    fromPrice: number;
+    toPrice: number;
+  };
+}
+
+export interface CachedLinkEntry {
+  link: Link;
+  state?: LinkState;
+  isDirtyLink: boolean;
+  isDirtyState: boolean;
 }

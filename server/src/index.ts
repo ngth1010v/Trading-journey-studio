@@ -37,7 +37,7 @@ function startup(): void {
     modules.chartData.hotkey.init()
     modules.chartData.strategy.init()
     modules.chartData.trade.init()
-    modules.chartData.candleChart.link.init()
+    modules.chartData.candleChart.link.init(modules.page.isElementExist)
     modules.chartData.candleChart.shape.init()
 
     logger.info(_SECTION, 'Start up done!');
