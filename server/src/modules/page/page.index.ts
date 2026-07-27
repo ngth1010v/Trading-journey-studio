@@ -5,6 +5,7 @@ import { PageService } from './page.service.js';
 import { createPageRouter } from './page.route.js';
 
 let pageRouter: Router | null = null;
+let pageService: PageService | null = null;
 
 export const page = {
   get router(): Router {
@@ -18,12 +19,20 @@ export const page = {
     const repository = new PageRepository();
     repository.init(); // Prepares SQLite tables if missing
 
-    const service = new PageService(repository);
-    pageRouter = createPageRouter(service);
+    pageService = new PageService(repository);
+    pageRouter = createPageRouter(pageService);
+  },
+
+  isElementExist: (pageId: number, elementId: number): boolean | null => {
+    if (!pageService) {
+      return null;
+    }
+    return pageService.isElementExist(pageId, elementId);
   },
 
   shutdown: async (): Promise<void> => {
     // Perform any graceful module cleanup here if needed
     pageRouter = null;
+    pageService = null;
   }
 };

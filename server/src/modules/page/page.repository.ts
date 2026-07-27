@@ -25,9 +25,22 @@ export class PageRepository {
     `);
   }
 
-  public findAll(): PageSummary[] {
-    const stmt = this.db.prepare("SELECT id, name FROM pages");
-    return stmt.all() as PageSummary[];
+  public findAll(): Page[] {
+    const stmt = this.db.prepare(
+      "SELECT id, name, data FROM pages"
+    );
+
+    const rows = stmt.all() as {
+      id: number;
+      name: string;
+      data: string;
+    }[];
+
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      data: JSON.parse(row.data),
+    }));
   }
 
   public findById(id: number): Page | null {
@@ -46,6 +59,18 @@ export class PageRepository {
       name: row.name,
       data: JSON.parse(row.data),
     };
+  }
+
+  public isElementExist(pageId: number, elementId: number): boolean {
+    const stmt = this.db.prepare(`
+      SELECT 1 
+      FROM pages, json_each(pages.data) 
+      WHERE pages.id = ? AND json_extract(json_each.value, '$.id') = ?
+      LIMIT 1
+    `);
+
+    const row = stmt.get(pageId, elementId);
+    return !!row;
   }
 
   public create(page: Omit<Page, "id">): number {

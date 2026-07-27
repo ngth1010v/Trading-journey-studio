@@ -4,7 +4,7 @@ import { Page, PageSummary } from './page.model.js';
 export class PageService {
   constructor(private repository: PageRepository) {}
 
-  public getAllPages(): PageSummary[] {
+  public getAllPages(): Page[] {
     return this.repository.findAll();
   }
 
@@ -14,6 +14,10 @@ export class PageService {
       throw new Error(`Page with ID ${id} not found`);
     }
     return page;
+  }
+
+  public isElementExist(pageId: number, elementId: number): boolean {
+    return this.repository.isElementExist(pageId, elementId);
   }
 
   public savePage(pageData: Page): { id: number } {
