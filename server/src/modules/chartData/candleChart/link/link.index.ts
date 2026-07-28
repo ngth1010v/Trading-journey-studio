@@ -9,8 +9,8 @@ const router = Router();
 router.use(dataRouter);
 router.use(stateRouter);
 
-function init(isElementExist: (pageId: number, elementId: number) => boolean | null): void {
-  linkService.init(isElementExist);
+function init(): void {
+  linkService.init();
 }
 
 function shutdown(): void {

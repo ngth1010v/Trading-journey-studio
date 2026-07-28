@@ -1,12 +1,9 @@
 import { Link, LinkState, CachedLinkEntry } from "./link.model.js";
 import { LinkRepository } from "./link.repository.js";
 
-type ElementChecker = (pageId: number, elementId: number) => boolean | null;
-
 export class LinkService {
   private repository: LinkRepository;
   private memoryCache: Map<number, CachedLinkEntry> = new Map();
-  private isElementExistCb: ElementChecker | null = null;
   private timer: NodeJS.Timeout | null = null;
   private readonly REFRESH_DURATION = 1000;
 
@@ -14,9 +11,8 @@ export class LinkService {
     this.repository = new LinkRepository();
   }
 
-  public init(isElementExist: ElementChecker): void {
+  public init(): void {
     this.repository.init();
-    this.isElementExistCb = isElementExist;
 
     // Load initial data into RAM cache
     const records = this.repository.getAll();
@@ -27,7 +23,6 @@ export class LinkService {
         id: record.id,
         name: record.name,
         color: JSON.parse(record.color),
-        children: JSON.parse(record.children),
       };
 
       const state: LinkState | undefined = record.state ? JSON.parse(record.state) : undefined;
@@ -40,8 +35,8 @@ export class LinkService {
       });
     }
 
-    // Start 1000ms background periodic scan and persistence job
-    this.timer = setInterval(() => this.backgroundRefresh(), this.REFRESH_DURATION);
+    // Start 1000ms background persistence job
+    this.timer = setInterval(() => this.flushToDisk(), this.REFRESH_DURATION);
   }
 
   public shutdown(): void {
@@ -59,29 +54,18 @@ export class LinkService {
   }
 
   public saveLink(linkData: Link): number {
-    // Filter invalid children immediately using element checker callback
-    const validChildren = linkData.children.filter((child) => {
-      if (!this.isElementExistCb) return true;
-      return this.isElementExistCb(child.pageId, child.elementId) !== false;
-    });
-
-    const sanitizedLink: Link = {
-      ...linkData,
-      children: validChildren,
-    };
-
-    if (sanitizedLink.id !== undefined && this.memoryCache.has(sanitizedLink.id)) {
-      const existing = this.memoryCache.get(sanitizedLink.id)!;
-      existing.link = sanitizedLink;
+    if (linkData.id !== undefined && this.memoryCache.has(linkData.id)) {
+      const existing = this.memoryCache.get(linkData.id)!;
+      existing.link = linkData;
       existing.isDirtyLink = true;
-      return sanitizedLink.id;
+      return linkData.id;
     } else {
       // Create new link immediately in disk to acquire new primary key ID
-      const newId = this.repository.insert(sanitizedLink);
-      sanitizedLink.id = newId;
+      const newId = this.repository.insert(linkData);
+      linkData.id = newId;
 
       this.memoryCache.set(newId, {
-        link: sanitizedLink,
+        link: linkData,
         isDirtyLink: false, // Already inserted into DB
         isDirtyState: false,
       });
@@ -155,26 +139,6 @@ export class LinkService {
       typeof state.view.fromPrice === "number" &&
       typeof state.view.toPrice === "number"
     );
-  }
-
-  private backgroundRefresh(): void {
-    if (!this.isElementExistCb) return;
-
-    for (const entry of this.memoryCache.values()) {
-      const initialLength = entry.link.children.length;
-
-      // Scan and eliminate missing elements
-      entry.link.children = entry.link.children.filter((child) => {
-        return this.isElementExistCb!(child.pageId, child.elementId) !== false;
-      });
-
-      // Mark link as dirty if children were pruned
-      if (entry.link.children.length !== initialLength) {
-        entry.isDirtyLink = true;
-      }
-    }
-
-    this.flushToDisk();
   }
 
   private flushToDisk(): void {

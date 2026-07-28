@@ -12,8 +12,8 @@ dataRouter.get("/api/chartData/candleChart/links", (_req: Request, res: Response
 // POST /api/chartData/candleChart/links
 dataRouter.post("/api/chartData/candleChart/links", (req: Request, res: Response) => {
   const linkData = req.body;
-  
-  if (!linkData || typeof linkData.name !== "string" || !Array.isArray(linkData.children)) {
+
+  if (!linkData || typeof linkData.name !== "string" || !linkData.color) {
     return res.status(400).json({ error: "Invalid link structure" });
   }
 

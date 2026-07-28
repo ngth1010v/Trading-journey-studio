@@ -19,13 +19,12 @@ export class LinkRepository {
 
     this.db = new Database(DB_PATH);
 
-    // Initialize table schema with JSON storage for color, children, and state
+    // Initialize table schema with JSON storage for color and state
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         color TEXT NOT NULL,
-        children TEXT NOT NULL,
         state TEXT
       )
     `);
@@ -38,22 +37,21 @@ export class LinkRepository {
     }
   }
 
-  public getAll(): { id: number; name: string; color: any; children: any; state: any }[] {
+  public getAll(): { id: number; name: string; color: any; state: any }[] {
     if (!this.db) throw new Error("Database not initialized");
-    const stmt = this.db.prepare("SELECT id, name, color, children, state FROM links");
+    const stmt = this.db.prepare("SELECT id, name, color, state FROM links");
     return stmt.all() as any[];
   }
 
   public insert(link: Omit<Link, "id">, state?: LinkState): number {
     if (!this.db) throw new Error("Database not initialized");
     const stmt = this.db.prepare(`
-      INSERT INTO links (name, color, children, state)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO links (name, color, state)
+      VALUES (?, ?, ?)
     `);
     const result = stmt.run(
       link.name,
       JSON.stringify(link.color),
-      JSON.stringify(link.children),
       state ? JSON.stringify(state) : null
     );
     return Number(result.lastInsertRowid);
@@ -63,13 +61,12 @@ export class LinkRepository {
     if (!this.db) throw new Error("Database not initialized");
     const stmt = this.db.prepare(`
       UPDATE links
-      SET name = ?, color = ?, children = ?, state = ?
+      SET name = ?, color = ?, state = ?
       WHERE id = ?
     `);
     stmt.run(
       link.name,
       JSON.stringify(link.color),
-      JSON.stringify(link.children),
       state ? JSON.stringify(state) : null,
       id
     );
