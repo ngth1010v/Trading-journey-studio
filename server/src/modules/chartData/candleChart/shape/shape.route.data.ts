@@ -123,17 +123,19 @@ function parseFilterToSql(filterStr: string): { sql: string; params: any[] } {
 }
 
 // GET shapes with custom boolean string filter parsing
-router.get(`${BASE}/:strategyName`, (req: Request, res: Response, next: NextFunction): any => {
-  const { strategyName } = req.params;
+router.get(`${BASE}/:strategyId`, (req: Request, res: Response, next: NextFunction): any => {
+  const strategyId = Number(req.params.strategyId);
+  if (isNaN(strategyId)) return res.status(400).json({ error: "Invalid strategy ID" });
+
   const filterStr = req.query.filter as string;
 
   try {
     if (!filterStr || filterStr.trim() === "") {
-      const shapes = ShapeRepository.getAllShapes(strategyName as string);
+      const shapes = ShapeRepository.getAllShapes(strategyId);
       return res.json(shapes);
     }
     const { sql, params } = parseFilterToSql(filterStr.trim());
-    const shapes = ShapeRepository.getAllShapes(strategyName as string, sql, params);
+    const shapes = ShapeRepository.getAllShapes(strategyId, sql, params);
     return res.json(shapes);
   } catch (error: any) {
     return res.status(400).json({ error: error.message || "Invalid logical evaluation expression syntax parameters" });
@@ -141,15 +143,19 @@ router.get(`${BASE}/:strategyName`, (req: Request, res: Response, next: NextFunc
 });
 
 // GET strategy lastChange timestamp tracker status
-router.get(`${BASE}/:strategyName/lastChange`, (req: Request, res: Response): any => {
-  const { strategyName } = req.params;
-  const lastChangeTimestamp = strategyDbManager.getLastChange(strategyName as string);
+router.get(`${BASE}/:strategyId/lastChange`, (req: Request, res: Response): any => {
+  const strategyId = Number(req.params.strategyId);
+  if (isNaN(strategyId)) return res.status(400).json({ error: "Invalid strategy ID" });
+
+  const lastChangeTimestamp = strategyDbManager.getLastChange(strategyId);
   return res.json({ lastChangeTimestamp });
 });
 
 // POST save single shape mutation payload sequence
-router.post(`${BASE}/:strategyName`, (req: Request, res: Response): any => {
-  const { strategyName } = req.params;
+router.post(`${BASE}/:strategyId`, (req: Request, res: Response): any => {
+  const strategyId = Number(req.params.strategyId);
+  if (isNaN(strategyId)) return res.status(400).json({ error: "Invalid strategy ID" });
+
   const { id, type, symbol, tagIds, fromTs, toTs, data, style } = req.body;
 
   if (!type || !symbol || !Array.isArray(tagIds) || fromTs === undefined || toTs === undefined || data === undefined || style === undefined) {
@@ -157,28 +163,28 @@ router.post(`${BASE}/:strategyName`, (req: Request, res: Response): any => {
   }
 
   if (id !== undefined && id !== null) {
-    const existing = ShapeRepository.getShapeById(strategyName as string, id);
+    const existing = ShapeRepository.getShapeById(strategyId, id);
     if (!existing) {
       return res.status(404).json({ error: "Target shape record entity reference id not found" });
     }
   }
 
-  const generatedId = ShapeRepository.saveShape(strategyName as string, { id, type, symbol, tagIds, fromTs, toTs, data, style });
-  strategyDbManager.updateLastChange(strategyName as string);
+  const generatedId = ShapeRepository.saveShape(strategyId, { id, type, symbol, tagIds, fromTs, toTs, data, style });
+  strategyDbManager.updateLastChange(strategyId);
   
   return res.json({ id: generatedId });
 });
 
 // DELETE shape record tracking entry context instance
-router.delete(`${BASE}/:strategyName/:id`, (req: Request, res: Response): any => {
-  const { strategyName, id } = req.params;
-  const targetId = Number(id);
+router.delete(`${BASE}/:strategyId/:id`, (req: Request, res: Response): any => {
+  const strategyId = Number(req.params.strategyId);
+  const targetId = Number(req.params.id);
 
-  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid target dynamic ID" });
+  if (isNaN(strategyId) || isNaN(targetId)) return res.status(400).json({ error: "Invalid target dynamic ID" });
 
-  const deleted = ShapeRepository.deleteShape(strategyName as string, targetId);
+  const deleted = ShapeRepository.deleteShape(strategyId, targetId);
   if (!deleted) return res.status(404).json({ error: "Target structural context identifier reference was not resolved" });
-  strategyDbManager.updateLastChange(strategyName as string);
+  strategyDbManager.updateLastChange(strategyId);
 
   return res.json({ success: true });
 });

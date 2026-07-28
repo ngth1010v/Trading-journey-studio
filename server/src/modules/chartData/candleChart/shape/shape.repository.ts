@@ -3,8 +3,8 @@ import { Shape, ShapeTag, ShapeTemplate } from "./shape.model.js";
 
 export class ShapeRepository {
   // --- Shapes Logic ---
-  static getAllShapes(strategyName: string, whereClause: string = "", params: any[] = []): Shape[] {
-    const db = strategyDbManager.getDb(strategyName);
+  static getAllShapes(strategyId: number, whereClause: string = "", params: any[] = []): Shape[] {
+    const db = strategyDbManager.getDb(strategyId);
     const sql = `SELECT * FROM shapes ${whereClause ? "WHERE " + whereClause : ""}`;
     const rows = db.prepare(sql).all(...params) as any[];
     return rows.map(row => ({
@@ -15,8 +15,8 @@ export class ShapeRepository {
     }));
   }
 
-  static getShapeById(strategyName: string, id: number): Shape | null {
-    const db = strategyDbManager.getDb(strategyName);
+  static getShapeById(strategyId: number, id: number): Shape | null {
+    const db = strategyDbManager.getDb(strategyId);
     const row = db.prepare("SELECT * FROM shapes WHERE id = ?").get(id) as any;
     if (!row) return null;
     return {
@@ -27,8 +27,8 @@ export class ShapeRepository {
     };
   }
 
-  static saveShape(strategyName: string, shape: Shape): number {
-    const db = strategyDbManager.getDb(strategyName);
+  static saveShape(strategyId: number, shape: Shape): number {
+    const db = strategyDbManager.getDb(strategyId);
     if (shape.id !== undefined && shape.id !== null) {
       db.prepare(`
         UPDATE shapes SET type = ?, symbol = ?, tagIds = ?, fromTs = ?, toTs = ?, data = ?, style = ? WHERE id = ?
@@ -59,15 +59,15 @@ export class ShapeRepository {
     }
   }
 
-  static deleteShape(strategyName: string, id: number): boolean {
-    const db = strategyDbManager.getDb(strategyName);
+  static deleteShape(strategyId: number, id: number): boolean {
+    const db = strategyDbManager.getDb(strategyId);
     const result = db.prepare("DELETE FROM shapes WHERE id = ?").run(id);
     return result.changes > 0;
   }
 
   // --- Tags Logic ---
-  static getAllTags(strategyName: string): ShapeTag[] {
-    const db = strategyDbManager.getDb(strategyName);
+  static getAllTags(strategyId: number): ShapeTag[] {
+    const db = strategyDbManager.getDb(strategyId);
     const rows = db.prepare("SELECT * FROM shape_tags").all() as any[];
     return rows.map(row => ({
       ...row,
@@ -75,8 +75,8 @@ export class ShapeRepository {
     }));
   }
 
-  static getTagById(strategyName: string, id: number): ShapeTag | null {
-    const db = strategyDbManager.getDb(strategyName);
+  static getTagById(strategyId: number, id: number): ShapeTag | null {
+    const db = strategyDbManager.getDb(strategyId);
     const row = db.prepare("SELECT * FROM shape_tags WHERE id = ?").get(id) as any;
     if (!row) return null;
     return {
@@ -85,8 +85,8 @@ export class ShapeRepository {
     };
   }
 
-  static saveTag(strategyName: string, tag: ShapeTag): number {
-    const db = strategyDbManager.getDb(strategyName);
+  static saveTag(strategyId: number, tag: ShapeTag): number {
+    const db = strategyDbManager.getDb(strategyId);
     if (tag.id !== undefined && tag.id !== null) {
       db.prepare("UPDATE shape_tags SET name = ?, color = ? WHERE id = ?").run(
         tag.name,
@@ -103,8 +103,8 @@ export class ShapeRepository {
     }
   }
 
-  static deleteTag(strategyName: string, id: number): boolean {
-    const db = strategyDbManager.getDb(strategyName);
+  static deleteTag(strategyId: number, id: number): boolean {
+    const db = strategyDbManager.getDb(strategyId);
     
     // 1. Run within a database transaction to keep data mutations atomic and safe
     const deleteTx = db.transaction(() => {
@@ -132,8 +132,8 @@ export class ShapeRepository {
   }
 
   // --- Templates Logic ---
-  static getAllTemplates(strategyName: string): ShapeTemplate[] {
-    const db = strategyDbManager.getDb(strategyName);
+  static getAllTemplates(strategyId: number): ShapeTemplate[] {
+    const db = strategyDbManager.getDb(strategyId);
     const rows = db.prepare("SELECT * FROM shape_templates").all() as any[];
     return rows.map(row => ({
       ...row,
@@ -141,8 +141,8 @@ export class ShapeRepository {
     }));
   }
 
-  static getTemplateById(strategyName: string, id: number): ShapeTemplate | null {
-    const db = strategyDbManager.getDb(strategyName);
+  static getTemplateById(strategyId: number, id: number): ShapeTemplate | null {
+    const db = strategyDbManager.getDb(strategyId);
     const row = db.prepare("SELECT * FROM shape_templates WHERE id = ?").get(id) as any;
     if (!row) return null;
     return {
@@ -151,8 +151,8 @@ export class ShapeRepository {
     };
   }
 
-  static saveTemplate(strategyName: string, template: ShapeTemplate): number {
-    const db = strategyDbManager.getDb(strategyName);
+  static saveTemplate(strategyId: number, template: ShapeTemplate): number {
+    const db = strategyDbManager.getDb(strategyId);
     if (template.id !== undefined && template.id !== null) {
       db.prepare("UPDATE shape_templates SET type = ?, name = ?, style = ? WHERE id = ?").run(
         template.type,
@@ -171,8 +171,8 @@ export class ShapeRepository {
     }
   }
 
-  static deleteTemplate(strategyName: string, id: number): boolean {
-    const db = strategyDbManager.getDb(strategyName);
+  static deleteTemplate(strategyId: number, id: number): boolean {
+    const db = strategyDbManager.getDb(strategyId);
     const result = db.prepare("DELETE FROM shape_templates WHERE id = ?").run(id);
     return result.changes > 0;
   }

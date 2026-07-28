@@ -5,14 +5,18 @@ import { ShapeRepository } from "./shape.repository.js";
 const router = Router({ mergeParams: true });
 const BASE = "/api/chartData/candleChart/shapes/tags"
 
-router.get(`${BASE}/:strategyName`, (req: Request, res: Response) => {
-  const { strategyName } = req.params;
-  const tags = ShapeRepository.getAllTags(strategyName as string);
-  res.json(tags);
+router.get(`${BASE}/:strategyId`, (req: Request, res: Response): any => {
+  const strategyId = Number(req.params.strategyId);
+  if (isNaN(strategyId)) return res.status(400).json({ error: "Invalid strategy ID" });
+
+  const tags = ShapeRepository.getAllTags(strategyId);
+  return res.json(tags);
 });
 
-router.post(`${BASE}/:strategyName`, (req: Request, res: Response): any => {
-  const { strategyName } = req.params;
+router.post(`${BASE}/:strategyId`, (req: Request, res: Response): any => {
+  const strategyId = Number(req.params.strategyId);
+  if (isNaN(strategyId)) return res.status(400).json({ error: "Invalid strategy ID" });
+
   const { id, name, color } = req.body;
 
   if (!name || !color || !Array.isArray(color.font) || !Array.isArray(color.background) || !Array.isArray(color.border)) {
@@ -20,21 +24,21 @@ router.post(`${BASE}/:strategyName`, (req: Request, res: Response): any => {
   }
 
   if (id !== undefined && id !== null) {
-    const existing = ShapeRepository.getTagById(strategyName as string, id);
+    const existing = ShapeRepository.getTagById(strategyId, id);
     if (!existing) return res.status(404).json({ error: "Tag entity referenced does not exist" });
   }
 
-  const generatedId = ShapeRepository.saveTag(strategyName as string, { id, name, color });
+  const generatedId = ShapeRepository.saveTag(strategyId, { id, name, color });
   return res.json({ id: generatedId });
 });
 
-router.delete(`${BASE}/:strategyName/:id`, (req: Request, res: Response): any => {
-  const { strategyName, id } = req.params;
-  const targetId = Number(id);
+router.delete(`${BASE}/:strategyId/:id`, (req: Request, res: Response): any => {
+  const strategyId = Number(req.params.strategyId);
+  const targetId = Number(req.params.id);
 
-  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid numeric configuration identifier value" });
+  if (isNaN(strategyId) || isNaN(targetId)) return res.status(400).json({ error: "Invalid numeric configuration identifier value" });
 
-  const deleted = ShapeRepository.deleteTag(strategyName as string, targetId);
+  const deleted = ShapeRepository.deleteTag(strategyId, targetId);
   if (!deleted) return res.status(404).json({ error: "Target structural context reference not located within runtime context" });
 
   return res.json({ success: true });

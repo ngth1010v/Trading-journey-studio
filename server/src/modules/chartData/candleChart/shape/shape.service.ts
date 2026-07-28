@@ -13,19 +13,19 @@ interface DbInstance {
 }
 
 class StrategyDbManager {
-  private instances: Map<string, DbInstance> = new Map();
-  private lastChangeTimestamps: Map<string, number> = new Map();
+  private instances: Map<number, DbInstance> = new Map();
+  private lastChangeTimestamps: Map<number, number> = new Map();
 
-  private getDbPath(strategyName: string): string {
+  private getDbPath(strategyId: number): string {
     // Escapes tracking to map safely into the required folder structure
-    return path.join(__dirname, `../../../../../database/chartData/candleChart/shapes/${strategyName}.db`);
+    return path.join(__dirname, `../../../../../database/chartData/candleChart/shapes/${strategyId}.db`);
   }
 
-  public getDb(strategyName: string): Database.Database {
-    let instance = this.instances.get(strategyName);
+  public getDb(strategyId: number): Database.Database {
+    let instance = this.instances.get(strategyId);
 
     if (!instance) {
-      const dbPath = this.getDbPath(strategyName);
+      const dbPath = this.getDbPath(strategyId);
       const dbDir = path.dirname(dbPath);
 
       if (!fs.existsSync(dbDir)) {
@@ -64,46 +64,46 @@ class StrategyDbManager {
         timer: null as any
       };
       
-      this.instances.set(strategyName, instance);
-      this.lastChangeTimestamps.set(strategyName, Date.now());
+      this.instances.set(strategyId, instance);
+      this.lastChangeTimestamps.set(strategyId, Date.now());
     }
 
-    this.resetTimer(strategyName, instance);
+    this.resetTimer(strategyId, instance);
     return instance.db;
   }
 
-  private resetTimer(strategyName: string, instance: DbInstance) {
+  private resetTimer(strategyId: number, instance: DbInstance) {
     if (instance.timer) {
       clearTimeout(instance.timer);
     }
     instance.timer = setTimeout(() => {
-      this.closeDb(strategyName);
+      this.closeDb(strategyId);
     }, 5 * 60 * 1000); // 5 minutes inactivity timeout
   }
 
-  private closeDb(strategyName: string) {
-    const instance = this.instances.get(strategyName);
+  private closeDb(strategyId: number) {
+    const instance = this.instances.get(strategyId);
     if (instance) {
       if (instance.timer) clearTimeout(instance.timer);
       instance.db.close();
-      this.instances.delete(strategyName);
+      this.instances.delete(strategyId);
     }
   }
 
-  public updateLastChange(strategyName: string) {
-    this.lastChangeTimestamps.set(strategyName, Date.now());
+  public updateLastChange(strategyId: number) {
+    this.lastChangeTimestamps.set(strategyId, Date.now());
   }
 
-  public getLastChange(strategyName: string): number {
-    if (!this.lastChangeTimestamps.has(strategyName)) {
-      this.lastChangeTimestamps.set(strategyName, Date.now());
+  public getLastChange(strategyId: number): number {
+    if (!this.lastChangeTimestamps.has(strategyId)) {
+      this.lastChangeTimestamps.set(strategyId, Date.now());
     }
-    return this.lastChangeTimestamps.get(strategyName)!;
+    return this.lastChangeTimestamps.get(strategyId)!;
   }
 
   public shutdown() {
-    for (const strategyName of this.instances.keys()) {
-      this.closeDb(strategyName);
+    for (const strategyId of this.instances.keys()) {
+      this.closeDb(strategyId);
     }
   }
 }
