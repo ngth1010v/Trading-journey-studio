@@ -1,0 +1,15 @@
+.Button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 5px 14px;
+}
+
+.PopupButton {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    cursor: pointer;
+    padding: 5px 14px;
+}

@@ -14,29 +14,39 @@ export class LinkService {
   public init(): void {
     this.repository.init();
 
-    // Load initial data into RAM cache
+    // Safe loading into RAM cache
     const records = this.repository.getAll();
     this.memoryCache.clear();
 
     for (const record of records) {
-      const link: Link = {
-        id: record.id,
-        name: record.name,
-        color: JSON.parse(record.color),
-      };
+      try {
+        const link: Link = {
+          id: record.id,
+          name: record.name,
+          color: typeof record.color === "string" ? JSON.parse(record.color) : record.color,
+        };
 
-      const state: LinkState | undefined = record.state ? JSON.parse(record.state) : undefined;
+        let state: LinkState | undefined;
+        if (record.state) {
+          state = typeof record.state === "string" ? JSON.parse(record.state) : record.state;
+        }
 
-      this.memoryCache.set(record.id, {
-        link,
-        state,
-        isDirtyLink: false,
-        isDirtyState: false,
-      });
+        this.memoryCache.set(record.id, {
+          link,
+          state,
+          isDirtyLink: false,
+          isDirtyState: false,
+        });
+      } catch (err) {
+        console.error(`[LinkService] Failed to parse database record (id: ${record.id}):`, err);
+      }
     }
 
-    // Start 1000ms background persistence job
+    // Start background flush loop and unref to avoid blocking graceful process exit
     this.timer = setInterval(() => this.flushToDisk(), this.REFRESH_DURATION);
+    if (this.timer.unref) {
+      this.timer.unref();
+    }
   }
 
   public shutdown(): void {
@@ -60,13 +70,12 @@ export class LinkService {
       existing.isDirtyLink = true;
       return linkData.id;
     } else {
-      // Create new link immediately in disk to acquire new primary key ID
       const newId = this.repository.insert(linkData);
       linkData.id = newId;
 
       this.memoryCache.set(newId, {
         link: linkData,
-        isDirtyLink: false, // Already inserted into DB
+        isDirtyLink: false,
         isDirtyState: false,
       });
 
@@ -97,7 +106,6 @@ export class LinkService {
       return { success: false, reason: "Link not found" };
     }
 
-    // Validate state full structural integrity
     if (!this.isValidLinkState(newState)) {
       return { success: false, reason: "Incomplete LinkState structure" };
     }
@@ -145,9 +153,13 @@ export class LinkService {
     for (const entry of this.memoryCache.values()) {
       if (entry.isDirtyLink || entry.isDirtyState) {
         if (entry.link.id !== undefined) {
-          this.repository.update(entry.link.id, entry.link, entry.state);
-          entry.isDirtyLink = false;
-          entry.isDirtyState = false;
+          try {
+            this.repository.update(entry.link.id, entry.link, entry.state);
+            entry.isDirtyLink = false;
+            entry.isDirtyState = false;
+          } catch (err) {
+            console.error(`[LinkService] Failed to flush link #${entry.link.id} to disk:`, err);
+          }
         }
       }
     }

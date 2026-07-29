@@ -8,9 +8,9 @@ import { strategyDbManager } from "./shape.service.js";
 const router = Router();
 
 // Route alignment mapping directly onto the required path constraints
-router.use("/api/chartData/candleChart/shapes/tags", shapeTagRouter);
-router.use("/api/chartData/candleChart/shapes/templates", shapeTemplateRouter);
-router.use("/api/chartData/candleChart/shapes", shapeDataRouter);
+router.use(shapeTagRouter);
+router.use(shapeTemplateRouter);
+router.use(shapeDataRouter);
 
 export const shape = {
   router,

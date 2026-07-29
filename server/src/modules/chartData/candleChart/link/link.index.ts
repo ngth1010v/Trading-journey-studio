@@ -1,3 +1,5 @@
+// server/src/modules/chartData/candleChart/link/link.index.ts
+
 import { Router } from "express";
 import { linkService } from "./link.service.js";
 import { dataRouter } from "./link.route.data.js";
@@ -10,8 +12,14 @@ router.use(dataRouter);
 router.use(stateRouter);
 
 function init(): void {
-  linkService.init();
+  try {
+    linkService.init();
+  } catch (error) {
+    console.error("[Link] Failed to initialize:", error);
+    throw error;
+  }
 }
+
 
 function shutdown(): void {
   linkService.shutdown();

@@ -6,9 +6,9 @@ import { tradeStyleRouter } from "./trade.route.style.js";
 
 const router = Router();
 
-router.use("/trades/tags", tradeTagRouter);
-router.use("/trades/style", tradeStyleRouter);
-router.use("/trades", tradeDataRouter);
+router.use(tradeTagRouter);
+router.use(tradeStyleRouter);
+router.use(tradeDataRouter);
 
 export const trade = {
   router,

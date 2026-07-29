@@ -1,0 +1,206 @@
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  box-sizing: border-box;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+/* Left Section */
+.leftSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: start;
+  padding: 2rem;
+  padding-left: 5rem;
+  box-sizing: border-box;
+}
+
+.icon {
+  width: 8rem;
+  height: 8rem;
+  transform: rotate(-7deg);
+  margin-bottom: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Right Section */
+.rightSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  gap: 0.75rem;
+}
+
+.pageRowContainer {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  color-scheme: light dark;
+  scrollbar-color: auto;
+  scrollbar-width: auto;
+  justify-content: center;
+}
+
+/* Page Row Wrapper for Height Collapse Animation */
+.rowWrapper {
+  width: 100%;
+  max-height: 100px;
+  opacity: 1;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Slide-in from right animation */
+.slideIn {
+  animation: slideInFromRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Slide-out to right & collapse height animation */
+.slideOut {
+  animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  max-height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+@keyframes slideInFromRight {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToRight {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* Page Row Item */
+.pageRow {
+    margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  border-style: solid;
+  border-width: 1px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.placeholderRow {
+  opacity: 0.6;
+}
+
+/* Add Page Row */
+.addPageRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  border-style: dashed;
+  border-width: 1px;
+  cursor: pointer;
+  box-sizing: border-box;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.pageName {
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actionContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 24px;
+}
+
+.settingButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px;
+  color: inherit;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.settingButton:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.settingButton svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.openIcon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.openIcon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}

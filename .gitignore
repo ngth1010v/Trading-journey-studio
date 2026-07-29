@@ -37,5 +37,8 @@ test.md
 test[0-9].md
 test.bat
 test[0-9].bat
+test.json
+test[0-9].json
 **.test/
 docs/
+**/_modules**

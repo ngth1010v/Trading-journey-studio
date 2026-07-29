@@ -6,8 +6,8 @@ import tagRouter from "./strategy.route.tag.js";
 const router = Router();
 
 // Mount endpoints relative to target rules
-router.use("/strategies/tags", tagRouter);
-router.use("/strategies", strategyRouter);
+router.use(tagRouter);
+router.use(strategyRouter);
 
 export const strategy = {
   router,

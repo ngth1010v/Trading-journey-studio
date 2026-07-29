@@ -1,0 +1,85 @@
+.ListWithTheme {
+  display: flex;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--font-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+  user-select: none;
+  font-size: 12px;
+  transition: padding 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              gap 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: var(--padding);
+  gap: var(--gap);
+
+  color-scheme: dark light; 
+  scrollbar-color: var(--border-color) transparent;
+  scrollbar-width: thin; 
+}
+
+/* Direction Variants */
+.vertical {
+  flex-direction: column;
+}
+
+.horizontal {
+  flex-direction: row;
+  align-items: center;
+}
+
+/* Auto-Shrink base state */
+.autoShrink {
+  padding: 0;
+  gap: 0;
+}
+
+/* Explicit extended state controlled by JS */
+.autoShrink.extended {
+  padding: var(--padding);
+  gap: var(--gap);
+}
+
+.divider {
+  background-color: var(--border-color);
+}
+.vertical .divider {
+  align-self: stretch;
+  height: 1px;
+  margin: 0 5px;
+}
+.horizontal .divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 5px 0;
+}
+
+/* Row Item Wrappers */
+.rowWrapper {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: var(--font-color);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.rowWrapper:hover {
+  background: var(--hover-bg);
+  color: var(--hover-font);
+}
+
+/* Selected Row state using primary1 theme colors */
+.selectedRow {
+  background: var(--selected-bg);
+  color: var(--selected-font);
+}
+
+.selectedRow:hover {
+  background: var(--selected-bg);
+  color: var(--selected-font);
+  opacity: 0.9;
+}

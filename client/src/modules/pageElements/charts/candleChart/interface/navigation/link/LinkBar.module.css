@@ -1,0 +1,65 @@
+.StatusContainer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+    user-select: none;
+    transition: opacity 0.2s ease;
+}
+
+.SelectedLinkButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.PopupButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.PopupButton:hover {
+    filter: brightness(0.95);
+}
+
+.AddButton {
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 4px 12px;
+    opacity: 0.75;
+}
+
+.AddButton:hover {
+    opacity: 1;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.dotConnected {
+    background-color: var(--color-green, #4caf50);
+}
+
+.dotNotConnected {
+    background-color: var(--color-gray, #888888);
+}

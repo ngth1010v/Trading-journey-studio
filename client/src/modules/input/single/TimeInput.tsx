@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useId } from "react";
-import { useThemeData } from "../../theme/useThemeData";
-import type { Theme } from "../../theme/type";
-import type { RGB, RGBA } from "../../../shared/types/color.type";
+import ThemeData, {type Theme } from "../../data/theme/ThemeData";
+import type { RGB, RGBA } from "../../shared/type";
 import styles from "./Input.module.css";
 
 const toRGBString = (color: RGB): string => `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -14,6 +13,7 @@ export default function TimeInput({
   newLine = false,
   labelWidth = "30%",
   editMode = "time",
+  hideLabel = false,
 }: {
   label: string;
   data: number; // ms timestamp
@@ -21,15 +21,28 @@ export default function TimeInput({
   newLine?: boolean;
   labelWidth?: string;
   editMode?: "date" | "time" | "millis";
+  hideLabel ?: boolean
 }) {
-  const themeContext = useThemeData();
+  const themeDataRef = useRef<ThemeData | null>(null);
+  if (!themeDataRef.current) {
+    themeDataRef.current = new ThemeData();
+  }
+  const themeData = themeDataRef.current;
   const instanceId = useId();
-  const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() => themeContext.get(themeContext.getSelectedName()));
+
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => themeData.getSelected());
 
   useEffect(() => {
-    themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
-    return () => themeContext.removeOnSelectedThemeChange(instanceId);
-  }, [themeContext, instanceId]);
+    themeData.init();
+    themeData.addOnSelectedThemeDataChange(instanceId, () => {
+      setCurrentTheme(themeData.getSelected());
+    });
+
+    return () => {
+      themeData.removeOnSelectedThemeDataChange(instanceId);
+      themeData.destroy();
+    };
+  }, [themeData, instanceId]);
 
   const fieldsOrder = editMode === "date" ? ["day", "month", "year"] :
                       editMode === "time" ? ["day", "month", "year", "hour", "minute", "second"] :
@@ -180,7 +193,7 @@ export default function TimeInput({
 
   return (
     <div ref={rootRef} className={`${styles.InputContainer} ${newLine ? styles.newLineLayout : styles.rowLayout}`}>
-      <div 
+      {!hideLabel && <div 
         className={styles.label} 
         style={{ 
             width: newLine ? "100%" : labelWidth, 
@@ -188,7 +201,7 @@ export default function TimeInput({
         }}
       >
         {label}
-      </div>
+      </div>}
       <div className={styles.timeGroup}>
         {renderInput("day", 2, "DD", "/")}
         {renderInput("month", 2, "MM", "/")}

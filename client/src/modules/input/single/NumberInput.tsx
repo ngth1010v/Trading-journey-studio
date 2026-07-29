@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useId } from "react";
-import { useThemeData } from "../../theme/useThemeData";
-import type { Theme } from "../../theme/type";
-import type { RGB, RGBA } from "../../../shared/types/color.type";
+import React, { useState, useEffect, useId, useRef } from "react";
+import ThemeData, {type Theme } from "../../data/theme/ThemeData";
+import type { RGB, RGBA } from "../../shared/type";
 import styles from "./Input.module.css";
 
 const toRGBString = (color: RGB): string => `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -16,6 +15,7 @@ export interface NumberInputProps {
   newLine?: boolean;
   unit?: string;
   labelWidth?: string;
+  hideLabel ?: boolean
 }
 
 export default function NumberInput({
@@ -26,15 +26,28 @@ export default function NumberInput({
   newLine = false,
   unit = "",
   labelWidth = "30%",
+  hideLabel = false,
 }: NumberInputProps) {
-  const themeContext = useThemeData();
+  const themeDataRef = useRef<ThemeData | null>(null);
+  if (!themeDataRef.current) {
+    themeDataRef.current = new ThemeData();
+  }
+  const themeData = themeDataRef.current;
   const instanceId = useId();
 
-  const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() => themeContext.get(themeContext.getSelectedName()));
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => themeData.getSelected());
+
   useEffect(() => {
-    themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
-    return () => themeContext.removeOnSelectedThemeChange(instanceId);
-  }, [themeContext, instanceId]);
+    themeData.init();
+    themeData.addOnSelectedThemeDataChange(instanceId, () => {
+      setCurrentTheme(themeData.getSelected());
+    });
+
+    return () => {
+      themeData.removeOnSelectedThemeDataChange(instanceId);
+      themeData.destroy();
+    };
+  }, [themeData, instanceId]);
 
   const [tempValue, setTempValue] = useState<string>(String(data));
   const [isFocused, setIsFocused] = useState(false);
@@ -64,7 +77,7 @@ export default function NumberInput({
 
   return (
     <div className={`${styles.InputContainer} ${newLine ? styles.newLineLayout : styles.rowLayout}`} style={inlineStyles}>
-      <div className={styles.label} style={{ width: newLine ? "100%" : labelWidth, color: "var(--font-color)" }}>{label}</div>
+      {!hideLabel && <div className={styles.label} style={{ width: newLine ? "100%" : labelWidth, color: "var(--font-color)" }}>{label}</div>}
       <div className={styles.dataBox} style={{ backgroundColor: "var(--bg-color)", border: `1px solid var(--border-color)`, color: "var(--font-color)" }}>
         <input 
           type="text" 

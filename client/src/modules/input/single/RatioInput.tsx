@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useId } from "react";
-import ButtonWithPopover from "../../../shared/components/ButtonWithPopover";
-import { useThemeData } from "../../theme/useThemeData";
-import type { Theme } from "../../theme/type";
-import type { RGB, RGBA } from "../../../shared/types/color.type";
+import React, { useState, useEffect, useId, useRef } from "react";
+import ButtonWithPopover from "../../shared/components/ButtonWithPopover";
+import ThemeData, { type Theme } from "../../data/theme/ThemeData";
+import type { RGB, RGBA } from "../../shared/type";
 import styles from "./Input.module.css";
 
 const toRGBString = (color: RGB) =>
@@ -25,6 +24,7 @@ export default function RatioInput({
     onTempDataChange,
     newLine = false,
     labelWidth = "30%",
+    hideLabel = false,
 }: {
     label: string;
     options: string[];
@@ -36,22 +36,32 @@ export default function RatioInput({
     ) => void;
     newLine?: boolean;
     labelWidth?: string;
+    hideLabel ?: boolean
 }) {
     if (new Set(options).size !== options.length) {
         throw new Error("Duplicate options are not allowed in RatioInput.");
     }
 
-    const themeContext = useThemeData();
+    const themeDataRef = useRef<ThemeData | null>(null);
+    if (!themeDataRef.current) {
+        themeDataRef.current = new ThemeData();
+    }
+    const themeData = themeDataRef.current;
     const instanceId = useId();
 
-    const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() =>
-        themeContext.get(themeContext.getSelectedName())
-    );
+    const [currentTheme, setCurrentTheme] = useState<Theme>(() => themeData.getSelected());
 
     useEffect(() => {
-        themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
-        return () => themeContext.removeOnSelectedThemeChange(instanceId);
-    }, [themeContext, instanceId]);
+        themeData.init();
+        themeData.addOnSelectedThemeDataChange(instanceId, () => {
+            setCurrentTheme(themeData.getSelected());
+        });
+
+        return () => {
+            themeData.removeOnSelectedThemeDataChange(instanceId);
+            themeData.destroy();
+        };
+    }, [themeData, instanceId]);
 
     const [tempValue, setTempValue] = useState(data);
     const [hoverItem, setHoverItem] = useState<string | null>(null);
@@ -160,7 +170,7 @@ export default function RatioInput({
             }`}
             style={containerStyle}
         >
-            <div
+            {!hideLabel && <div
                 className={styles.label}
                 style={{
                     width: newLine ? "100%" : labelWidth,
@@ -168,7 +178,7 @@ export default function RatioInput({
                 }}
             >
                 {label}
-            </div>
+            </div>}
 
             <div style={{ flex: 1, display: "flex" }}>
                 <ButtonWithPopover

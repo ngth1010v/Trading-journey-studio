@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useId, useMemo } from "react";
-import ButtonWithPopover from "../../../shared/components/ButtonWithPopover";
-import { useThemeData } from "../../theme/useThemeData";
-import type { Theme } from "../../theme/type";
-import type { RGB, RGBA } from "../../../shared/types/color.type";
+import React, { useState, useEffect, useId, useMemo, useRef } from "react";
+import ButtonWithPopover from "../../shared/components/ButtonWithPopover";
+import ThemeData, { type Theme } from "../../data/theme/ThemeData";
+import type { RGBA, RGB } from "../../shared/type";
 import { colorApi, type DbColor } from "../api/ColorApi";
 import styles from "./Input.module.css";
 
@@ -107,7 +106,8 @@ export default function ColorInput({
     onTempDataChange,
     newLine = false,
     labelWidth = "30%",
-    alpha = true
+    alpha = true,
+    hideLabel = false,
 }: {
     label: string;
     data: RGBA | RGB;
@@ -116,26 +116,39 @@ export default function ColorInput({
     newLine?: boolean;
     labelWidth?: string;
     alpha?: boolean;
+    hideLabel ?: boolean
 }) {
-    const themeContext = useThemeData();
+    const themeDataRef = useRef<ThemeData | null>(null);
+    if (!themeDataRef.current) {
+        themeDataRef.current = new ThemeData();
+    }
+    const themeData = themeDataRef.current;
     const instanceId = useId();
 
-    const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() => themeContext.get(themeContext.getSelectedName()));
+    const [currentTheme, setCurrentTheme] = useState<Theme>(() => themeData.getSelected());
     const [tempValue, setTempValue] = useState<RGBA | RGB>(data);
     const [customColors, setCustomColors] = useState<DbColor[]>([]);
     const [remountKey, setRemountKey] = useState<number>(0);
 
     useEffect(() => {
-        themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
+        themeData.init();
+        themeData.addOnSelectedThemeDataChange(instanceId, () => {
+            setCurrentTheme(themeData.getSelected());
+        });
+
         colorApi.getAll().then((colors) => setCustomColors(colors)).catch(console.error);
-        return () => themeContext.removeOnSelectedThemeChange(instanceId);
-    }, [themeContext, instanceId]);
+
+        return () => {
+            themeData.removeOnSelectedThemeDataChange(instanceId);
+            themeData.destroy();
+        };
+    }, [themeData, instanceId]);
 
     useEffect(() => {
         setTempValue(data);
     }, [data]);
 
-    const themeColors = useMemo(() => currentTheme ? extractThemeColors(currentTheme) : [], [currentTheme]);
+    const themeColors = useMemo(() => extractThemeColors(currentTheme), [currentTheme]);
     const normalTheme = currentTheme?.button.normal1;
     const saveTheme = currentTheme?.button.primary1; 
 
@@ -148,7 +161,7 @@ export default function ColorInput({
 
     const handleOpacityChange = (opacityVal: number, isFinal: boolean = false) => {
         if (!alpha) return;
-        const newColor: RGBA = [tempValue[0], tempValue[1], tempValue[2], percentToAlpha(opacityVal),];
+        const newColor: RGBA = [tempValue[0], tempValue[1], tempValue[2], percentToAlpha(opacityVal)];
         setTempValue(newColor);
         if (isFinal) {
             commitValue(newColor);
@@ -294,8 +307,8 @@ export default function ColorInput({
                     ))}
                     <div className={styles.colorSquareContainer}>
                         <div className={styles.colorSquareContainer}>
-                        <EditColorPopover isNew={true} />
-                    </div>
+                            <EditColorPopover isNew={true} />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -355,9 +368,9 @@ export default function ColorInput({
 
     return (
         <div className={`${styles.InputContainer} ${newLine ? styles.newLineLayout : styles.rowLayout}`} style={containerStyle}>
-            <div className={styles.label} style={{ width: newLine ? "100%" : labelWidth, color: "var(--font-color)" }}>
+            {!hideLabel && <div className={styles.label} style={{ width: newLine ? "100%" : labelWidth, color: "var(--font-color)" }}>
                 {label}
-            </div>
+            </div>}
             <div style={{ flex: 1, display: "flex" }}>
                 <ButtonWithPopover
                     type="hover"

@@ -1,0 +1,54 @@
+.Button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 5px 14px;
+}
+
+.PopupButton {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    cursor: pointer;
+    padding: 5px 14px;
+    width: 100%;
+}
+
+.CustomPopupContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 5px;
+    min-width: 5rem;
+    border-radius: 3px;
+}
+
+.InputTopRow {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.BottomRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+/* .ReviewText {
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding-left: 5px;
+    font-size: 12px;
+} */
+
+.SaveButton {
+    padding: 6px 16px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}

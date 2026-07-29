@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useThemeData } from "../../theme/useThemeData";
+import React, { useState, useEffect, useRef, useId } from "react";
+import ThemeData from "../../data/theme/ThemeData";
 import { INPUT_MAP } from "./InputMap";
 import { formatLabel, getValueAtPath, toRGBString, toRGBAString } from "./panelUtil";
 import styles from "./PanelInput.module.css";
@@ -8,7 +8,7 @@ interface PanelInputProps {
   layout: any;
   data: any;
 
-  points?: number,
+  points?: number;
 
   onDataChange?: (data: any) => void;
 
@@ -44,22 +44,18 @@ function CollapsibleGroup({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [prevCollapsed, setPrevCollapsed] = useState(collapsed);
 
-  // Synchronously catch prop changes during render.
-  // This schedules an immediate, synchronous re-render before the browser paints,
-  // preventing the "full height flash" glitch before transitioning starts.
+  // Synchronously catch prop changes during render to prevent height flash glitches
   if (collapsed !== prevCollapsed) {
     setPrevCollapsed(collapsed);
     setIsTransitioning(true);
   }
 
   const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
-    // Only target the grid height transition on the wrapper element
     if (e.propertyName === "grid-template-rows") {
       setIsTransitioning(false);
     }
   };
 
-  // Determine if we are fully expanded and static so we can release "overflow: hidden"
   const isFullyOpen = !collapsed && !isTransitioning;
 
   return (
@@ -119,19 +115,48 @@ export default function PanelInput({
   minWidth,
   minHeight,
 }: PanelInputProps) {
-  const themeDataContext = useThemeData();
-  const selectedThemeName = themeDataContext.getSelectedName();
-  const activeTheme = themeDataContext.get(selectedThemeName);
+  // 1. Maintain ThemeData instance on component ref without putting it in useState
+  const themeDataRef = useRef<ThemeData | null>(null);
+  if (!themeDataRef.current) {
+    themeDataRef.current = new ThemeData();
+  }
+  const themeData = themeDataRef.current;
+
+  // Unique listener ID for this component instance
+  const listenerId = useId();
+
+  // Local state for force re-rendering on internal updates or theme polling changes
+  const [, forceUpdate] = useState(0);
+
+  // 2. Initialize ThemeData, subscribe to polling changes, and handle teardown
+  useEffect(() => {
+    let isMounted = true;
+
+    themeData.init().catch((err) => {
+      console.error("Failed to initialize ThemeData in PanelInput:", err);
+    });
+
+    themeData.addOnSelectedThemeDataChange(listenerId, () => {
+      if (isMounted) {
+        forceUpdate((prev) => prev + 1);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      themeData.removeOnSelectedThemeDataChange(listenerId);
+      themeData.destroy();
+    };
+  }, [themeData, listenerId]);
+
+  // 3. Extract active theme via getSelected()
+  const activeTheme = themeData.getSelected();
 
   // Local state to track collapse nodes by dot-separated path keys
   const [collapsedPaths, setCollapsedPaths] = useState<Record<string, boolean>>({});
-  
-  // Local trigger for forced re-renders upon mutating in-place properties
-  const [, forceUpdate] = useState(0);
 
   const toggleCollapse = (path: string[]) => {
     const pathKey = path.join(".");
-    // Retrieve current state, defaulting to true (collapsed) if not yet interacted with
     const currentlyCollapsed = collapsedPaths[pathKey] ?? true;
     setCollapsedPaths((prev) => ({
       ...prev,
@@ -141,7 +166,6 @@ export default function PanelInput({
 
   const isCollapsed = (path: string[]) => {
     const pathKey = path.join(".");
-    // Defaults to `true` (collapsed) when initialized
     return collapsedPaths[pathKey] ?? true;
   };
 
@@ -158,14 +182,13 @@ export default function PanelInput({
     
     current[path[path.length - 1]] = value;
     
-    // Trigger immediate local state refresh & lift up original mutated data reference
     forceUpdate((prev) => prev + 1);
     if (onDataChange) {
       onDataChange(data);
     }
   };
 
-  // Build the inline styling dynamically using theme.panel.normal1
+  // Build the inline styling dynamically using activeTheme.panel.normal1
   const containerStyle: React.CSSProperties = {
     width,
     height,
@@ -207,7 +230,6 @@ export default function PanelInput({
       const isMissing = value === undefined || value === null;
       const label = formatLabel(path[path.length - 1]);
       
-      // Cast component to a lenient React Component Type to allow unified runtime prop assignment
       const InputComponent = config.component as React.ComponentType<any>;
 
       const mergedProps = {
@@ -216,7 +238,6 @@ export default function PanelInput({
         setData: (val: any) => updateField(path, val),
         ...config.props,
 
-        // Auto inject chart points for PriceInput
         ...(config.component?.name === "PriceInput" && {
           points,
         }),

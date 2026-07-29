@@ -1,12 +1,12 @@
+// server/src/modules/chartData/candleChart/link/link.repository.ts
+
 import path from "node:path";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { Link, LinkState } from "./link.model.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DB_DIR = path.join(__dirname, "../../../../../database/chartData/candleChart");
+// Use process.cwd() to consistently point to your project root directory
+const DB_DIR = path.join(process.cwd(), "database/chartData/candleChart");
 const DB_PATH = path.join(DB_DIR, "link.db");
 
 export class LinkRepository {
@@ -19,7 +19,6 @@ export class LinkRepository {
 
     this.db = new Database(DB_PATH);
 
-    // Initialize table schema with JSON storage for color and state
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

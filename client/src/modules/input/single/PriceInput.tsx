@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useId } from "react";
-import { useThemeData } from "../../theme/useThemeData";
-import type { Theme } from "../../theme/type";
-import type { RGB, RGBA } from "../../../shared/types/color.type";
+import React, { useState, useEffect, useId, useRef } from "react";
+import ThemeData, {type Theme } from "../../data/theme/ThemeData";
+import type { RGB, RGBA } from "../../shared/type";
 import styles from "./Input.module.css";
 
 const toRGBString = (color: RGB): string => `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -17,6 +16,7 @@ export default function PriceInput({
   newLine = false,
   labelWidth = "30%",
   unit = "",
+  hideLabel = false,
 }: {
   label: string;
   points: number;
@@ -26,15 +26,28 @@ export default function PriceInput({
   newLine?: boolean;
   labelWidth?: string;
   unit?: string;
+  hideLabel ?: boolean
 }) {
-  const themeContext = useThemeData();
+  const themeDataRef = useRef<ThemeData | null>(null);
+  if (!themeDataRef.current) {
+    themeDataRef.current = new ThemeData();
+  }
+  const themeData = themeDataRef.current;
   const instanceId = useId();
-  const [currentTheme, setCurrentTheme] = useState<Theme | undefined>(() => themeContext.get(themeContext.getSelectedName()));
+
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() => themeData.getSelected());
 
   useEffect(() => {
-    themeContext.addOnSelectedThemeChange(instanceId, setCurrentTheme);
-    return () => themeContext.removeOnSelectedThemeChange(instanceId);
-  }, [themeContext, instanceId]);
+    themeData.init();
+    themeData.addOnSelectedThemeDataChange(instanceId, () => {
+      setCurrentTheme(themeData.getSelected());
+    });
+
+    return () => {
+      themeData.removeOnSelectedThemeDataChange(instanceId);
+      themeData.destroy();
+    };
+  }, [themeData, instanceId]);
 
   const intToDisplayString = (dataInt: number, pts: number): string => {
     if (!pts || pts <= 1) return dataInt.toString();
@@ -87,7 +100,7 @@ export default function PriceInput({
 
   return (
     <div className={`${styles.InputContainer} ${newLine ? styles.newLineLayout : styles.rowLayout}`} style={inlineStyles}>
-      <div className={styles.label} style={{ width: newLine ? "100%" : labelWidth, color: "var(--font-color)" }}>{label}</div>
+      {!hideLabel && <div className={styles.label} style={{ width: newLine ? "100%" : labelWidth, color: "var(--font-color)" }}>{label}</div>}
       <div className={styles.dataBox} style={{ backgroundColor: "var(--bg-color)", border: `1px solid var(--border-color)`, color: "var(--font-color)" }}>
         <input
           type="text"
