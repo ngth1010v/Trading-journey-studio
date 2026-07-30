@@ -64,9 +64,7 @@ export default function ListWithTheme({
     };
 
     themeData.addOnSelectedThemeDataChange(instanceId, handleThemeChange);
-    themeData.init().catch((err) => {
-      console.error("Failed to initialize ThemeData in ListWithTheme:", err);
-    });
+    themeData.init()
 
     return () => {
       themeData.removeOnSelectedThemeDataChange(instanceId);

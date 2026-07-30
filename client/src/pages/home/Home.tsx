@@ -55,9 +55,8 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
       setPlaceholders([]);
     });
 
-    themeData.init().then(() => {
-      setTheme(themeData.getSelected());
-    });
+    themeData.init();
+    
     pageData.init();
     setPages(pageData.getAll());
 

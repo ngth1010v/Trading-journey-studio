@@ -20,9 +20,7 @@ export default function VerticalContainer({
         let isMounted = true;
         const themeData = new ThemeData();
 
-        themeData.init().then(() => {
-            if (isMounted) setTheme(themeData.getSelected());
-        }).catch(err => console.error("Failed to init container theme data:", err));
+        themeData.init()
 
         themeData.addOnSelectedThemeDataChange(listenerId, () => {
             if (isMounted) setTheme(themeData.getSelected());

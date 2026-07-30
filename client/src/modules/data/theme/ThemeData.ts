@@ -43,7 +43,7 @@ export interface Theme {
 export const DEFAULT_THEME: Theme = {
     name: "Default",
     selected: false,
-    background: [10,10,10,1],
+    background: [10, 10, 10, 1],
 
     // Panel
     panel: {
@@ -78,120 +78,151 @@ export const DEFAULT_THEME: Theme = {
 
 const REFRESH_DURATION = 1000; // 1s
 
+// ============================================================================
+// GLOBAL STATE & LOOP
+// ============================================================================
+
+interface MainTrigger {
+    triggerThemeDataChange: () => void;
+    triggerSelectedThemeDataChange: () => void;
+}
+
+let isThemeInitialized = false;
+let globalRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
+let themesCache: Theme[] = [];
+
+// Cache tracking variables for change detection
+let previousThemesJson = "";
+let previousSelectedId: number | string | undefined = undefined;
+
+const themeDataCallbackMap = new Map<string, MainTrigger>();
+
+async function executeGlobalRefresh(): Promise<void> {
+    try {
+        const freshThemes = await themeApi.getAll();
+        const freshJson = JSON.stringify(freshThemes);
+
+        const hasDataChanged = freshJson !== previousThemesJson;
+
+        const currentSelected = freshThemes.find((t) => t.selected);
+        const currentSelectedId = currentSelected ? currentSelected.id : "FALLBACK_DEFAULT";
+        const hasSelectedChanged = currentSelectedId !== previousSelectedId;
+
+        // Update shared global cache
+        themesCache = freshThemes;
+        previousThemesJson = freshJson;
+        previousSelectedId = currentSelectedId;
+
+        // Notify registered ThemeData main triggers
+        if (hasDataChanged || hasSelectedChanged) {
+            for (const { triggerThemeDataChange, triggerSelectedThemeDataChange } of themeDataCallbackMap.values()) {
+                if (hasDataChanged) {
+                    triggerThemeDataChange();
+                }
+                if (hasSelectedChanged) {
+                    triggerSelectedThemeDataChange();
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Global theme refresh failed:", err);
+    }
+}
+
+export function initTheme(): void {
+    if (isThemeInitialized) {
+        return;
+    }
+    isThemeInitialized = true;
+
+    // Run initial fetch tick
+    executeGlobalRefresh();
+
+    // Start background refresh loop
+    globalRefreshIntervalId = setInterval(executeGlobalRefresh, REFRESH_DURATION);
+}
+
+export function destroyTheme(): void {
+    if (!isThemeInitialized) {
+        return;
+    }
+
+    if (globalRefreshIntervalId !== null) {
+        clearInterval(globalRefreshIntervalId);
+        globalRefreshIntervalId = null;
+    }
+
+    themeDataCallbackMap.clear();
+    themesCache = [];
+    previousThemesJson = "";
+    previousSelectedId = undefined;
+    isThemeInitialized = false;
+}
+
+// ============================================================================
+// THEMEDATA CLASS
+// ============================================================================
+
 export default class ThemeData {
-    private cache: Theme[] = [];
-    private refreshIntervalId: any = null;
-    private lastSelectedId: number | string | undefined = undefined;
+    public id: string | null = null;
 
     private onThemeDataChangeListeners = new Map<string, () => void>();
     private onSelectedThemeDataChangeListeners = new Map<string, () => void>();
 
-    async init(): Promise<void> {
-        await this.refresh();
-        this.notifyDataChange();
-        this.checkAndNotifySelectedChange();
+    public init(): void {
+        if (this.id !== null) {
+            return; // Prevent duplicate initialization
+        }
 
-        this.refreshIntervalId = setInterval(async () => {
-            try {
-                await this.refresh();
-                this.notifyDataChange();
-                this.checkAndNotifySelectedChange();
-            } catch (err) {
-                console.error("Theme background refresh failed:", err);
-            }
-        }, REFRESH_DURATION);
+        this.id = `theme_data_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+
+        // Register main triggers into global map
+        themeDataCallbackMap.set(this.id, {
+            triggerThemeDataChange: () => this.notifyDataChange(),
+            triggerSelectedThemeDataChange: () => this.notifySelectedChange(),
+        });
     }
 
-    private async refresh(): Promise<void> {
-        this.cache = await themeApi.getAll();
+    public getAll(): Theme[] {
+        return themesCache;
     }
 
-    getAll(): Theme[] {
-        return this.cache;
-    }
-
-    getSelected(): Theme {
-        const selected = this.cache.find((t) => t.selected);
+    public getSelected(): Theme {
+        const selected = themesCache.find((t) => t.selected);
         return selected || DEFAULT_THEME;
     }
 
-    async set(theme: Theme): Promise<void> {
-        const originalCache = JSON.stringify(this.cache);
-        
-        // Match rule: Client handles turning other themes to unselected locally
-        if (theme.selected) {
-            for (const cached of this.cache) {
-                cached.selected = false;
-            }
-        }
-
-        let isNew = theme.id === undefined;
-        let index = -1;
-
-        if (!isNew) {
-            index = this.cache.findIndex((t) => t.id === theme.id);
-        }
-
-        if (index !== -1) {
-            this.cache[index] = theme;
-        } else {
-            this.cache.push(theme);
-        }
-
-        this.notifyDataChange();
-        this.checkAndNotifySelectedChange();
-
-        try {
-            const result = await themeApi.save(theme);
-            if (isNew) {
-                // If it was a new record, map the assigned identifier
-                theme.id = result.id;
-                this.notifyDataChange();
-            }
-        } catch (error) {
-            // Roll back cache structure on network failure
-            this.cache = JSON.parse(originalCache);
-            this.notifyDataChange();
-            this.checkAndNotifySelectedChange();
-            throw error;
-        }
+    public async set(theme: Theme): Promise<void> {
+        // Send directly to server; global refresh loop handles cache & notification updates
+        await themeApi.save(theme);
     }
 
-    async delete(themeId: number): Promise<void> {
-        const index = this.cache.findIndex((t) => t.id === themeId);
-        if (index === -1) {
-            throw new Error(`Theme execution fallback triggered: Theme with ID ${themeId} does not exist in local cache.`);
-        }
-
-        const originalCache = JSON.stringify(this.cache);
-        this.cache.splice(index, 1);
-        
-        this.notifyDataChange();
-        this.checkAndNotifySelectedChange();
-
-        try {
-            await themeApi.delete(themeId);
-        } catch (error) {
-            this.cache = JSON.parse(originalCache);
-            this.notifyDataChange();
-            this.checkAndNotifySelectedChange();
-            throw error;
-        }
+    public async delete(themeId: number): Promise<void> {
+        // Send directly to server; global refresh loop handles cache & notification updates
+        await themeApi.delete(themeId);
     }
 
-    addOnThemeDataChange(id: string, cb: () => void): void {
+    public addOnThemeDataChange(id: string, cb: () => void): void {
         this.onThemeDataChangeListeners.set(id, cb);
     }
 
-    removeOnThemeDataChange(id: string): void {
+    public removeOnThemeDataChange(id: string): void {
+        if (!this.onThemeDataChangeListeners.has(id)) {
+            console.warn(`[ThemeData] Listener ID '${id}' not found in onThemeDataChange listeners.`);
+            return;
+        }
         this.onThemeDataChangeListeners.delete(id);
     }
 
-    addOnSelectedThemeDataChange(id: string, cb: () => void): void {
+    public addOnSelectedThemeDataChange(id: string, cb: () => void): void {
         this.onSelectedThemeDataChangeListeners.set(id, cb);
     }
 
-    removeOnSelectedThemeDataChange(id: string): void {
+    public removeOnSelectedThemeDataChange(id: string): void {
+        if (!this.onSelectedThemeDataChangeListeners.has(id)) {
+            console.warn(`[ThemeData] Listener ID '${id}' not found in onSelectedThemeDataChange listeners.`);
+            return;
+        }
         this.onSelectedThemeDataChangeListeners.delete(id);
     }
 
@@ -201,23 +232,16 @@ export default class ThemeData {
         }
     }
 
-    private checkAndNotifySelectedChange(): void {
-        const currentSelected = this.cache.find((t) => t.selected);
-        // Identify fallback states natively by tracking undefined values explicitly
-        const currentSelectedId = currentSelected ? currentSelected.id : "FALLBACK_DEFAULT";
-
-        if (currentSelectedId !== this.lastSelectedId) {
-            this.lastSelectedId = currentSelectedId;
-            for (const listener of this.onSelectedThemeDataChangeListeners.values()) {
-                listener();
-            }
+    private notifySelectedChange(): void {
+        for (const listener of this.onSelectedThemeDataChangeListeners.values()) {
+            listener();
         }
     }
 
-    // Call this if destroying or removing data controllers from memory
-    destroy(): void {
-        if (this.refreshIntervalId) {
-            clearInterval(this.refreshIntervalId);
+    public destroy(): void {
+        if (this.id !== null) {
+            themeDataCallbackMap.delete(this.id);
+            this.id = null;
         }
         this.onThemeDataChangeListeners.clear();
         this.onSelectedThemeDataChangeListeners.clear();

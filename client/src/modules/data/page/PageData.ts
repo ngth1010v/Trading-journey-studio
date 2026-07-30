@@ -104,7 +104,6 @@ export default class PageData {
       if (JSON.stringify(this.cache) !== JSON.stringify(remotePages)) {
         this.cache = remotePages;
         this.notifyListeners();
-        console.log(remotePages)
       }
     } catch (error) {
       console.error("Failed to refresh PageData:", error);

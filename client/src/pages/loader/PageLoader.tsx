@@ -30,12 +30,7 @@ export default function PageLoader({ pageId, goHome, goToEditor }: PageLoaderPro
     let isMounted = true;
     const themeData = new ThemeData();
 
-    themeData
-      .init()
-      .then(() => {
-        if (isMounted) setTheme(themeData.getSelected());
-      })
-      .catch((err) => console.error("Failed to initialize Theme Data in PageLoader:", err));
+    themeData.init()
 
     themeData.addOnSelectedThemeDataChange(themeListenerId, () => {
       if (isMounted) setTheme(themeData.getSelected());

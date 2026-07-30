@@ -37,9 +37,7 @@ export default function Workspace() {
       setTheme(themeData.getSelected());
     });
 
-    themeData.init().then(() => {
-      setTheme(themeData.getSelected());
-    });
+    themeData.init()
 
     return () => {
       themeData.removeOnSelectedThemeDataChange(listenerId);

@@ -61,9 +61,7 @@ export default function Navigation({ state }: { state: StateData }) {
     };
 
     // Initialize ThemeData background sync
-    themeData.init().catch((err) => {
-      console.error('Failed to initialize ThemeData in Navigation:', err);
-    });
+    themeData.init()
 
     // Subscribe to both full theme changes and selected theme changes
     themeData.addOnThemeDataChange(instanceId, handleThemeChange);

@@ -20,9 +20,7 @@ export default function FixedContainer({
         let isMounted = true;
         const themeData = new ThemeData();
 
-        themeData.init().then(() => {
-            if (isMounted) setTheme(themeData.getSelected());
-        }).catch(err => console.error("Failed to init container theme data:", err));
+        themeData.init()
 
         themeData.addOnSelectedThemeDataChange(listenerId, () => {
             if (isMounted) setTheme(themeData.getSelected());
@@ -35,7 +33,6 @@ export default function FixedContainer({
             if (!isMounted) return;
             try {
                 const updatedPage = pageData.get(pageId);
-                console.log(updatedPage)
                 setPage(updatedPage);
             } catch (err) {
                 setPage(null);
@@ -120,8 +117,6 @@ export default function FixedContainer({
             {children.map((child) => {
                 const childCompEntry = ELEMENT_MAP[child.type as keyof typeof ELEMENT_MAP];
                 if (!childCompEntry) return null;
-
-                console.log(child)
 
                 const ChildComponent = childCompEntry.component;
 
