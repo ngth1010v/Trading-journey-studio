@@ -1,20 +1,36 @@
-export type MouseCode =
-  | "MouseLeft"
-  | "MouseMiddle"
-  | "MouseRight"
-  | "MouseBack"
-  | "MouseForward"
-  | "WheelUp"
-  | "WheelDown";
 
+
+export type MouseInput =
+  | "MouseLeftDown"
+  | "MouseMiddleDown"
+  | "MouseRightDown"
+  | "MouseBackDown"
+  | "MouseForwardDown"
+  | "MouseLeftUp"
+  | "MouseMiddleUp"
+  | "MouseRightUp"
+  | "MouseBackUp"
+  | "MouseForwardUp"
+  | "MouseMove"
+  | "Wheel"
+  | "MouseEnter"
+  | "MouseLeave";
+
+export type KeyType = "up" | "down" | "pressed" | "unpressed"
+export type KeyInput = { 
+  code: string,
+  type: KeyType
+}
+
+//NEW
 export interface InputEvent {
-  mouse?: MouseCode[]; // AND logic
-  code?: string[]; // AND logic
+  mouse?: MouseInput[];
+  code?: KeyInput[];
   modifiers?: {
-    ctrl?: boolean;
-    shift?: boolean;
-    alt?: boolean;
-    meta?: boolean;
+    ctrl  ?: KeyType;
+    shift ?: KeyType;
+    alt   ?: KeyType;
+    meta  ?: KeyType;
   };
 }
 

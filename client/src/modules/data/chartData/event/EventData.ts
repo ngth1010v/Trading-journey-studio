@@ -1,22 +1,36 @@
 import { fetchEvents, saveEvent } from "./eventApi";
 
-export type MouseCode =
-  | "MouseLeft"
-  | "MouseMiddle"
-  | "MouseRight"
-  | "MouseBack"
-  | "MouseForward"
-  | "WheelUp"
-  | "WheelDown";
+export type MouseInput =
+  | "MouseLeftDown"
+  | "MouseMiddleDown"
+  | "MouseRightDown"
+  | "MouseBackDown"
+  | "MouseForwardDown"
+  | "MouseLeftUp"
+  | "MouseMiddleUp"
+  | "MouseRightUp"
+  | "MouseBackUp"
+  | "MouseForwardUp"
+  | "MouseMove"
+  | "Wheel"
+  | "MouseEnter"
+  | "MouseLeave";
+
+export type KeyType = "up" | "down" | "pressed" | "unpressed";
+
+export interface KeyInput {
+  code: string;
+  type: KeyType;
+}
 
 export interface InputEvent {
-  mouse?: MouseCode[]; // AND logic
-  code?: string[]; // AND logic
+  mouse?: MouseInput[];
+  code?: KeyInput[];
   modifiers?: {
-    ctrl?: boolean;
-    shift?: boolean;
-    alt?: boolean;
-    meta?: boolean;
+    ctrl?: KeyType;
+    shift?: KeyType;
+    alt?: KeyType;
+    meta?: KeyType;
   };
 }
 
@@ -56,7 +70,7 @@ export default class EventData {
       this.refreshCache();
     }, REFRESH_DURATION);
 
-    console.log("INIT")
+    console.log("INIT");
   }
 
   /**
@@ -79,7 +93,7 @@ export default class EventData {
     this.lastCacheJson = "";
     this.isInitialized = false;
 
-    console.log("DESTROY")
+    console.log("DESTROY");
   }
 
   /**
