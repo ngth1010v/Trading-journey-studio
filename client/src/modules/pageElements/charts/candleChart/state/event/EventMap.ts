@@ -14,7 +14,7 @@ export const DEFAULT_EVENT_MAP: Event[] = [
     event: "chartZoomX",
     input: {
       mouse: ["Wheel"],
-      modifiers: { ctrl: "pressed" },
+      modifiers: { ctrl: true },
     },
   },
   {
@@ -22,7 +22,7 @@ export const DEFAULT_EVENT_MAP: Event[] = [
     event: "chartZoomY",
     input: {
       mouse: ["Wheel"],
-      modifiers: { alt: "pressed" },
+      modifiers: { alt: true },
     },
   },
   {

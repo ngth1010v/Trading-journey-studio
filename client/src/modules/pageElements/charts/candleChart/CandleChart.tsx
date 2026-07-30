@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import PageData, { type Page } from "../../../data/page/PageData";
 import ThemeData, { type Theme, DEFAULT_THEME } from "../../../data/theme/ThemeData";
 import StateData from "./state/StateData";
+import ChartController from "./chart/ChartController";
+import ChartLayer from "./chart/ChartLayer";
 import Navigation from "./interface/navigation/Navigation";
 import styles from "./CandleChart.module.css";
 
@@ -16,11 +18,15 @@ export default function CandleChart({
   
   // Keep persistent instances across renders using refs
   const stateRef = useRef<StateData | null>(null);
+  const chartRef = useRef<ChartController | null>(null);
   const pageDataRef = useRef<PageData | null>(null);
   const themeDataRef = useRef<ThemeData | null>(null);
 
   if (!stateRef.current) {
     stateRef.current = new StateData();
+  }
+  if (!chartRef.current) {
+    chartRef.current = new ChartController();
   }
   if (!pageDataRef.current) {
     pageDataRef.current = new PageData();
@@ -30,6 +36,7 @@ export default function CandleChart({
   }
 
   const state = stateRef.current;
+  const chart = chartRef.current;
   const pageData = pageDataRef.current;
   const themeData = themeDataRef.current;
 
@@ -62,16 +69,19 @@ export default function CandleChart({
         });
 
         //====================================================================================================
-        // StateData
+        // StateData & ChartController
         //====================================================================================================
         await state.init();
 
         if (disposed) {
           themeData.destroy();
           pageData.destroy();
+          chart.destroy();
           state.destroy();
           return;
         }
+
+        chart.init(state);
 
         //====================================================================================================
         // PageData
@@ -155,10 +165,11 @@ export default function CandleChart({
       if (initialized) {
         themeData.destroy();
         pageData.destroy();
+        chart.destroy();
         state.destroy();
       }
     };
-  }, [pageId, elementId, state, pageData, themeData]);
+  }, [pageId, elementId, state, chart, pageData, themeData]);
 
   const toRgba = (rgba: [number, number, number, number]) =>
     `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3]})`;
@@ -171,6 +182,7 @@ export default function CandleChart({
       }}
     >
       <Navigation state={state} />
+      <ChartLayer chart={chart} />
     </div>
   );
 }

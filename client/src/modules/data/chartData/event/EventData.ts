@@ -27,10 +27,10 @@ export interface InputEvent {
   mouse?: MouseInput[];
   code?: KeyInput[];
   modifiers?: {
-    ctrl?: KeyType;
-    shift?: KeyType;
-    alt?: KeyType;
-    meta?: KeyType;
+    ctrl  ?: boolean;
+    shift ?: boolean;
+    alt   ?: boolean;
+    meta  ?: boolean;
   };
 }
 
