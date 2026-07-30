@@ -3,15 +3,23 @@ import { Shape, ShapeTag, ShapeTemplate } from "./shape.model.js";
 
 export class ShapeRepository {
   // --- Shapes Logic ---
-  static getAllShapes(strategyId: number, whereClause: string = "", params: any[] = []): Shape[] {
+  static getShapesByRange(
+    strategyId: number,
+    symbol: string,
+    fromTs: number,
+    toTs: number
+  ): Shape[] {
     const db = strategyDbManager.getDb(strategyId);
-    const sql = `SELECT * FROM shapes ${whereClause ? "WHERE " + whereClause : ""}`;
-    const rows = db.prepare(sql).all(...params) as any[];
-    return rows.map(row => ({
+    const sql = `
+      SELECT * FROM shapes 
+      WHERE symbol = ? AND toTs > ? AND fromTs < ?
+    `;
+    const rows = db.prepare(sql).all(symbol, fromTs, toTs) as any[];
+    return rows.map((row) => ({
       ...row,
       tagIds: JSON.parse(row.tagIds),
       data: JSON.parse(row.data),
-      style: JSON.parse(row.style)
+      style: JSON.parse(row.style),
     }));
   }
 
@@ -23,7 +31,7 @@ export class ShapeRepository {
       ...row,
       tagIds: JSON.parse(row.tagIds),
       data: JSON.parse(row.data),
-      style: JSON.parse(row.style)
+      style: JSON.parse(row.style),
     };
   }
 
@@ -69,9 +77,9 @@ export class ShapeRepository {
   static getAllTags(strategyId: number): ShapeTag[] {
     const db = strategyDbManager.getDb(strategyId);
     const rows = db.prepare("SELECT * FROM shape_tags").all() as any[];
-    return rows.map(row => ({
+    return rows.map((row) => ({
       ...row,
-      color: JSON.parse(row.color)
+      color: JSON.parse(row.color),
     }));
   }
 
@@ -81,7 +89,7 @@ export class ShapeRepository {
     if (!row) return null;
     return {
       ...row,
-      color: JSON.parse(row.color)
+      color: JSON.parse(row.color),
     };
   }
 
@@ -105,25 +113,21 @@ export class ShapeRepository {
 
   static deleteTag(strategyId: number, id: number): boolean {
     const db = strategyDbManager.getDb(strategyId);
-    
-    // 1. Run within a database transaction to keep data mutations atomic and safe
+
     const deleteTx = db.transaction(() => {
-      // Find all shapes that contain this specific tagId inside their JSON array using SQLite json_each
       const targetingShapes = db.prepare(`
         SELECT DISTINCT shapes.id, shapes.tagIds 
         FROM shapes, json_each(shapes.tagIds) 
         WHERE json_each.value = ?
       `).all(id) as { id: number; tagIds: string }[];
 
-      // Scrub the tag id references from the JSON list and update each shape entry
       const updateStmt = db.prepare("UPDATE shapes SET tagIds = ? WHERE id = ?");
       for (const shapeRow of targetingShapes) {
         const currentTagIds: number[] = JSON.parse(shapeRow.tagIds);
-        const filteredTagIds = currentTagIds.filter(tagId => tagId !== id);
+        const filteredTagIds = currentTagIds.filter((tagId) => tagId !== id);
         updateStmt.run(JSON.stringify(filteredTagIds), shapeRow.id);
       }
 
-      // 2. Perform the actual removal from the shape_tags reference table
       const result = db.prepare("DELETE FROM shape_tags WHERE id = ?").run(id);
       return result.changes > 0;
     });
@@ -135,9 +139,9 @@ export class ShapeRepository {
   static getAllTemplates(strategyId: number): ShapeTemplate[] {
     const db = strategyDbManager.getDb(strategyId);
     const rows = db.prepare("SELECT * FROM shape_templates").all() as any[];
-    return rows.map(row => ({
+    return rows.map((row) => ({
       ...row,
-      style: JSON.parse(row.style)
+      style: JSON.parse(row.style),
     }));
   }
 
@@ -147,7 +151,7 @@ export class ShapeRepository {
     if (!row) return null;
     return {
       ...row,
-      style: JSON.parse(row.style)
+      style: JSON.parse(row.style),
     };
   }
 

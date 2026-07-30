@@ -2,7 +2,6 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Trade, TradeTag, TradeStyle, DefaultTradeStyle } from "./trade.model.js";
-import { parseFilterToSql } from "./trade.service.js";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,6 +35,12 @@ export const TradeRepository = {
         data_takeProfitPrice REAL NOT NULL,
         data_volume REAL NOT NULL
       )
+    `).run();
+
+    // High performance composite index for queried filters
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_trades_lookup 
+      ON trades(strategyId, symbol, data_closeTimestamp)
     `).run();
 
     // Table 2: Tags
@@ -77,18 +82,21 @@ export const TradeRepository = {
   },
 
   // --- Trade Operations ---
-  getTrades(filterStr?: string): { trades: Trade[] | null; error?: string } {
-    try {
-      if (!filterStr) {
-        const rows = db.prepare("SELECT * FROM trades").all() as any[];
-        return { trades: rows.map(mapRowToTrade) };
-      }
-      const { sql, params } = parseFilterToSql(filterStr);
-      const rows = db.prepare(`SELECT * FROM trades WHERE ${sql}`).all(...params) as any[];
-      return { trades: rows.map(mapRowToTrade) };
-    } catch (err: any) {
-      return { trades: null, error: err.message };
-    }
+  getTrades(
+    strategyId: number,
+    symbol: string,
+    fromTs: number,
+    toTs: number
+  ): Trade[] {
+    const stmt = db.prepare(`
+      SELECT * FROM trades 
+      WHERE strategyId = ? 
+        AND symbol = ? 
+        AND data_closeTimestamp >= ? 
+        AND data_closeTimestamp <= ?
+    `);
+    const rows = stmt.all(strategyId, symbol, fromTs, toTs) as any[];
+    return rows.map(mapRowToTrade);
   },
 
   getTradeById(id: number): Trade | null {

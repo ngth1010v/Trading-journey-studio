@@ -3,8 +3,15 @@ import type { Trade } from "./TradeData";
 
 const BASE_URL = "/api/chartData/trades";
 
-export async function fetchTrades(filter?: string): Promise<Trade[]> {
-  const query = filter ? `?filter=${encodeURIComponent(filter)}` : "";
+export async function fetchTrades(
+  strategyId: number,
+  symbol: string,
+  fromTs: number,
+  toTs: number
+): Promise<Trade[]> {
+  const query = `?strategyId=${encodeURIComponent(strategyId)}&symbol=${encodeURIComponent(
+    symbol
+  )}&fromTs=${encodeURIComponent(fromTs)}&toTs=${encodeURIComponent(toTs)}`;
   return request<Trade[]>(`${BASE_URL}${query}`);
 }
 

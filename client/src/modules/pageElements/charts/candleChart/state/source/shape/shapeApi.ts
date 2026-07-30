@@ -9,8 +9,9 @@ export async function fetchShapes(
   fromTs: number,
   toTs: number
 ): Promise<Shape[]> {
-  const filter = `"symbol=${symbol}"&"${fromTs}<toTs"&"fromTs<${toTs}"`;
-  const url = `${BASE_URL}/${strategyId}?filter=${encodeURIComponent(filter)}`;
+  const url = `${BASE_URL}?strategyId=${strategyId}&symbol=${encodeURIComponent(
+    symbol
+  )}&fromTs=${fromTs}&toTs=${toTs}`;
   return request<Shape[]>(url);
 }
 

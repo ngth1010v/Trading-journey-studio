@@ -3,15 +3,45 @@ import { TradeRepository } from "./trade.repository.js";
 import { validateTrade } from "./trade.service.js";
 
 const router = Router();
-const BASE = "/api/chartData/trades"
+const BASE = "/api/chartData/trades";
 
 router.get(`${BASE}`, (req: Request, res: Response) => {
-  const filter = req.query.filter as string | undefined;
-  const result = TradeRepository.getTrades(filter);
-  if (result.error) {
-    return res.status(400).json({ error: result.error });
+  const { strategyId, symbol, fromTs, toTs } = req.query;
+
+  if (
+    strategyId === undefined ||
+    symbol === undefined ||
+    fromTs === undefined ||
+    toTs === undefined
+  ) {
+    return res.status(400).json({
+      error:
+        "Missing required query parameters: strategyId, symbol, fromTs, toTs are all required.",
+    });
   }
-  res.json(result.trades);
+
+  const numStrategyId = Number(strategyId);
+  const numFromTs = Number(fromTs);
+  const numToTs = Number(toTs);
+  const strSymbol = String(symbol);
+
+  if (
+    isNaN(numStrategyId) ||
+    isNaN(numFromTs) ||
+    isNaN(numToTs) ||
+    !strSymbol
+  ) {
+    return res.status(400).json({ error: "Invalid parameter formats provided." });
+  }
+
+  const trades = TradeRepository.getTrades(
+    numStrategyId,
+    strSymbol,
+    numFromTs,
+    numToTs
+  );
+
+  res.json(trades);
 });
 
 router.get(`${BASE}/lastChange`, (req: Request, res: Response) => {

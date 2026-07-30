@@ -95,17 +95,16 @@ export default class TradeData {
   }
 
   public setSource(symbol: string | null, strategyId: number | null): void {
-
-      let changed = false
-    if (symbol && symbol != this.symbol){
+    let changed = false;
+    if (symbol && symbol != this.symbol) {
       this.symbol = symbol;
-      changed = true
+      changed = true;
     }
-    if (strategyId && strategyId != this.strategyId){
+    if (strategyId && strategyId != this.strategyId) {
       this.strategyId = strategyId;
-      changed = true
+      changed = true;
     }
-    if (changed){
+    if (changed) {
       this.onConfigChanged();
     }
   }
@@ -171,8 +170,12 @@ export default class TradeData {
     try {
       const lastChange = await fetchLastChangeTimestamp();
       if (lastChange > this.lastCachedTimestamp) {
-        const filter = `"symbol = ${this.symbol}"&"data.closeTimestamp > ${this.fromTs}"&"data.openTimestamp < ${this.toTs}"&"strategyId=${this.strategyId}"`;
-        const trades = await fetchTrades(filter);
+        const trades = await fetchTrades(
+          this.strategyId!,
+          this.symbol!,
+          this.fromTs!,
+          this.toTs!
+        );
 
         this.tradesMap.clear();
         for (const trade of trades) {
