@@ -34,102 +34,129 @@ export default function CandleChart({
   const themeData = themeDataRef.current;
 
   useEffect(() => {
-    let isMounted = true;
-    const listenerId = `CandleChart_${pageId}_${elementId}_${Math.random().toString(36).substring(2, 9)}`;
+    let disposed = false;
+    let initialized = false;
+
+    const listenerId = `CandleChart_${pageId}_${elementId}_${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
 
     // Flag to prevent infinite loops during state <-> page sync
     let isSyncingFromPage = false;
 
-    // 1. Initialize StateData, PageData, ThemeData
     const initAll = async () => {
-      // Init ThemeData & listen to theme changes
       try {
+        //====================================================================================================
+        // ThemeData
+        //====================================================================================================
         await themeData.init();
-        if (isMounted) {
-          setTheme(themeData.getSelected());
-        }
-      } catch (err) {
-        console.error("Failed to initialize ThemeData in CandleChart:", err);
-      }
 
-      themeData.addOnSelectedThemeDataChange(listenerId, () => {
-        if (isMounted) {
-          setTheme(themeData.getSelected());
-        }
-      });
+        if (disposed) return;
 
-      // Init StateData
-      await state.init();
+        setTheme(themeData.getSelected());
 
-      // Init PageData & register polling update listener
-      pageData.init();
-
-      const syncPageToState = () => {
-        try {
-          const currentPage: Page = pageData.get(pageId);
-          const element = currentPage.data.find((el) => el.id === elementId);
-
-          if (element) {
-            isSyncingFromPage = true;
-            state.config.set({
-              pageId,
-              elementId,
-              data: element.data || {}
-            });
-            isSyncingFromPage = false;
+        themeData.addOnSelectedThemeDataChange(listenerId, () => {
+          if (!disposed) {
+            setTheme(themeData.getSelected());
           }
-        } catch (err) {
-          console.error(`CandleChart: Failed to sync page ${pageId} element ${elementId}`, err);
+        });
+
+        //====================================================================================================
+        // StateData
+        //====================================================================================================
+        await state.init();
+
+        if (disposed) {
+          themeData.destroy();
+          pageData.destroy();
+          state.destroy();
+          return;
         }
-      };
 
-      // Initial sync from pageData to state.config
-      syncPageToState();
+        //====================================================================================================
+        // PageData
+        //====================================================================================================
+        pageData.init();
 
-      // Listen for remote/polling PageData changes
-      pageData.addOnPageDataChange(listenerId, syncPageToState);
+        const syncPageToState = () => {
+          try {
+            const currentPage: Page = pageData.get(pageId);
+            const element = currentPage.data.find((el) => el.id === elementId);
 
-      // Register listener on state.config to sync changes back to pageElement.data
-      state.config.addOnConfigDataChange(listenerId, [], async () => {
-        if (!isMounted || isSyncingFromPage) return;
+            if (element) {
+              isSyncingFromPage = true;
 
-        try {
-          const latestConfig = state.config.get();
-          const currentPage = pageData.get(pageId);
+              state.config.set({
+                pageId,
+                elementId,
+                data: element.data || {},
+              });
 
-          const updatedElements = currentPage.data.map((el) => {
-            if (el.id === elementId) {
-              return {
-                ...el,
-                data: latestConfig.data
-              };
+              isSyncingFromPage = false;
             }
-            return el;
-          });
+          } catch (err) {
+            console.error(
+              `CandleChart: Failed to sync page ${pageId} element ${elementId}`,
+              err
+            );
+          }
+        };
 
-          await pageData.set({
-            ...currentPage,
-            data: updatedElements
-          });
-        } catch (err) {
-          console.error("CandleChart: Failed to sync state config back to PageData:", err);
-        }
-      });
+        // Initial sync
+        syncPageToState();
+
+        // Listen for PageData changes
+        pageData.addOnPageDataChange(listenerId, syncPageToState);
+
+        // Sync StateData -> PageData
+        state.config.addOnConfigDataChange(listenerId, [], async () => {
+          if (disposed || isSyncingFromPage) return;
+
+          try {
+            const latestConfig = state.config.get();
+            const currentPage = pageData.get(pageId);
+
+            const updatedElements = currentPage.data.map((el) =>
+              el.id === elementId
+                ? {
+                    ...el,
+                    data: latestConfig.data,
+                  }
+                : el
+            );
+
+            await pageData.set({
+              ...currentPage,
+              data: updatedElements,
+            });
+          } catch (err) {
+            console.error(
+              "CandleChart: Failed to sync state config back to PageData:",
+              err
+            );
+          }
+        });
+
+        initialized = true;
+      } catch (err) {
+        console.error("Failed to initialize CandleChart:", err);
+      }
     };
 
     initAll();
 
-    // Cleanup on unmount
     return () => {
-      isMounted = false;
+      disposed = true;
+
       themeData.removeOnSelectedThemeDataChange(listenerId);
-      themeData.destroy();
-
       pageData.removeOnPageDataChange(listenerId);
-      pageData.destroy();
-
       state.config.removeOnConfigDataChange(listenerId);
-      state.destroy();
+
+      if (initialized) {
+        themeData.destroy();
+        pageData.destroy();
+        state.destroy();
+      }
     };
   }, [pageId, elementId, state, pageData, themeData]);
 

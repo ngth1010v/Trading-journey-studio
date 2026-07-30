@@ -6,7 +6,7 @@ import type { Event } from "./event.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_DIR = path.join(__dirname, "../../../../../database/chartData");
+const DB_DIR = path.join(__dirname, "../../../../database/chartData");
 const DB_PATH = path.join(DB_DIR, "event.db");
 
 export class EventRepository {

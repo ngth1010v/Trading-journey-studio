@@ -1,19 +1,26 @@
 import SourceData from "./source/SourceData";
 import ViewportData from "./viewport/ViewportData";
 import ConfigData from "./ConfigData";
+import EventData from "../../../../data/chartData/event/EventData";
+
+import { DEFAULT_EVENT_MAP } from "./event/EventMap";
 
 export default class StateData {
   public viewport: ViewportData = new ViewportData();
   public source: SourceData = new SourceData();
   public config: ConfigData = new ConfigData();
+  public event: EventData = new EventData();
 
   /**
    * Initializes both viewport and source data instances.
    */
   public async init(): Promise<void> {
+    this.event.init();
     this.config.init();
     this.viewport.init();
     await this.source.init();
+
+    this.event.setDefault(DEFAULT_EVENT_MAP);
 
     //====================================================================================================
     // Refresh logic
@@ -59,5 +66,6 @@ export default class StateData {
     this.viewport.destroy();
     this.source.destroy();
     this.config.destroy();
+    this.event.destroy();
   }
 }

@@ -16,6 +16,8 @@ router.get("/api/chartData/events", (_req: Request, res: Response) => {
 // POST /api/chartData/events -> return { id: number }
 router.post("/api/chartData/events", (req: Request, res: Response) => {
   try {
+
+    console.log(req.body)
     const result = eventService.saveEvent(req.body);
 
     if (!result) {
@@ -24,6 +26,7 @@ router.post("/api/chartData/events", (req: Request, res: Response) => {
 
     res.status(200).json(result);
   } catch (error) {
+    console.log(error)
     res.status(400).json({ error: (error as Error).message });
   }
 });
