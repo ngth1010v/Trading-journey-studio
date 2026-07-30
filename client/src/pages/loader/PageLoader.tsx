@@ -1,4 +1,4 @@
-import { useState, useEffect, useId } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import PageData, { type Page } from "../../modules/data/page/PageData";
 import ThemeData, { type Theme, DEFAULT_THEME } from "../../modules/data/theme/ThemeData";
 import { ELEMENT_MAP } from "../../modules/pageElements/elementMap";
@@ -17,24 +17,51 @@ const toRgba = (rgba: [number, number, number, number]) =>
   `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3]})`;
 
 export default function PageLoader({ pageId, goHome, goToEditor }: PageLoaderProps) {
-  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
-  const [currentPage, setCurrentPage] = useState<Page | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [notFound, setNotFound] = useState<boolean>(false);
-
   const themeListenerId = useId();
   const pageListenerId = useId();
 
-  // Handle ThemeData lifecycle and live updates
+  // 1. Initialize useRef instances
+  const themeDataRef = useRef<ThemeData | null>(null);
+  if (!themeDataRef.current) {
+    themeDataRef.current = new ThemeData();
+  }
+
+  const pageDataRef = useRef<PageData | null>(null);
+  if (!pageDataRef.current) {
+    pageDataRef.current = new PageData();
+  }
+
+  // Helper to extract page state safely
+  const getInitialPageState = () => {
+    try {
+      const page = pageDataRef.current!.get(pageId);
+      return { page, notFound: false, loading: false };
+    } catch {
+      return { page: null, notFound: false, loading: true };
+    }
+  };
+
+  const initialPageState = getInitialPageState();
+
+  // 3. Initialize states directly from ref data on initial render
+  const [theme, setTheme] = useState<Theme>(() => themeDataRef.current!.getSelected());
+  const [currentPage, setCurrentPage] = useState<Page | null>(initialPageState.page);
+  const [isLoading, setIsLoading] = useState<boolean>(initialPageState.loading);
+  const [notFound, setNotFound] = useState<boolean>(initialPageState.notFound);
+
+  // 2. ThemeData lifecycle & subscription
   useEffect(() => {
     let isMounted = true;
-    const themeData = new ThemeData();
-
-    themeData.init()
+    const themeData = themeDataRef.current!;
 
     themeData.addOnSelectedThemeDataChange(themeListenerId, () => {
-      if (isMounted) setTheme(themeData.getSelected());
+      if (isMounted) {
+        setTheme(themeData.getSelected());
+      }
     });
+
+    themeData.init();
+    setTheme(themeData.getSelected());
 
     return () => {
       isMounted = false;
@@ -43,10 +70,10 @@ export default function PageLoader({ pageId, goHome, goToEditor }: PageLoaderPro
     };
   }, [themeListenerId]);
 
-  // Handle PageData lifecycle and refresh callbacks
+  // 2. PageData lifecycle & subscription
   useEffect(() => {
     let isMounted = true;
-    const pageDataInstance = new PageData();
+    const pageDataInstance = pageDataRef.current!;
 
     const syncPageData = () => {
       if (!isMounted) return;
@@ -63,6 +90,7 @@ export default function PageLoader({ pageId, goHome, goToEditor }: PageLoaderPro
 
     pageDataInstance.addOnPageDataChange(pageListenerId, syncPageData);
     pageDataInstance.init();
+    syncPageData();
 
     return () => {
       isMounted = false;
@@ -72,16 +100,17 @@ export default function PageLoader({ pageId, goHome, goToEditor }: PageLoaderPro
   }, [pageId, pageListenerId]);
 
   // Style objects derived from Theme
+  const activeTheme = theme || DEFAULT_THEME;
   const containerStyle = {
-    background: toRgba(theme.background),
-    border: `1px solid ${toRgba(theme.panel.normal1.border)}`,
-    color: `rgb(${theme.panel.normal1.font.join(",")})`,
+    background: toRgba(activeTheme.background),
+    border: `1px solid ${toRgba(activeTheme.panel.normal1.border)}`,
+    color: `rgb(${activeTheme.panel.normal1.font.join(",")})`,
   };
 
   const buttonStyle = {
-    background: toRgba(theme.button.normal1.background),
-    border: `1px solid ${toRgba(theme.button.normal1.border)}`,
-    color: `rgb(${theme.button.normal1.font.join(",")})`,
+    background: toRgba(activeTheme.button.normal1.background),
+    border: `1px solid ${toRgba(activeTheme.button.normal1.border)}`,
+    color: `rgb(${activeTheme.button.normal1.font.join(",")})`,
   };
 
   // Find root level elements (parentId === -1)
@@ -126,7 +155,7 @@ export default function PageLoader({ pageId, goHome, goToEditor }: PageLoaderPro
             const Component = entry.component;
             return (
               <div key={element.id} className={styles.rootElementItem}>
-                <Component elementId={element.id} pageId={pageId}/>
+                <Component elementId={element.id} pageId={pageId} />
               </div>
             );
           })}

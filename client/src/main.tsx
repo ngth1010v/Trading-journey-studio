@@ -7,6 +7,7 @@ import './index.css';
 // Global data
 //====================================================================================================
 import { initTheme, destroyTheme } from './modules/data/theme/ThemeData.ts';
+import { initPage, destroyPage } from './modules/data/page/PageData.ts';
 
 let initialized = false;
 
@@ -15,10 +16,11 @@ function init() {
   initialized = true;
 
   initTheme()
+  initPage()
 }
-
 function destroy() {
   destroyTheme()
+  destroyPage()
 }
 
 init()

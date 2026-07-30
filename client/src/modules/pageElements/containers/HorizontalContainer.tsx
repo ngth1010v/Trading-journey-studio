@@ -1,9 +1,7 @@
-import { useState, useEffect, useId } from "react";
+import { useEffect, useRef, useReducer, useId } from "react";
 import ThemeData, { type Theme, DEFAULT_THEME } from "../../data/theme/ThemeData";
 import PageData, { type Page } from "../../data/page/PageData";
 import { ELEMENT_MAP } from "../elementMap";
-
-const pageData = new PageData();
 
 export default function HorizontalContainer({
     pageId,
@@ -12,30 +10,44 @@ export default function HorizontalContainer({
     pageId: number;
     elementId: number;
 }) {
-    const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
-    const [page, setPage] = useState<Page | null>(null);
+    const themeRef = useRef<Theme>(DEFAULT_THEME);
+    const pageRef = useRef<Page | null>(null);
+
+    const themeDataRef = useRef<ThemeData | null>(null);
+    const pageDataRef = useRef<PageData | null>(null);
+
+    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
     const listenerId = useId();
 
     useEffect(() => {
         let isMounted = true;
-        const themeData = new ThemeData();
 
-        themeData.init()
+        // Initialize ThemeData
+        const themeData = new ThemeData();
+        themeDataRef.current = themeData;
+        themeData.init();
+
         themeData.addOnSelectedThemeDataChange(listenerId, () => {
-            if (isMounted) setTheme(themeData.getSelected());
+            if (isMounted) {
+                themeRef.current = themeData.getSelected();
+                forceUpdate();
+            }
         });
 
-        // Initialize and subscribe to PageData updates
+        // Initialize PageData
+        const pageData = new PageData();
+        pageDataRef.current = pageData;
         pageData.init();
 
         const updatePage = () => {
             if (!isMounted) return;
             try {
                 const updatedPage = pageData.get(pageId);
-                setPage(updatedPage);
+                pageRef.current = updatedPage;
             } catch (err) {
-                setPage(null);
+                pageRef.current = null;
             }
+            forceUpdate();
         };
 
         updatePage();
@@ -45,12 +57,20 @@ export default function HorizontalContainer({
             isMounted = false;
             themeData.removeOnSelectedThemeDataChange(listenerId);
             themeData.destroy();
+
             pageData.removeOnPageDataChange(listenerId);
+            pageData.destroy();
+
+            themeDataRef.current = null;
+            pageDataRef.current = null;
         };
     }, [pageId, listenerId]);
 
-    const toRgba = (rgba: [number, number, number, number]) => 
+    const toRgba = (rgba: [number, number, number, number]) =>
         `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3]})`;
+
+    const theme = themeRef.current;
+    const page = pageRef.current;
 
     if (!page) {
         return (

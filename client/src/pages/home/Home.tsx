@@ -31,20 +31,33 @@ const formatRgb = (color: [number, number, number]) =>
 
 export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
   const listenerId = useId();
-  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
-  const [pages, setPages] = useState<Page[]>([]);
+
+  // 1. Initialize useRef instances (lazy instantiation on first render)
+  const themeDataRef = useRef<ThemeData | null>(null);
+  if (!themeDataRef.current) {
+    themeDataRef.current = new ThemeData();
+  }
+
+  const pageDataRef = useRef<PageData | null>(null);
+  if (!pageDataRef.current) {
+    pageDataRef.current = new PageData();
+  }
+
+  // 3. Initialize state directly from ref methods on first render
+  const [theme, setTheme] = useState<Theme>(() => themeDataRef.current!.getSelected());
+  const [pages, setPages] = useState<Page[]>(() => pageDataRef.current!.getAll());
+
   const [exitingIds, setExitingIds] = useState<Set<number>>(new Set());
   const [placeholders, setPlaceholders] = useState<{ tempId: string; name: string }[]>([]);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
   const [isAddHovered, setIsAddHovered] = useState(false);
 
-  const pageDataRef = useRef<PageData | null>(null);
-
+  // 2. Lifecycle management for instances and change listeners
   useEffect(() => {
-    const themeData = new ThemeData();
-    const pageData = new PageData();
-    pageDataRef.current = pageData;
+    const themeData = themeDataRef.current!;
+    const pageData = pageDataRef.current!;
 
+    // Register listeners
     themeData.addOnSelectedThemeDataChange(listenerId, () => {
       setTheme(themeData.getSelected());
     });
@@ -55,9 +68,12 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
       setPlaceholders([]);
     });
 
+    // Initialize instances
     themeData.init();
-    
     pageData.init();
+
+    // Initial sync in case data updated right at init
+    setTheme(themeData.getSelected());
     setPages(pageData.getAll());
 
     return () => {
@@ -66,7 +82,6 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
 
       pageData.removeOnPageDataChange(listenerId);
       pageData.destroy();
-      pageDataRef.current = null;
     };
   }, [listenerId]);
 
