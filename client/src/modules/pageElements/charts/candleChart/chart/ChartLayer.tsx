@@ -1,8 +1,17 @@
+import { useRef } from "react";
 import ChartController from "./ChartController";
 
-export default function ChartLayer({ chart }: { chart: ChartController }) {
+export default function ChartLayer({ chart }: { chart: ChartController}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   return (
-    <div
+    <canvas
+      ref={(canvas) => {
+        canvasRef.current = canvas;
+
+        if (canvas) {
+          chart.event.setCanvasRef(canvasRef);
+        }
+      }}
       tabIndex={0} 
       style={{ outline: "none", width: "100%", height: "100%", position: "absolute", inset:"0" }} 
       onMouseDown={(e) => {

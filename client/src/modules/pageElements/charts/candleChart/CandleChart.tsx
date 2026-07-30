@@ -21,6 +21,7 @@ export default function CandleChart({
   const chartRef = useRef<ChartController | null>(null);
   const pageDataRef = useRef<PageData | null>(null);
   const themeDataRef = useRef<ThemeData | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   if (!stateRef.current) {
     stateRef.current = new StateData();
@@ -182,7 +183,7 @@ export default function CandleChart({
       }}
     >
       <Navigation state={state} />
-      <ChartLayer chart={chart} />
+      <ChartLayer chart={chart} canvasRef={canvasRef} onMount={()=>state.viewport.setCanvasRef(canvasRef)}/>
     </div>
   );
 }

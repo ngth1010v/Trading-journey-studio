@@ -1,14 +1,20 @@
-import EventController from "../../shared/chart/event/EventController";
+
 import StateData from "../state/StateData";
+import ViewportController from "./ViewportController";
+import EventController from "./EventController";
 
 export default class ChartController {
-    public event: EventController = new EventController();
+    public viewport: ViewportController = new ViewportController()
+    public event: EventController = new EventController()
 
     public init(state: StateData): void {
-        this.event.init(state.event, "chart.CandleChart")
-    }
+        this.viewport.init(state)
 
+
+        // Event handler
+    }
+    
     public destroy(): void {
-        this.event.destroy();
+        this.viewport.destroy();
     }
 }
