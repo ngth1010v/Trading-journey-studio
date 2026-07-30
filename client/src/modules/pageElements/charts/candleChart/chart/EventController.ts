@@ -21,6 +21,7 @@ interface ListenerEntry {
 export default class EventController {
   private canvasRef: RefObject<HTMLCanvasElement | null> | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private canvasSize: { w: number; h: number } = { w: 0, h: 0 };
 
   // Store listeners mapped by global ID for O(1) lookups and globally unique IDs
   private listeners: Map<string, ListenerEntry> = new Map();
@@ -39,11 +40,32 @@ export default class EventController {
 
     const element = this.canvasRef?.current;
     if (element) {
+      // Initialize size upon setting the reference
+      const rect = element.getBoundingClientRect();
+      this.canvasSize = { w: rect.width, h: rect.height };
+
       this.resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect) {
+            this.canvasSize = {
+              w: entry.contentRect.width,
+              h: entry.contentRect.height,
+            };
+          }
+        }
         this.dispatch("resize", entries);
       });
       this.resizeObserver.observe(element);
+    } else {
+      this.canvasSize = { w: 0, h: 0 };
     }
+  }
+
+  /**
+   * Returns the cached width and height of the canvas.
+   */
+  public getCanvasSize(): { w: number; h: number } {
+    return { ...this.canvasSize };
   }
 
   /**

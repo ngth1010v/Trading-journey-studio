@@ -1,6 +1,6 @@
-import type StateData from "../state/StateData";
-import type { Viewport } from "../state/viewport/ViewportData";
-
+import type StateData from "../../state/StateData";
+import ChartController from "../ChartController";
+import type { Viewport } from "../../state/viewport/ViewportData";
 
 export type ShaderWeights = {
   offset: number;
@@ -8,14 +8,16 @@ export type ShaderWeights = {
   addition: number;
 };
 
-export default class ViewportController {
+export default class ViewportConverter {
   private state: StateData | null = null;
+  private chart: ChartController | null = null;
 
   /**
-   * Initializes the controller with state reference.
+   * Initializes the converter with state reference.
    */
-  public init(state: StateData): void {
+  public init(state: StateData, chart: ChartController): void {
     this.state = state;
+    this.chart = chart;
   }
 
   /**
@@ -23,6 +25,7 @@ export default class ViewportController {
    */
   public destroy(): void {
     this.state = null;
+    this.chart = null;
   }
 
   //======================================================================================================
@@ -32,19 +35,22 @@ export default class ViewportController {
   /**
    * Converts horizontal pixel offset on canvas to timestamp.
    */
-  public pixelToTimestamp(pixel: number): number {
+  public pixelToTimestamp(pixel: number): number | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
-    const { w } = state.viewport.getCanvasSize();
+    const chart = this.getChart();
+    const { w } = chart.event.getCanvasSize();
     if (w <= 0) {
-      throw new Error("ViewportController: Canvas width must be greater than zero.");
+      throw new Error("ViewportConverter: Canvas width must be greater than zero.");
     }
 
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     if (fullDeltaTs === 0) {
-      throw new Error("ViewportController: Timestamp range must not be zero.");
+      throw new Error("ViewportConverter: Timestamp range must not be zero.");
     }
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
@@ -54,19 +60,22 @@ export default class ViewportController {
   /**
    * Converts timestamp to horizontal pixel offset on canvas.
    */
-  public timestampToPixel(timestamp: number): number {
+  public timestampToPixel(timestamp: number): number | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
-    const { w } = state.viewport.getCanvasSize();
+    const chart = this.getChart();
+    const { w } = chart.event.getCanvasSize();
     if (w <= 0) {
-      throw new Error("ViewportController: Canvas width must be greater than zero.");
+      throw new Error("ViewportConverter: Canvas width must be greater than zero.");
     }
 
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     if (fullDeltaTs === 0) {
-      throw new Error("ViewportController: Timestamp range must not be zero.");
+      throw new Error("ViewportConverter: Timestamp range must not be zero.");
     }
 
     const halfDeltaTs = timestamp - (view.fromTs * transform.scaleTs + transform.offsetTs);
@@ -76,19 +85,22 @@ export default class ViewportController {
   /**
    * Converts vertical pixel offset on canvas to price.
    */
-  public pixelToPrice(pixel: number): number {
+  public pixelToPrice(pixel: number): number | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
-    const { h } = state.viewport.getCanvasSize();
+    const chart = this.getChart();
+    const { h } = chart.event.getCanvasSize();
     if (h <= 0) {
-      throw new Error("ViewportController: Canvas height must be greater than zero.");
+      throw new Error("ViewportConverter: Canvas height must be greater than zero.");
     }
 
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     if (fullDeltaPrice === 0) {
-      throw new Error("ViewportController: Price range must not be zero.");
+      throw new Error("ViewportConverter: Price range must not be zero.");
     }
 
     const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
@@ -98,19 +110,22 @@ export default class ViewportController {
   /**
    * Converts price to vertical pixel offset on canvas.
    */
-  public priceToPixel(price: number): number {
+  public priceToPixel(price: number): number | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
-    const { h } = state.viewport.getCanvasSize();
+    const chart = this.getChart();
+    const { h } = chart.event.getCanvasSize();
     if (h <= 0) {
-      throw new Error("ViewportController: Canvas height must be greater than zero.");
+      throw new Error("ViewportConverter: Canvas height must be greater than zero.");
     }
 
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     if (fullDeltaPrice === 0) {
-      throw new Error("ViewportController: Price range must not be zero.");
+      throw new Error("ViewportConverter: Price range must not be zero.");
     }
 
     const halfDeltaPrice = price - (view.fromPrice * transform.scalePrice + transform.offsetPrice);
@@ -124,9 +139,11 @@ export default class ViewportController {
   /**
    * Computes view bounds after applying scale and offset transformations.
    */
-  public getTransformedView(): Viewport {
+  public getTransformedView(): Viewport | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     return {
@@ -139,25 +156,28 @@ export default class ViewportController {
 
   /**
    * Calculates GPU shader weights for mapping timestamp coordinates.
-   * Returns null if candle offset data is unavailable.
+   * Returns null if candle offset data or viewport is unavailable.
    */
   public getTimestampToPixelWeights(): ShaderWeights | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
     const ohlc = state.source.candle.getClosed(0);
     if (!ohlc) return null;
 
     const offset = ohlc.t;
-    const { w } = state.viewport.getCanvasSize();
+    const chart = this.getChart();
+    const { w } = chart.event.getCanvasSize();
     if (w <= 0) {
-      throw new Error("ViewportController: Canvas width must be greater than zero.");
+      throw new Error("ViewportConverter: Canvas width must be greater than zero.");
     }
 
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
     if (fullDeltaTs === 0) {
-      throw new Error("ViewportController: Timestamp range must not be zero.");
+      throw new Error("ViewportConverter: Timestamp range must not be zero.");
     }
 
     const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
@@ -173,25 +193,28 @@ export default class ViewportController {
 
   /**
    * Calculates GPU shader weights for mapping price coordinates.
-   * Returns null if candle offset data is unavailable.
+   * Returns null if candle offset data or viewport is unavailable.
    */
   public getPriceToPixelWeights(): ShaderWeights | null {
+    const view = this.getViewport();
+    if (!view) return null;
+
     const state = this.getState();
-    const { h } = state.viewport.getCanvasSize();
+    const chart = this.getChart();
+    const { h } = chart.event.getCanvasSize();
     if (h <= 0) {
-      throw new Error("ViewportController: Canvas height must be greater than zero.");
+      throw new Error("ViewportConverter: Canvas height must be greater than zero.");
     }
 
     const ohlc = state.source.candle.getClosed(0);
     if (!ohlc) return null;
 
     const offset = ohlc.l;
-    const view = state.viewport.getView();
     const transform = state.viewport.getTransform();
 
     const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
     if (fullDeltaPrice === 0) {
-      throw new Error("ViewportController: Price range must not be zero.");
+      throw new Error("ViewportConverter: Price range must not be zero.");
     }
 
     const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
@@ -209,10 +232,22 @@ export default class ViewportController {
   // PRIVATE HELPER
   //======================================================================================================
 
+  private getViewport(): Viewport | null {
+    const state = this.getState();
+    return state.config.get().data?.viewport ?? null;
+  }
+
   private getState(): StateData {
     if (!this.state) {
-      throw new Error("ViewportController: Controller has not been initialized. Call init(state) first.");
+      throw new Error("ViewportConverter: Controller has not been initialized. Call init first.");
     }
     return this.state;
+  }
+
+  private getChart(): ChartController {
+    if (!this.chart) {
+      throw new Error("ViewportConverter: Controller has not been initialized. Call init first.");
+    }
+    return this.chart;
   }
 }

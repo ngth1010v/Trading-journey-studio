@@ -1,4 +1,5 @@
 import LinkData from "./link/LinkData";
+import type StateData from "../StateData";
 
 export interface Viewport {
   fromTs: number;
@@ -31,94 +32,82 @@ const DEFAULT_TRANSFORM: ViewportTransform = {
 export default class ViewportData {
   public link: LinkData;
 
-  private viewportCache: Viewport | null = null;
+  private stateData: StateData | null = null;
   private transformCache: ViewportTransform = { ...DEFAULT_TRANSFORM };
-
-  private canvasSizeCache: CanvasSize | null = null;
-  private resizeObserver: ResizeObserver | null = null;
-
-  private viewportListeners: Map<string, () => void> = new Map();
   private transformListeners: Map<string, () => void> = new Map();
-  private resizeListeners: Map<string, () => void> = new Map();
 
   constructor() {
     this.link = new LinkData();
   }
 
   /**
-   * Initializes the transform state and initializes LinkData.
+   * Initializes the transform state, stores StateData reference, and initializes LinkData.
    */
-  public init(): void {
+  public init(stateData: StateData): void {
+    this.stateData = stateData;
     this.transformCache = { ...DEFAULT_TRANSFORM };
     this.link.init();
   }
 
   /**
-   * Cleans up listeners, ResizeObserver, and LinkData instance.
+   * Cleans up listeners, references, and LinkData instance.
    */
   public destroy(): void {
-    this.stopResizeObserver();
     this.link.destroy();
-    this.viewportListeners.clear();
     this.transformListeners.clear();
-    this.resizeListeners.clear();
-    this.viewportCache = null;
-    this.canvasSizeCache = null;
+    this.stateData = null;
   }
 
   /**
-   * Sets up the canvas React ref and starts monitoring size changes with ResizeObserver.
+   * Delegates retrieving viewport to ConfigData (source of truth).
    */
-  public setCanvasRef(canvasRef: CanvasRef): void {
-    if (!canvasRef || !canvasRef.current) {
-      throw new Error(
-        "ViewportData: canvasRef or canvasRef.current is null or undefined."
-      );
+  private getView(): Viewport {
+    if (!this.stateData) {
+      throw new Error("ViewportData: ViewportData has not been initialized with StateData yet.");
     }
 
-    const canvasElement = canvasRef.current;
+    const viewport = this.stateData.config.get().data?.viewport;
+    if (!viewport) {
+      throw new Error("ViewportData: Viewport has not been set in ConfigData yet.");
+    }
 
-    // Clean up existing observer if re-assigned
-    this.stopResizeObserver();
+    return { ...viewport };
+  }
 
-    // Read initial size
-    this.canvasSizeCache = {
-      w: canvasElement.clientWidth,
-      h: canvasElement.clientHeight,
+  /**
+   * Delegates setting viewport to ConfigData (source of truth).
+   */
+  private setView(viewport: Viewport): void {
+    if (!this.stateData) {
+      throw new Error("ViewportData: ViewportData has not been initialized with StateData yet.");
+    }
+
+    this.stateData.config.set({
+      data: {
+        viewport: { ...viewport },
+      },
+    });
+  }
+
+  /**
+   * Merges current transformCache into ConfigData viewport and resets transformCache to default.
+   */
+  public flushTransform(): void {
+    const currentView = this.getView(); // Will throw if stateData or viewport is missing
+    const { scaleTs, offsetTs, scalePrice, offsetPrice } = this.transformCache;
+
+    const newViewport: Viewport = {
+      fromTs: currentView.fromTs * scaleTs + offsetTs,
+      toTs: currentView.toTs * scaleTs + offsetTs,
+      fromPrice: currentView.fromPrice * scalePrice + offsetPrice,
+      toPrice: currentView.toPrice * scalePrice + offsetPrice,
     };
 
-    this.resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === canvasElement) {
-          const { width, height } = entry.contentRect;
-          this.canvasSizeCache = { w: width, h: height };
-          this.notifyResizeListeners();
-        }
-      }
-    });
+    // Update config viewport
+    this.setView(newViewport);
 
-    this.resizeObserver.observe(canvasElement);
-  }
-
-  public getCanvasSize(): CanvasSize {
-    if (!this.canvasSizeCache) {
-      throw new Error(
-        "ViewportData: Canvas size has not been initialized. Call setCanvasRef() first."
-      );
-    }
-    return { ...this.canvasSizeCache };
-  }
-
-  public getView(): Viewport {
-    if (!this.viewportCache) {
-      throw new Error("ViewportData: Viewport has not been set yet. Call setView() first.");
-    }
-    return { ...this.viewportCache };
-  }
-
-  public setView(viewport: Viewport): void {
-    this.viewportCache = { ...viewport };
-    this.notifyViewportListeners();
+    // Reset transform to default and notify listeners
+    this.setTransform({ ...DEFAULT_TRANSFORM });
   }
 
   public getTransform(): ViewportTransform {
@@ -127,48 +116,16 @@ export default class ViewportData {
 
   public setTransform(transform: ViewportTransform): void {
     this.transformCache = { ...transform };
+    console.log(transform);
     this.notifyTransformListeners();
-  }
-
-  public addOnViewportDataChange(id: string, cb: () => void): void {
-    this.viewportListeners.set(id, cb); // Map.set automatically overwrites duplicate key
-  }
-
-  public removeOnViewportDataChange(id: string): void {
-    this.viewportListeners.delete(id);
   }
 
   public addOnViewportTransformDataChange(id: string, cb: () => void): void {
     this.transformListeners.set(id, cb); // Map.set automatically overwrites duplicate key
   }
 
-  public removeOnViewportDataTransformChange(id: string): void {
+  public removeOnViewportTransformDataChange(id: string): void {
     this.transformListeners.delete(id);
-  }
-
-  public addOnCanvasResize(id: string, cb: () => void): void {
-    this.resizeListeners.set(id, cb); // Map.set automatically overwrites duplicate key
-  }
-
-  public removeOnCanvasResize(id: string): void {
-    this.resizeListeners.delete(id);
-  }
-
-  private stopResizeObserver(): void {
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
-    }
-  }
-
-  private notifyViewportListeners(): void {
-    for (const callback of this.viewportListeners.values()) {
-      try {
-        callback();
-      } catch (err) {
-        console.error("ViewportData: Error inside viewport listener callback:", err);
-      }
-    }
   }
 
   private notifyTransformListeners(): void {
@@ -177,16 +134,6 @@ export default class ViewportData {
         callback();
       } catch (err) {
         console.error("ViewportData: Error inside transform listener callback:", err);
-      }
-    }
-  }
-
-  private notifyResizeListeners(): void {
-    for (const callback of this.resizeListeners.values()) {
-      try {
-        callback();
-      } catch (err) {
-        console.error("ViewportData: Error inside canvas resize listener callback:", err);
       }
     }
   }
