@@ -10,6 +10,10 @@ export default class ViewportEventController {
   private isPanning = false;
   private lastMousePos = { x: 0, y: 0 };
 
+  // Timer reference for debouncing the wheel flush
+  private wheelFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly WHEEL_DEBOUNCE_MS = 500;
+
   private readonly PAN_EVENT_ID = "ViewportEventController_Pan";
   private readonly WHEEL_EVENT_ID = "ViewportEventController_Wheel";
 
@@ -32,6 +36,12 @@ export default class ViewportEventController {
    * Cleans up event listeners and references.
    */
   public destroy(): void {
+    // Clear active wheel timer on cleanup to prevent memory leaks or calling flush on destroyed state
+    if (this.wheelFlushTimer) {
+      clearTimeout(this.wheelFlushTimer);
+      this.wheelFlushTimer = null;
+    }
+
     if (this.chart) {
       try {
         this.chart.event.removeOnEvent(`${this.PAN_EVENT_ID}_down`);
@@ -57,6 +67,10 @@ export default class ViewportEventController {
     this.enabled = enable;
     if (!enable) {
       this.isPanning = false;
+      if (this.wheelFlushTimer) {
+        clearTimeout(this.wheelFlushTimer);
+        this.wheelFlushTimer = null;
+      }
     }
   }
 
@@ -74,6 +88,7 @@ export default class ViewportEventController {
     if (!this.chart) return;
     if (!this.enabled) return;
     this.isPanning = false;
+    this.state?.viewport.flushTransform();
   };
 
   private handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
@@ -149,7 +164,24 @@ export default class ViewportEventController {
     };
 
     state.viewport.setTransform(newTransform);
+
+    // Schedule debounced flush
+    this.debounceWheelFlush();
   };
+
+  /**
+   * Clears any active wheel timer and sets a new timer for 500ms.
+   */
+  private debounceWheelFlush(): void {
+    if (this.wheelFlushTimer) {
+      clearTimeout(this.wheelFlushTimer);
+    }
+
+    this.wheelFlushTimer = setTimeout(() => {
+      this.state?.viewport.flushTransform();
+      this.wheelFlushTimer = null;
+    }, this.WHEEL_DEBOUNCE_MS);
+  }
 
   /**
    * Helper to compute relative canvas pixel coordinates from native client mouse events.
@@ -177,5 +209,4 @@ export default class ViewportEventController {
     }
     return this.state;
   }
-
 }
