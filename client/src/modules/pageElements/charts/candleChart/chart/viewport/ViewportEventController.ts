@@ -191,7 +191,7 @@ export default class ViewportEventController {
 
   private getViewport(): Viewport | null {
     const state = this.getState();
-    return state.config.get().data?.viewport ?? null;
+    return state.config.get()?.viewport ?? null;
   }
 
   private getState(): StateData {

@@ -1,4 +1,4 @@
-import type { RefObject, SyntheticEvent, MouseEvent, WheelEvent, KeyboardEvent } from "react";
+import type { SyntheticEvent, MouseEvent, WheelEvent, KeyboardEvent } from "react";
 
 export type EventType =
   | "mouseUp"
@@ -19,7 +19,7 @@ interface ListenerEntry {
 }
 
 export default class EventController {
-  private canvasRef: RefObject<HTMLCanvasElement | null> | null = null;
+  private canvas: HTMLCanvasElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private canvasSize: { w: number; h: number } = { w: 0, h: 0 };
 
@@ -29,16 +29,16 @@ export default class EventController {
   /**
    * Sets the React RefObject reference for the canvas element and sets up a ResizeObserver.
    */
-  public setCanvasRef(canvasRef: RefObject<HTMLCanvasElement | null>): void {
+  public setCanvas(canvas: HTMLCanvasElement): void {
     // Clean up previous observer if canvas instance changes or ref unmounts
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
 
-    this.canvasRef = canvasRef;
+    this.canvas = canvas;
 
-    const element = this.canvasRef?.current;
+    const element = this.canvas;
     if (element) {
       // Initialize size upon setting the reference
       const rect = element.getBoundingClientRect();
