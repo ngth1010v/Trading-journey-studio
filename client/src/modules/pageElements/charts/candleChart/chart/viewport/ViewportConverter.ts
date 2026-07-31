@@ -48,12 +48,12 @@ export default class ViewportConverter {
 
     const transform = state.viewport.getTransform();
 
-    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
+    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleX;
     if (fullDeltaTs === 0) {
       throw new Error("ViewportConverter: Timestamp range must not be zero.");
     }
 
-    const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
+    const realFromTs = view.fromTs * transform.scaleX + transform.offsetX;
     return realFromTs + (pixel / w) * fullDeltaTs;
   }
 
@@ -73,12 +73,12 @@ export default class ViewportConverter {
 
     const transform = state.viewport.getTransform();
 
-    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
+    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleX;
     if (fullDeltaTs === 0) {
       throw new Error("ViewportConverter: Timestamp range must not be zero.");
     }
 
-    const halfDeltaTs = timestamp - (view.fromTs * transform.scaleTs + transform.offsetTs);
+    const halfDeltaTs = timestamp - (view.fromTs * transform.scaleX + transform.offsetX);
     return (halfDeltaTs / fullDeltaTs) * w;
   }
 
@@ -98,12 +98,12 @@ export default class ViewportConverter {
 
     const transform = state.viewport.getTransform();
 
-    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
+    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scaleY;
     if (fullDeltaPrice === 0) {
       throw new Error("ViewportConverter: Price range must not be zero.");
     }
 
-    const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
+    const realFromPrice = view.fromPrice * transform.scaleY + transform.offsetY;
     return realFromPrice + ((h - pixel) / h) * fullDeltaPrice;
   }
 
@@ -123,12 +123,12 @@ export default class ViewportConverter {
 
     const transform = state.viewport.getTransform();
 
-    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
+    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scaleY;
     if (fullDeltaPrice === 0) {
       throw new Error("ViewportConverter: Price range must not be zero.");
     }
 
-    const halfDeltaPrice = price - (view.fromPrice * transform.scalePrice + transform.offsetPrice);
+    const halfDeltaPrice = price - (view.fromPrice * transform.scaleY + transform.offsetY);
     return h - (halfDeltaPrice / fullDeltaPrice) * h;
   }
 
@@ -147,10 +147,10 @@ export default class ViewportConverter {
     const transform = state.viewport.getTransform();
 
     return {
-      fromTs: view.fromTs * transform.scaleTs + transform.offsetTs,
-      toTs: view.toTs * transform.scaleTs + transform.offsetTs,
-      fromPrice: view.fromPrice * transform.scalePrice + transform.offsetPrice,
-      toPrice: view.toPrice * transform.scalePrice + transform.offsetPrice,
+      fromTs: view.fromTs * transform.scaleX + transform.offsetX,
+      toTs: view.toTs * transform.scaleX + transform.offsetX,
+      fromPrice: view.fromPrice * transform.scaleY + transform.offsetY,
+      toPrice: view.toPrice * transform.scaleY + transform.offsetY,
     };
   }
 
@@ -175,12 +175,12 @@ export default class ViewportConverter {
 
     const transform = state.viewport.getTransform();
 
-    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleTs;
+    const fullDeltaTs = (view.toTs - view.fromTs) * transform.scaleX;
     if (fullDeltaTs === 0) {
       throw new Error("ViewportConverter: Timestamp range must not be zero.");
     }
 
-    const realFromTs = view.fromTs * transform.scaleTs + transform.offsetTs;
+    const realFromTs = view.fromTs * transform.scaleX + transform.offsetX;
     const multiplication = w / fullDeltaTs;
     const addition = (offset - realFromTs) * multiplication;
 
@@ -212,12 +212,12 @@ export default class ViewportConverter {
     const offset = ohlc.l;
     const transform = state.viewport.getTransform();
 
-    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scalePrice;
+    const fullDeltaPrice = (view.toPrice - view.fromPrice) * transform.scaleY;
     if (fullDeltaPrice === 0) {
       throw new Error("ViewportConverter: Price range must not be zero.");
     }
 
-    const realFromPrice = view.fromPrice * transform.scalePrice + transform.offsetPrice;
+    const realFromPrice = view.fromPrice * transform.scaleY + transform.offsetY;
     const multiplication = -h / fullDeltaPrice;
     const addition = h - ((offset - realFromPrice) * h) / fullDeltaPrice;
 

@@ -12,7 +12,7 @@ export default class ViewportController {
    */
   public init(state: StateData, chart: ChartController): void {
     this.converter.init(state, chart);
-    this.event.init(state, chart, this.converter);
+    this.event.init(state, chart);
   }
 
   /**

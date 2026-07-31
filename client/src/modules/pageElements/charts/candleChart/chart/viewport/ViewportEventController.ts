@@ -1,12 +1,10 @@
 import type StateData from "../../state/StateData";
 import type { Viewport, ViewportTransform } from "../../state/viewport/ViewportData";
 import type ChartController from "../ChartController";
-import type ViewportConverter from "./ViewportConverter";
 
 export default class ViewportEventController {
   private state: StateData | null = null;
   private chart: ChartController | null = null;
-  private converter: ViewportConverter | null = null;
 
   private enabled = true;
   private isPanning = false;
@@ -18,10 +16,9 @@ export default class ViewportEventController {
   /**
    * Initializes the event controller with state, chart, and converter references.
    */
-  public init(state: StateData, chart: ChartController, converter: ViewportConverter): void {
+  public init(state: StateData, chart: ChartController): void {
     this.state = state;
     this.chart = chart;
-    this.converter = converter;
 
     // Register event listeners
     this.chart.event.addOnEvent("mouseDown", `${this.PAN_EVENT_ID}_down`, this.handleMouseDown);
@@ -48,7 +45,6 @@ export default class ViewportEventController {
     }
     this.state = null;
     this.chart = null;
-    this.converter = null;
     this.isPanning = false;
     this.enabled = true;
   }
@@ -98,27 +94,22 @@ export default class ViewportEventController {
 
     const transform = state.viewport.getTransform();
 
-    // Convert pixel delta into timestamp and price domain offsets
-    const deltaTs = -(dx / w) * (view.toTs - view.fromTs) * transform.scaleTs;
-    const deltaPrice = (dy / h) * (view.toPrice - view.fromPrice) * transform.scalePrice;
-
+    // Directly apply pixel translation offsets
     state.viewport.setTransform({
       ...transform,
-      offsetTs: transform.offsetTs + deltaTs,
-      offsetPrice: transform.offsetPrice + deltaPrice,
+      offsetX: transform.offsetX + dx,
+      offsetY: transform.offsetY + dy,
     });
   };
 
   private handleWheel = (e: React.WheelEvent<HTMLCanvasElement>): void => {
     if (!this.chart) return;
     if (!this.enabled) return;
-    e.preventDefault();
 
     const view = this.getViewport();
     if (!view) return;
 
     const state = this.getState();
-    const converter = this.getConverter();
 
     const { w, h } = this.chart.event.getCanvasSize();
     if (w <= 0 || h <= 0) return;
@@ -126,49 +117,35 @@ export default class ViewportEventController {
     const { x: mouseX, y: mouseY } = this.getMousePosition(e);
     const currentTransform = state.viewport.getTransform();
 
-    const zoomFactor = e.deltaY < 0 ? 0.9 : 1.1;
-
-    // Convert mouse coordinates into timestamp and price domain values
-    const mouseTs = converter.pixelToTimestamp(mouseX);
-    const mousePrice = converter.pixelToPrice(mouseY);
-    if (mouseTs === null || mousePrice === null) return;
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
 
     const isCtrl = e.ctrlKey || e.metaKey;
     const isAlt = e.altKey;
 
-    let newScaleTs = currentTransform.scaleTs;
-    let newScalePrice = currentTransform.scalePrice;
+    let newScaleX = currentTransform.scaleX;
+    let newScaleY = currentTransform.scaleY;
 
     if (isCtrl && !isAlt) {
-      // ScaleX: Timestamp zoom only
-      newScaleTs *= zoomFactor;
+      // ScaleX zoom only
+      newScaleX *= zoomFactor;
     } else if (isAlt && !isCtrl) {
-      // ScaleY: Price zoom only
-      newScalePrice *= zoomFactor;
+      // ScaleY zoom only
+      newScaleY *= zoomFactor;
     } else {
       // Uniform Scale: Both X and Y zoom
-      newScaleTs *= zoomFactor;
-      newScalePrice *= zoomFactor;
+      newScaleX *= zoomFactor;
+      newScaleY *= zoomFactor;
     }
 
-    // Adjust offsets so scaling stays centered around current mouse position
-    const unscaledFromTs = view.fromTs * newScaleTs;
-    const unscaledDeltaTs = (view.toTs - view.fromTs) * newScaleTs;
-    const newOffsetTs = unscaledDeltaTs !== 0
-      ? mouseTs - unscaledFromTs - (mouseX / w) * unscaledDeltaTs
-      : currentTransform.offsetTs;
-
-    const unscaledFromPrice = view.fromPrice * newScalePrice;
-    const unscaledDeltaPrice = (view.toPrice - view.fromPrice) * newScalePrice;
-    const newOffsetPrice = unscaledDeltaPrice !== 0
-      ? mousePrice - unscaledFromPrice - ((h - mouseY) / h) * unscaledDeltaPrice
-      : currentTransform.offsetPrice;
+    // Adjust pixel offsets so scaling stays anchored around current mouse position
+    const newOffsetX = currentTransform.offsetX - mouseX * (newScaleX - currentTransform.scaleX);
+    const newOffsetY = currentTransform.offsetY - mouseY * (newScaleY - currentTransform.scaleY);
 
     const newTransform: ViewportTransform = {
-      scaleTs: newScaleTs,
-      offsetTs: newOffsetTs,
-      scalePrice: newScalePrice,
-      offsetPrice: newOffsetPrice,
+      scaleX: newScaleX,
+      offsetX: newOffsetX,
+      scaleY: newScaleY,
+      offsetY: newOffsetY,
     };
 
     state.viewport.setTransform(newTransform);
@@ -201,10 +178,4 @@ export default class ViewportEventController {
     return this.state;
   }
 
-  private getConverter(): ViewportConverter {
-    if (!this.converter) {
-      throw new Error("ViewportEventController: Converter not initialized.");
-    }
-    return this.converter;
-  }
 }

@@ -22,16 +22,23 @@ export interface Config {
   }
 }
 
-const DEFAULT_CONFIG = {
-  style: {
-    candle: {
-      bull: {
-        background: [50,255,50,255] as RGBA,
-        border    : [50,255,50,255] as RGBA
-      },
-      bear: {
-        background: [255,50,50,255] as RGBA,
-        border    : [255,50,50,255] as RGBA
+function createDefault() {
+  return {
+    viewport: {
+      fromTs: Date.now() - (1000*60*60*24)*3/4,
+      toTs: Date.now() + (1000*60*60*24)/4,
+    },
+    timeframe: "1H",
+    style: {
+      candle: {
+        bull: {
+          background: [50,255,50,255] as RGBA,
+          border    : [50,255,50,255] as RGBA
+        },
+        bear: {
+          background: [255,50,50,255] as RGBA,
+          border    : [255,50,50,255] as RGBA
+        }
       }
     }
   }
@@ -53,7 +60,28 @@ export default class ConfigData {
   public init(pageId: number, elementId: number): void {
     this.pageId = pageId;
     this.elementId = elementId;
-    if (!this.cache) this.cache = structuredClone(DEFAULT_CONFIG)
+    this.cache = {
+      viewport: {
+        fromTs: Date.now() - (1000*60*60*24)*3/4,
+        toTs: Date.now() + (1000*60*60*24)/4,
+        fromPrice: 0,
+        toPrice: 1,
+      } as Viewport,
+      timeframe: "1H",
+      style: {
+        candle: {
+          bull: {
+            background: [50,255,50,255] as RGBA,
+            border    : [50,255,50,255] as RGBA
+          },
+          bear: {
+            background: [255,50,50,255] as RGBA,
+            border    : [255,50,50,255] as RGBA
+          }
+        }
+      },
+      ...this.cache
+    }
 
     this.pageData.init();
 
@@ -149,7 +177,7 @@ export default class ConfigData {
       if (!page || !element) {
         this.cache = null;
       } else {
-        this.cache = element.data ?? null;
+        this.cache = {...this.cache, ...element.data};
       }
     } catch {
       // PageData.get() throws an error if page isn't found

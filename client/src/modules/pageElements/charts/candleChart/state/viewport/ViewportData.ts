@@ -9,10 +9,10 @@ export interface Viewport {
 }
 
 export interface ViewportTransform {
-  scaleTs: number;
-  offsetTs: number;
-  scalePrice: number;
-  offsetPrice: number;
+  scaleX: number;
+  offsetX: number;
+  scaleY: number;
+  offsetY: number;
 }
 
 export interface CanvasSize {
@@ -23,10 +23,10 @@ export interface CanvasSize {
 export type CanvasRef = { current: HTMLCanvasElement | null };
 
 const DEFAULT_TRANSFORM: ViewportTransform = {
-  scaleTs: 1,
-  offsetTs: 0,
-  scalePrice: 1,
-  offsetPrice: 0,
+  scaleX: 1,
+  offsetX: 0,
+  scaleY: 1,
+  offsetY: 0,
 };
 
 export default class ViewportData {
@@ -92,13 +92,13 @@ export default class ViewportData {
    */
   public flushTransform(): void {
     const currentView = this.getView(); // Will throw if stateData or viewport is missing
-    const { scaleTs, offsetTs, scalePrice, offsetPrice } = this.transformCache;
+    const { scaleX, offsetX, scaleY, offsetY } = this.transformCache;
 
     const newViewport: Viewport = {
-      fromTs: currentView.fromTs * scaleTs + offsetTs,
-      toTs: currentView.toTs * scaleTs + offsetTs,
-      fromPrice: currentView.fromPrice * scalePrice + offsetPrice,
-      toPrice: currentView.toPrice * scalePrice + offsetPrice,
+      fromTs: currentView.fromTs * scaleX + offsetX,
+      toTs: currentView.toTs * scaleX + offsetX,
+      fromPrice: currentView.fromPrice * scaleY + offsetY,
+      toPrice: currentView.toPrice * scaleY + offsetY,
     };
 
     // Update config viewport
