@@ -10,18 +10,16 @@ export default class StateData {
   /**
    * Initializes config, viewport, and source data instances.
    */
-  public async init(): Promise<void> {
-    this.config.init();
+  public async init(pageId: number, elementId: number): Promise<void> {
+    this.config.init(pageId, elementId);
     this.viewport.init(this);
     await this.source.init();
 
-
-    
     //====================================================================================================
     // Refresh logic
     //====================================================================================================
     this.config.addOnConfigDataChange("Default[data.viewport]Refresh", ["data", "viewport"], () => {
-      const view = this.config.get().data?.viewport;
+      const view = this.config.get()?.viewport;
       if (view) {
         this.source.candle.setView(view.fromTs, view.toTs);
         this.source.trade.setView(view.fromTs, view.toTs);
@@ -30,7 +28,7 @@ export default class StateData {
     });
 
     this.config.addOnConfigDataChange("Default[data.strategyId]Refresh", ["data", "strategyId"], () => {
-      const strategyId = this.config.get().data?.strategyId;
+      const strategyId = this.config.get()?.strategyId;
       if (strategyId !== undefined) {
         this.source.trade.setSource(null, strategyId);
         this.source.shape.setSource(null, strategyId);
@@ -38,7 +36,7 @@ export default class StateData {
     });
 
     this.config.addOnConfigDataChange("Default[data.symbol]Refresh", ["data", "symbol"], () => {
-      const symbol = this.config.get().data?.symbol;
+      const symbol = this.config.get()?.symbol;
       if (symbol !== undefined) {
         this.source.trade.setSource(symbol, null);
         this.source.shape.setSource(symbol, null);
@@ -46,14 +44,14 @@ export default class StateData {
     });
 
     this.config.addOnConfigDataChange("Default[data.timeframe]Refresh", ["data", "timeframe"], () => {
-      const timeframe = this.config.get().data?.timeframe;
+      const timeframe = this.config.get()?.timeframe;
       if (timeframe !== undefined) {
         this.source.candle.setSource(null, timeframe);
       }
     });
 
     this.config.addOnConfigDataChange("Default[data.link]Refresh", ["data", "linkId"], () => {
-      const linkId = this.config.get().data?.linkId;
+      const linkId = this.config.get()?.linkId;
       this.viewport.link.state.setSource(linkId ? linkId : null);
     });
   }

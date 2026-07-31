@@ -34,7 +34,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
     // Extract current symbol and favorite symbols from state
     let configData;
     try {
-        configData = state.config.get().data;
+        configData = state.config.get();
     } catch {
         configData = undefined;
     }
@@ -58,7 +58,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
     }
 
     const handleSelectSymbol = (symbol: string) => {
-        state.config.set({ data: { symbol } });
+        state.config.set( { symbol });
     };
 
     // Case 1: No Strategy or Favorite Symbols list is empty -> Fallback to allSymbols list

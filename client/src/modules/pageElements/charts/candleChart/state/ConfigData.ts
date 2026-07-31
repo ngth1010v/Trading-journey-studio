@@ -1,241 +1,191 @@
+import PageData, { type Page, type PageElement } from "../../../../data/page/PageData";
 import type { Viewport } from "./viewport/ViewportData";
 
 export interface Config {
-  pageId    ?: number | null;
-  elementId ?: number | null;
-  data?: {
-    viewport    ?: Viewport | null;
-    strategyId  ?: number | null;
-    symbol      ?: string | null;
-    timeframe   ?: string | null;
-    linkId      ?: number | null;
-  };
+  viewport?: Viewport;
+  strategyId?: number;
+  symbol?: string;
+  timeframe?: string;
+  linkId?: number;
 }
 
-interface TargetedListener {
+interface ConfigListener {
   target: string[];
   cb: () => void;
 }
 
 export default class ConfigData {
-  private configCache: Config | null = null;
-  private configListeners: Map<string, () => void> = new Map();
-  private targetedListeners: Map<string, TargetedListener> = new Map();
+  private pageData: PageData = new PageData();
+  private pageId: number | null = null;
+  private elementId: number | null = null;
+  private cache: Config | null = null;
 
-  /**
-   * Initializes the config state.
-   */
-  public init(): void {
-    this.configCache = null;
-    this.configListeners.clear();
-    // targetedListeners persist through init() as specified
+  private listeners = new Map<string, ConfigListener>();
+
+  public init(pageId: number, elementId: number): void {
+    this.pageId = pageId;
+    this.elementId = elementId;
+
+    this.pageData.init();
+
+    const listenerId = `config_data_sync_${Math.random().toString(36).substring(2, 11)}`;
+
+    this.pageData.addOnPageDataChange(listenerId, () => {
+      this.syncFromPageData();
+    });
+
+    // Initial sync upon initialization
+    this.syncFromPageData();
   }
 
-  /**
-   * Cleans up listeners and clears cached config data.
-   */
   public destroy(): void {
-    this.configListeners.clear();
-    this.targetedListeners.clear();
-    this.configCache = null;
+    this.pageData.destroy();
+    this.listeners.clear();
+    this.cache = null;
+    this.pageId = null;
+    this.elementId = null;
   }
 
   /**
-   * Retrieves the current configuration.
-   * Throws an error if the config has not been set yet.
+   * Return cached Config data
    */
-  public get(): Config {
-    if (!this.configCache) {
-      throw new Error("ConfigData: Config has not been set yet. Call set() first.");
-    }
-
-    return this.cloneConfig(this.configCache);
+  public get(): Config | null {
+    return this.cache;
   }
 
   /**
-   * Updates the configuration state by merging partial updates.
-   * Missing fields in `config` retain their existing values in `configCache`.
+   * Optimistically merge partial updates into cache & notify listeners, then send to server via PageData
    */
-  public set(config: Config): void {
-    const oldConfig = this.configCache;
-    const mergedConfig = this.mergeConfig(this.configCache, config);
+  public set(partialConfig: Partial<Config>): void {
+    const previousCache = this.cache;
 
-    if (this.isEqual(oldConfig, mergedConfig)) {
-      return;
-    }
+    // Merge partial update with existing cache (fallback to empty object if cache was null)
+    const updatedConfig: Config = {
+      ...(this.cache ?? {}),
+      ...partialConfig,
+    };
 
-    this.configCache = mergedConfig;
-    this.notifyConfigListeners();
-    this.notifyTargetedListeners(oldConfig, mergedConfig);
-  }
+    this.cache = updatedConfig;
 
-  public addOnConfigChange(id: string, cb: () => void): void {
-    this.configListeners.set(id, cb);
-  }
+    // 1. Immediately notify local listeners (optimistic update)
+    this.notifyListeners(previousCache, this.cache);
 
-  public removeOnConfigChange(id: string): void {
-    this.configListeners.delete(id);
-  }
-
-  /**
-   * Registers a callback that triggers when data targeted by specific keys changes.
-   */
-  public addOnConfigDataChange(
-    id: string,
-    target: string[] | null | undefined,
-    cb: () => void
-  ): void {
-    if (this.targetedListeners.has(id)) {
-      throw new Error(`ConfigData: Targeted listener with id "${id}" already exists.`);
-    }
-
-    this.targetedListeners.set(id, {
-      target: target ?? [],
-      cb,
+    // 2. Persist updated full config to server via PageData asynchronously
+    this.persistToPageData(this.cache).catch((err) => {
+      console.error("[ConfigData] Failed to persist config to server:", err);
     });
   }
 
-  /**
-   * Unregisters a targeted callback by ID.
-   */
+  public addOnConfigDataChange(id: string, target: string[], cb: () => void): void {
+    if (this.listeners.has(id)) {
+      console.warn(`[ConfigData] Listener ID '${id}' already exists. Overwriting listener.`);
+    }
+
+    this.listeners.set(id, { target, cb });
+
+    // Instantly invoke upon registration if cache is populated
+    if (this.cache !== null) {
+      try {
+        cb();
+      } catch (err) {
+        console.error(`[ConfigData] Error executing callback on register for ID '${id}':`, err);
+      }
+    }
+  }
+
   public removeOnConfigDataChange(id: string): void {
-    this.targetedListeners.delete(id);
+    if (!this.listeners.has(id)) {
+      console.warn(`[ConfigData] Listener ID '${id}' not found in onConfigDataChange listeners.`);
+      return;
+    }
+    this.listeners.delete(id);
   }
 
-  private notifyConfigListeners(): void {
-    for (const callback of this.configListeners.values()) {
-      try {
-        callback();
-      } catch (err) {
-        console.error("ConfigData: Error inside config listener callback:", err);
+  // ============================================================================
+  // PRIVATE HELPER METHODS
+  // ============================================================================
+
+  private syncFromPageData(): void {
+    if (this.pageId === null || this.elementId === null) {
+      this.cache = null;
+      return;
+    }
+
+    const previousCache = this.cache;
+
+    try {
+      const page: Page = this.pageData.get(this.pageId);
+      const element: PageElement | undefined = page?.data?.find((e) => e.id === this.elementId);
+
+      if (!page || !element) {
+        this.cache = null;
+      } else {
+        this.cache = element.data ?? null;
       }
+    } catch {
+      // PageData.get() throws an error if page isn't found
+      this.cache = null;
+    }
+
+    this.notifyListeners(previousCache, this.cache);
+  }
+
+  private async persistToPageData(newConfig: Config): Promise<void> {
+    if (this.pageId === null || this.elementId === null) return;
+
+    try {
+      const page = this.pageData.get(this.pageId);
+      if (!page) return;
+
+      const elementIndex = page.data.findIndex((e) => e.id === this.elementId);
+      if (elementIndex === -1) return;
+
+      // Update the targeted element's data while preserving other element fields
+      const updatedElements = [...page.data];
+      updatedElements[elementIndex] = {
+        ...updatedElements[elementIndex],
+        data: newConfig,
+      };
+
+      const updatedPage: Page = {
+        ...page,
+        data: updatedElements,
+      };
+
+      await this.pageData.set(updatedPage);
+    } catch (err) {
+      console.error("[ConfigData] Error during persistToPageData:", err);
     }
   }
 
-  private notifyTargetedListeners(prevConfig: Config | null, nextConfig: Config): void {
-    for (const { target, cb } of this.targetedListeners.values()) {
-      try {
-        if (!target || target.length === 0) {
-          // If target is empty, null, or undefined -> trigger on any config change
+  private notifyListeners(oldConfig: Config | null, newConfig: Config | null): void {
+    for (const { target, cb } of this.listeners.values()) {
+      if (this.shouldTriggerCallback(target, oldConfig, newConfig)) {
+        try {
           cb();
-        } else {
-          const prevVal = this.getValueByPath(prevConfig, target);
-          const nextVal = this.getValueByPath(nextConfig, target);
-
-          if (this.hasSubtreeChanged(prevVal, nextVal)) {
-            cb();
-          }
+        } catch (err) {
+          console.error("[ConfigData] Error executing listener callback:", err);
         }
-      } catch (err) {
-        console.error("ConfigData: Error inside targeted config listener callback:", err);
       }
     }
   }
 
-  /**
-   * Navigates an object graph given an array of keys.
-   */
-  private getValueByPath(obj: any, path: string[]): any {
-    let current = obj;
-    for (const key of path) {
-      if (current === null || current === undefined || typeof current !== "object") {
-        return undefined;
-      }
-      current = current[key];
-    }
-    return current;
-  }
-
-  /**
-   * Checks if values or any nested values within a target subtree have changed.
-   */
-  private hasSubtreeChanged(prevVal: any, nextVal: any): boolean {
-    if (prevVal === nextVal) return false;
-
-    if (
-      typeof prevVal !== "object" ||
-      typeof nextVal !== "object" ||
-      prevVal === null ||
-      nextVal === null
-    ) {
-      return prevVal !== nextVal;
+  private shouldTriggerCallback(
+    target: string[],
+    oldConfig: Config | null,
+    newConfig: Config | null
+  ): boolean {
+    // If target is empty, trigger on ANY change
+    if (!target || target.length === 0) {
+      return JSON.stringify(oldConfig) !== JSON.stringify(newConfig);
     }
 
-    const prevKeys = Object.keys(prevVal);
-    const nextKeys = Object.keys(nextVal);
+    // Trigger if targeted property values changed
+    const oldObj = (oldConfig || {}) as Record<string, any>;
+    const newObj = (newConfig || {}) as Record<string, any>;
 
-    const allKeys = new Set([...prevKeys, ...nextKeys]);
-
-    for (const key of allKeys) {
-      if (this.hasSubtreeChanged(prevVal[key], nextVal[key])) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Merges incoming partial config with existing cached config.
-   */
-  private mergeConfig(current: Config | null, incoming: Config): Config {
-    return {
-      pageId: incoming.pageId ?? current?.pageId,
-      elementId: incoming.elementId ?? current?.elementId,
-      data: {
-        strategyId: incoming.data?.strategyId ?? current?.data?.strategyId,
-        symbol: incoming.data?.symbol ?? current?.data?.symbol,
-        timeframe: incoming.data?.timeframe ?? current?.data?.timeframe,
-        linkId: incoming.data?.linkId !== undefined ? incoming.data.linkId : current?.data?.linkId,
-        viewport: incoming.data?.viewport
-          ? { ...incoming.data.viewport }
-          : current?.data?.viewport
-          ? { ...current.data.viewport }
-          : undefined,
-      },
-    };
-  }
-
-  /**
-   * Deep clones a config object to prevent accidental external mutation.
-   */
-  private cloneConfig(config: Config): Config {
-    return {
-      ...config,
-      data: config.data
-        ? {
-            ...config.data,
-            viewport: config.data.viewport
-              ? { ...config.data.viewport }
-              : undefined,
-          }
-        : undefined,
-    };
-  }
-
-  /**
-   * Safe structural comparison supporting optional/undefined values.
-   */
-  private isEqual(a: Config | null, b: Config): boolean {
-    if (!a) return false;
-
-    const dataA = a.data;
-    const dataB = b.data;
-
-    const vpA = dataA?.viewport;
-    const vpB = dataB?.viewport;
-
-    return (
-      a.pageId === b.pageId &&
-      a.elementId === b.elementId &&
-      dataA?.strategyId === dataB?.strategyId &&
-      dataA?.symbol === dataB?.symbol &&
-      dataA?.timeframe === dataB?.timeframe &&
-      dataA?.linkId === dataB?.linkId &&
-      vpA?.fromTs === vpB?.fromTs &&
-      vpA?.toTs === vpB?.toTs &&
-      vpA?.fromPrice === vpB?.fromPrice &&
-      vpA?.toPrice === vpB?.toPrice
-    );
+    return target.some((key) => {
+      return JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key]);
+    });
   }
 }

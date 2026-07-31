@@ -48,7 +48,7 @@ export default function SourceStrategyBar({ state }: { state: StateData }) {
     // Extract strategy configuration from state.config
     let configData;
     try {
-        configData = state.config.get().data;
+        configData = state.config.get();
     } catch {
         configData = undefined;
     }
@@ -131,7 +131,7 @@ export default function SourceStrategyBar({ state }: { state: StateData }) {
                             }}
                             onClick={() => {
                                 if (strat.id !== undefined) {
-                                    state.config.set({ data: { strategyId: strat.id } });
+                                    state.config.set({ strategyId: strat.id });
                                 }
                             }}
                         >

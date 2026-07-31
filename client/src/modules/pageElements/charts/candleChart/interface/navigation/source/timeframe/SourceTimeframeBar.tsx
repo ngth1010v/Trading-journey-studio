@@ -99,7 +99,7 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
 
     let configData;
     try {
-        configData = state.config.get().data;
+        configData = state.config.get();
     } catch {
         configData = undefined;
     }
@@ -126,7 +126,7 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
     const reviewText = formatSimplifiedTimeframe(numValue, unitValue);
 
     const handleSelectTimeframe = (tf: string) => {
-        state.config.set({ data: { timeframe: tf } });
+        state.config.set({ timeframe: tf });
     };
 
     const handleSaveCustomTimeframe = (closePopover?: () => void) => {
