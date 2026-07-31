@@ -66,7 +66,7 @@ export default class ViewportData {
       throw new Error("ViewportData: ViewportData has not been initialized with StateData yet.");
     }
 
-    const viewport = this.stateData.config.get().data?.viewport;
+    const viewport = this.stateData.config.get()?.viewport;
     if (!viewport) {
       throw new Error("ViewportData: Viewport has not been set in ConfigData yet.");
     }
@@ -83,9 +83,7 @@ export default class ViewportData {
     }
 
     this.stateData.config.set({
-      data: {
-        viewport: { ...viewport },
-      },
+      viewport: { ...viewport },
     });
   }
 

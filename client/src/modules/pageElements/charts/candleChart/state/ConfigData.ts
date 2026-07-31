@@ -1,5 +1,6 @@
 import PageData, { type Page, type PageElement } from "../../../../data/page/PageData";
 import type { Viewport } from "./viewport/ViewportData";
+import type { RGBA } from "../../../../shared/type";
 
 export interface Config {
   viewport?: Viewport;
@@ -7,6 +8,33 @@ export interface Config {
   symbol?: string;
   timeframe?: string;
   linkId?: number;
+  style?: {
+    candle?: {
+      bull?:{
+        background?: RGBA;
+        border?: RGBA;
+      }
+      bear?:{
+        background?: RGBA;
+        border?: RGBA;
+      }
+    }
+  }
+}
+
+const DEFAULT_CONFIG = {
+  style: {
+    candle: {
+      bull: {
+        background: [50,255,50,255] as RGBA,
+        border    : [50,255,50,255] as RGBA
+      },
+      bear: {
+        background: [255,50,50,255] as RGBA,
+        border    : [255,50,50,255] as RGBA
+      }
+    }
+  }
 }
 
 interface ConfigListener {
@@ -25,6 +53,7 @@ export default class ConfigData {
   public init(pageId: number, elementId: number): void {
     this.pageId = pageId;
     this.elementId = elementId;
+    if (!this.cache) this.cache = structuredClone(DEFAULT_CONFIG)
 
     this.pageData.init();
 
