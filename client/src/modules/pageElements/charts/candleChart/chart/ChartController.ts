@@ -10,7 +10,7 @@ export default class ChartController {
 
     public init(state: StateData): void {
         this.viewport.init(state, this)
-        this.render.init()
+        this.render.init(state, this)
     }
 
     public setCanvas(canvas: HTMLCanvasElement) {
