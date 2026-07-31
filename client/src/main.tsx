@@ -8,6 +8,7 @@ import './index.css';
 //====================================================================================================
 import { initTheme, destroyTheme } from './modules/data/theme/ThemeData.ts';
 import { initPage, destroyPage } from './modules/data/page/PageData.ts';
+import { initSymbol, destroySymbol } from './modules/data/chartData/symbol/SymbolData.ts';
 
 let initialized = false;
 
@@ -17,10 +18,12 @@ function init() {
 
   initTheme()
   initPage()
+  initSymbol()
 }
 function destroy() {
   destroyTheme()
   destroyPage()
+  destroySymbol()
 }
 
 init()

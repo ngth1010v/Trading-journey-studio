@@ -32,7 +32,7 @@ export default class SourceData {
    */
   public destroy(): void {
     this.strategy.destroy();
-    // this.symbol.destroy();
+    this.symbol.destroy();
     this.candle.destroy();
     this.trade.destroy();
     this.shape.destroy();

@@ -23,9 +23,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
         };
 
         symbolData.addOnSymbolDataChange(listenerId, handleSymbolDataChange);
-        symbolData.init().catch((err) => {
-            console.error("Failed to initialize SymbolData:", err);
-        });
+        symbolData.init()
 
         return () => {
             symbolData.removeOnSymbolDataChange(listenerId);

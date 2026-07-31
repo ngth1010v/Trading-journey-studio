@@ -1,177 +1,149 @@
-import { fetchSymbols } from "./symbolApi";
+import { fetchSymbols } from "./symbolApi.js";
 
 export interface Symbol {
-  symbol: string;
-  point: number;
-  contractSize: number;
-  currency: string;
+    symbol: string;
+    point: number;
+    contractSize: number;
+    currency: string;
 }
 
-const REFRESH_DURATION = 500; // ms
+export const REFRESH_DURATION = 500; // 500ms
+
+// ============================================================================
+// GLOBAL STATE & LOOP
+// ============================================================================
+
+interface MainTrigger {
+    triggerSymbolDataChange: () => void;
+}
+
+let isSymbolInitialized = false;
+let globalRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
+let symbolsCacheMap: Map<string, Symbol> = new Map();
+
+// Cache tracking variable for change detection
+let previousSymbolsJson = "";
+
+const symbolDataCallbackMap = new Map<string, MainTrigger>();
+
+async function executeGlobalRefresh(): Promise<void> {
+    try {
+        const freshSymbols = await fetchSymbols();
+        const freshJson = JSON.stringify(freshSymbols);
+
+        const hasDataChanged = freshJson !== previousSymbolsJson;
+
+        // Update shared global cache map
+        const newMap = new Map<string, Symbol>();
+        for (const item of freshSymbols) {
+            newMap.set(item.symbol, {
+                symbol: item.symbol,
+                point: item.point,
+                contractSize: item.contractSize,
+                currency: item.currency,
+            });
+        }
+
+        symbolsCacheMap = newMap;
+        previousSymbolsJson = freshJson;
+
+        // Notify registered SymbolData main triggers
+        if (hasDataChanged) {
+            for (const { triggerSymbolDataChange } of symbolDataCallbackMap.values()) {
+                triggerSymbolDataChange();
+            }
+        }
+    } catch (err) {
+        console.error("Global symbol refresh failed:", err);
+    }
+}
+
+export function initSymbol(): void {
+    if (isSymbolInitialized) {
+        return;
+    }
+    isSymbolInitialized = true;
+
+    // Run initial fetch tick
+    executeGlobalRefresh();
+
+    // Start background refresh loop
+    globalRefreshIntervalId = setInterval(executeGlobalRefresh, REFRESH_DURATION);
+}
+
+export function destroySymbol(): void {
+    if (!isSymbolInitialized) {
+        return;
+    }
+
+    if (globalRefreshIntervalId !== null) {
+        clearInterval(globalRefreshIntervalId);
+        globalRefreshIntervalId = null;
+    }
+
+    symbolDataCallbackMap.clear();
+    symbolsCacheMap.clear();
+    previousSymbolsJson = "";
+    isSymbolInitialized = false;
+}
+
+// ============================================================================
+// SYMBOLDATA CLASS
+// ============================================================================
 
 export default class SymbolData {
-  private symbolsMap: Map<string, Symbol> = new Map();
-  private initialized: boolean = false;
-  private callbacks: Map<string, () => void> = new Map();
-  private refreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private isDestroyed: boolean = false;
+    public id: string | null = null;
 
-  /**
-   * Initializes the controller by fetching all symbols from the server
-   * and starting the recursive refresh loop.
-   * If already initialized, this call returns early without starting duplicate loops.
-   */
-  public async init(): Promise<void> {
-    if (this.initialized) {
-      return;
+    private onSymbolDataChangeListeners = new Map<string, () => void>();
+
+    public init(): void {
+        if (this.id !== null) {
+            return; // Prevent duplicate initialization
+        }
+
+        this.id = `symbol_data_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+
+        // Register main trigger into global map
+        symbolDataCallbackMap.set(this.id, {
+            triggerSymbolDataChange: () => this.notifyDataChange(),
+        });
     }
 
-    try {
-      this.isDestroyed = false;
-      const symbols = await fetchSymbols();
-      this.updateCache(symbols);
-
-      this.initialized = true;
-      this.scheduleNextRefresh();
-    } catch (error) {
-      this.initialized = false;
-      throw new Error(`Failed to initialize SymbolData: ${(error as Error).message}`);
+    public get(symbol: string): Symbol | null {
+        return symbolsCacheMap.get(symbol) ?? null;
     }
-  }
 
-  /**
-   * Registers a listener callback that gets invoked whenever symbol data changes.
-   */
-  public addOnSymbolDataChange(id: string, cb: () => void): void {
-    this.callbacks.set(id, cb);
-  }
-
-  /**
-   * Removes a previously registered callback by its ID.
-   */
-  public removeOnSymbolDataChange(id: string): void {
-    this.callbacks.delete(id);
-  }
-
-  /**
-   * Retrieves a single symbol by its symbol key.
-   * Throws an error if called before `init()` completes successfully.
-   */
-  public get(symbol: string): Symbol | null {
-    this.ensureInitialized();
-    return this.symbolsMap.get(symbol) ?? null;
-  }
-
-  /**
-   * Retrieves all loaded symbols.
-   * Throws an error if called before `init()` completes successfully.
-   */
-  public getAll(): Symbol[] {
-    this.ensureInitialized();
-    return Array.from(this.symbolsMap.values());
-  }
-
-  /**
-   * Cleans up all callback listeners, stops the background loop, and resets initialization status.
-   */
-  public destroy(): void {
-    this.isDestroyed = true;
-    this.stopRefreshLoop();
-    this.callbacks.clear();
-    this.symbolsMap.clear();
-    this.initialized = false;
-  }
-
-  /**
-   * Recursively schedules the next refresh execution after completion.
-   */
-  private scheduleNextRefresh(): void {
-    if (this.isDestroyed) return;
-
-    this.refreshTimeoutId = setTimeout(async () => {
-      await this.runRefreshLoop();
-    }, REFRESH_DURATION);
-  }
-
-  /**
-   * Background task that fetches data, checks for changes, updates cache, and handles errors.
-   */
-  private async runRefreshLoop(): Promise<void> {
-    if (this.isDestroyed) return;
-
-    try {
-      const freshSymbols = await fetchSymbols();
-      if (this.isDestroyed) return;
-
-      const hasChanged = this.hasDataChanged(freshSymbols);
-
-      if (hasChanged) {
-        this.updateCache(freshSymbols);
-        this.notifyChange();
-      }
-
-      this.scheduleNextRefresh();
-    } catch (error) {
-      // Option B chosen: stop loop on error
-      console.error("SymbolData refresh loop stopped due to an error:", error);
-      this.stopRefreshLoop();
+    public getAll(): Symbol[] {
+        return Array.from(symbolsCacheMap.values());
     }
-  }
 
-  /**
-   * Compares the current symbols map against incoming data using JSON serialization.
-   */
-  private hasDataChanged(freshSymbols: Symbol[]): boolean {
-    const currentData = Array.from(this.symbolsMap.values());
-    return JSON.stringify(currentData) !== JSON.stringify(freshSymbols);
-  }
-
-  /**
-   * Populates local cache map with latest symbols.
-   */
-  private updateCache(symbols: Symbol[]): void {
-    this.symbolsMap.clear();
-    for (const item of symbols) {
-      this.symbolsMap.set(item.symbol, {
-        symbol: item.symbol,
-        point: item.point,
-        contractSize: item.contractSize,
-        currency: item.currency,
-      });
+    public addOnSymbolDataChange(id: string, cb: () => void): void {
+        this.onSymbolDataChangeListeners.set(id, cb);
     }
-  }
 
-  /**
-   * Notifies all registered callbacks of data changes.
-   */
-  private notifyChange(): void {
-    this.callbacks.forEach((cb) => {
-      try {
-        cb();
-      } catch (err) {
-        console.error("Error executing onSymbolDataChange callback:", err);
-      }
-    });
-  }
-
-  /**
-   * Clears the active timeout handle.
-   */
-  private stopRefreshLoop(): void {
-    if (this.refreshTimeoutId !== null) {
-      clearTimeout(this.refreshTimeoutId);
-      this.refreshTimeoutId = null;
+    public removeOnSymbolDataChange(id: string): void {
+        if (!this.onSymbolDataChangeListeners.has(id)) {
+            console.warn(`[SymbolData] Listener ID '${id}' not found in onSymbolDataChange listeners.`);
+            return;
+        }
+        this.onSymbolDataChangeListeners.delete(id);
     }
-  }
 
-  /**
-   * Ensures that data is loaded before allowing access.
-   */
-  private ensureInitialized(): void {
-    if (!this.initialized) {
-      throw new Error("SymbolData is not initialized. Please call and await `init()` first.");
+    private notifyDataChange(): void {
+        for (const listener of this.onSymbolDataChangeListeners.values()) {
+            try {
+                listener();
+            } catch (err) {
+                console.error("Error executing onSymbolDataChange callback:", err);
+            }
+        }
     }
-  }
+
+    public destroy(): void {
+        if (this.id !== null) {
+            symbolDataCallbackMap.delete(this.id);
+            this.id = null;
+        }
+        this.onSymbolDataChangeListeners.clear();
+    }
 }
-
-export { REFRESH_DURATION };
