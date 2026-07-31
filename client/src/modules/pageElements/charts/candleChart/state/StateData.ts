@@ -18,7 +18,7 @@ export default class StateData {
     //====================================================================================================
     // Refresh logic
     //====================================================================================================
-    this.config.addOnConfigDataChange("Default[data.viewport]Refresh", ["data", "viewport"], () => {
+    this.config.addOnConfigDataChange("Default[data.viewport]Refresh", ["viewport"], () => {
       const view = this.config.get()?.viewport;
       if (view) {
         this.source.candle.setView(view.fromTs, view.toTs);
@@ -27,7 +27,7 @@ export default class StateData {
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.strategyId]Refresh", ["data", "strategyId"], () => {
+    this.config.addOnConfigDataChange("Default[data.strategyId]Refresh", ["strategyId"], () => {
       const strategyId = this.config.get()?.strategyId;
       if (strategyId !== undefined) {
         this.source.trade.setSource(null, strategyId);
@@ -35,7 +35,7 @@ export default class StateData {
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.symbol]Refresh", ["data", "symbol"], () => {
+    this.config.addOnConfigDataChange("Default[data.symbol]Refresh", ["symbol"], () => {
       const symbol = this.config.get()?.symbol;
       if (symbol !== undefined) {
         this.source.trade.setSource(symbol, null);
@@ -43,14 +43,14 @@ export default class StateData {
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.timeframe]Refresh", ["data", "timeframe"], () => {
+    this.config.addOnConfigDataChange("Default[data.timeframe]Refresh", ["timeframe"], () => {
       const timeframe = this.config.get()?.timeframe;
       if (timeframe !== undefined) {
         this.source.candle.setSource(null, timeframe);
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.link]Refresh", ["data", "linkId"], () => {
+    this.config.addOnConfigDataChange("Default[data.link]Refresh", ["linkId"], () => {
       const linkId = this.config.get()?.linkId;
       this.viewport.link.state.setSource(linkId ? linkId : null);
     });

@@ -1,15 +1,32 @@
 import { Application, type ApplicationOptions } from 'pixi.js';
+import CandleRenderer from './candle/CandleRenderer';
+import type StateData from '../../state/StateData';
+import type ChartController from '../ChartController';
 
 export default class Renderer {
   private app: Application | null = null;
   private isInitializing = false;
   private isDestroyed = false;
 
+  // Direct access via Renderer.candle.<CandleRenderer public function>
+  public candle: CandleRenderer = new CandleRenderer();
+
   /**
-   * Reserved for initialization logic.
+   * Initializes sub-renderers like CandleRenderer with state and chart data.
    */
-  public init(): void {
-    // Kept empty as requested
+  public init(state: StateData, chart: ChartController): void {
+    this.candle.init(state, chart);
+
+
+    state.source.candle.addOnClosedCandleDataChange("Closed candle render", ()=>{
+      this.candle.closed.updateData()
+    })
+    state.source.candle.addOnOpeningCandleDataChange("Opening candle render", ()=>{
+      this.candle.opening.updateData()
+    })
+    state.viewport.addOnViewportTransformDataChange("Render refresh", () => {
+      this.candle.updateViewport()
+    })
   }
 
   /**
@@ -47,6 +64,9 @@ export default class Renderer {
       }
 
       this.app = app;
+
+      // Mount CandleRenderer to PixiJS stage once app is ready
+      this.candle.addToContainer(this.app.stage);
     } catch (error) {
       console.error('[Renderer] Failed to initialize PixiJS Application:', error);
     } finally {
@@ -68,11 +88,14 @@ export default class Renderer {
   }
 
   /**
-   * Cleans up and destroys the PixiJS Application instance.
+   * Cleans up and destroys the PixiJS Application instance and sub-renderers.
    * Safely handles ongoing initialization promises.
    */
   public async destroy(): Promise<void> {
     this.isDestroyed = true;
+
+    // Destroy CandleRenderer resources (Choice 2B)
+    this.candle.destroy();
 
     if (this.app) {
       const appToDestroy = this.app;
