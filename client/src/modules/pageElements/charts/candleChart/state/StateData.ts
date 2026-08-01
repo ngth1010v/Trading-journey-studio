@@ -38,6 +38,7 @@ export default class StateData {
     this.config.addOnConfigDataChange("Default[data.symbol]Refresh", ["symbol"], () => {
       const symbol = this.config.get()?.symbol;
       if (symbol !== undefined) {
+        this.source.candle.setSource(symbol, null);
         this.source.trade.setSource(symbol, null);
         this.source.shape.setSource(symbol, null);
       }

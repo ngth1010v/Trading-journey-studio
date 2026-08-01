@@ -22,27 +22,6 @@ export interface Config {
   }
 }
 
-function createDefault() {
-  return {
-    viewport: {
-      fromTs: Date.now() - (1000*60*60*24)*3/4,
-      toTs: Date.now() + (1000*60*60*24)/4,
-    },
-    timeframe: "1H",
-    style: {
-      candle: {
-        bull: {
-          background: [50,255,50,255] as RGBA,
-          border    : [50,255,50,255] as RGBA
-        },
-        bear: {
-          background: [255,50,50,255] as RGBA,
-          border    : [255,50,50,255] as RGBA
-        }
-      }
-    }
-  }
-}
 
 interface ConfigListener {
   target: string[];
@@ -115,13 +94,13 @@ export default class ConfigData {
    */
   public set(partialConfig: Partial<Config>): void {
     const previousCache = this.cache;
-
+    
     // Merge partial update with existing cache (fallback to empty object if cache was null)
     const updatedConfig: Config = {
       ...(this.cache ?? {}),
       ...partialConfig,
     };
-
+    
     this.cache = updatedConfig;
 
     // 1. Immediately notify local listeners (optimistic update)
