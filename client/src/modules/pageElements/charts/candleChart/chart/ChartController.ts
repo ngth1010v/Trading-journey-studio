@@ -1,6 +1,6 @@
 import StateData from "../state/StateData";
 import ViewportController from "./viewport/ViewportController";
-import EventController from "./EventController";
+import EventController from "./event/EventController";
 import Renderer from "./render/Renderer";
 
 export default class ChartController {
@@ -10,16 +10,18 @@ export default class ChartController {
 
     public init(state: StateData): void {
         this.viewport.init(state, this)
-        this.render.init(state, this)
+        this.event.init(state, this)
+        // this.render.init(state, this)
     }
 
     public setCanvas(canvas: HTMLCanvasElement) {
         this.event.setCanvas(canvas)
-        this.render.setCanvas(canvas)
+        // this.render.setCanvas(canvas)
     }
     
     public destroy(): void {
         this.viewport.destroy();
-        this.render.destroy()
+        this.event.destroy();
+        // this.render.destroy()
     }
 }

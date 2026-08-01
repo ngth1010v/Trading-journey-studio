@@ -1,4 +1,7 @@
 import type { SyntheticEvent, MouseEvent, WheelEvent, KeyboardEvent } from "react";
+import ViewportEventController from "./viewport/ViewportEventController";
+import type StateData from "../../state/StateData";
+import type ChartController from "../ChartController";
 
 export type EventType =
   | "mouseUp"
@@ -25,6 +28,16 @@ export default class EventController {
 
   // Store listeners mapped by global ID for O(1) lookups and globally unique IDs
   private listeners: Map<string, ListenerEntry> = new Map();
+
+  public viewport : ViewportEventController = new ViewportEventController()
+
+  public init(state: StateData, chart: ChartController): void {
+    this.viewport.init(state, chart)
+  }
+
+  public destroy() {
+    this.viewport.destroy()
+  }
 
   /**
    * Sets the React RefObject reference for the canvas element and sets up a ResizeObserver.

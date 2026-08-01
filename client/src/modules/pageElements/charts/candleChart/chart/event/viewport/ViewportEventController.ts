@@ -1,6 +1,6 @@
-import type StateData from "../../state/StateData";
-import type { Viewport, ViewportTransform } from "../../state/viewport/ViewportData";
-import type ChartController from "../ChartController";
+import type StateData from "../../../state/StateData"
+import type { Viewport, ViewportTransform } from "../../../state/viewport/ViewportData"
+import type ChartController from "../../ChartController";
 
 export default class ViewportEventController {
   private state: StateData | null = null;

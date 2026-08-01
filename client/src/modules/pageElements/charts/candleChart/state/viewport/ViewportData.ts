@@ -114,7 +114,6 @@ export default class ViewportData {
 
   public setTransform(transform: ViewportTransform): void {
     this.transformCache = { ...transform };
-    console.log(transform);
     this.notifyTransformListeners();
   }
 
