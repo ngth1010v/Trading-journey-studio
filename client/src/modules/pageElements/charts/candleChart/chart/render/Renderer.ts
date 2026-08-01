@@ -2,6 +2,7 @@ import { Application, type ApplicationOptions } from 'pixi.js';
 import CandleRenderer from './candle/CandleRenderer';
 import type StateData from '../../state/StateData';
 import type ChartController from '../ChartController';
+import ShapeRenderer from './shape/ShapeRenderer';
 
 export default class Renderer {
   private app: Application | null = null;
@@ -10,12 +11,14 @@ export default class Renderer {
 
   // Direct access via Renderer.candle.<CandleRenderer public function>
   public candle: CandleRenderer = new CandleRenderer();
+  public shape: ShapeRenderer = new ShapeRenderer()
 
   /**
    * Initializes sub-renderers like CandleRenderer with state and chart data.
    */
   public init(state: StateData, chart: ChartController): void {
     this.candle.init(state, chart);
+    this.shape.init(state, chart)
 
 
     state.source.candle.addOnClosedCandleDataChange("Closed candle render", ()=>{
@@ -26,6 +29,7 @@ export default class Renderer {
     })
     state.viewport.addOnViewportTransformDataChange("Render refresh", () => {
       this.candle.updateViewport()
+      this.shape.updateTransform()
     })
   }
 
