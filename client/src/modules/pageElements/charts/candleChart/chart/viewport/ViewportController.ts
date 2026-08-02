@@ -16,7 +16,6 @@ export default class ViewportController {
 
     state.source.candle.addOnClosedCandleDataChange("Start align", ()=>{
       this.aligner.autoViewport()
-      console.log(state.config.get()?.viewport)
       state.source.candle.removeOnClosedCandleDataChange("Start align")
     })
   }

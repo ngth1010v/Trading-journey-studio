@@ -30,9 +30,17 @@ export default class Renderer {
       }
     );
 
+    state.config.addOnConfigDataChange(
+      "Viewport render",
+      ["viewport"],
+      () => {
+        this.candle.updateData();
+      }
+    );
     state.viewport.addOnViewportTransformDataChange(
       "Viewport render",
       () => {
+        this.candle.updateData();
         this.candle.updateTransform();
         this.render()
       }

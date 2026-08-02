@@ -30,6 +30,13 @@ export default class CandleRenderer {
     // this.opening.addToContainer(parentContainer);
   }
 
+
+
+  public updateData(): void {
+    this.closed.updateData();
+    // this.opening.updateStyle();
+  }
+
   public updateStyle(): void {
     this.closed.updateStyle();
     // this.opening.updateStyle();
