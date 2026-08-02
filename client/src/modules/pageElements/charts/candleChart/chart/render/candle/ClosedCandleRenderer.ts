@@ -95,6 +95,7 @@ export default class ClosedCandleRenderer {
       this.initGlPipeline();
       this.updateStyle();
       this.updateData();
+      this.updateTransform();
     }
   }
 
@@ -105,11 +106,10 @@ export default class ClosedCandleRenderer {
     // Listen to real-time high-frequency transform changes (pan / zoom)
     this.state.viewport.addOnViewportTransformDataChange(
       this.transformListenerId,
-      () => this.render()
+      () => {
+        this.updateTransform();
+      }
     );
-
-    this.updateStyle();
-    this.updateData();
   }
 
   public destroy(): void {
@@ -134,7 +134,7 @@ export default class ClosedCandleRenderer {
     this.style.downOutlineColor = new Float32Array(rgbaToVec3(configStyle.bear?.border || [255, 50, 50, 255]));
     this.style.outlineThickness = 2.0;
 
-    this.render();
+    // Note: Style updates CPU cache only; uniforms are uploaded during render().
   }
 
   public updateData(): void {
@@ -146,7 +146,6 @@ export default class ClosedCandleRenderer {
 
     if (!candles || !candles.t || candles.t.length === 0 || !view || !canvas || canvas.w <= 0 || canvas.h <= 0) {
       this.geomState.totalCandlesCount = 0;
-      this.render();
       return;
     }
 
@@ -202,12 +201,10 @@ export default class ClosedCandleRenderer {
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, subArray);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-    this.render();
   }
 
-  public updateViewport(): void {
-    this.render();
+  public updateTransform(): void {
+    // Transform updates state on GPU/CPU cache without triggering an immediate render call
   }
 
   public render(): void {
@@ -275,10 +272,10 @@ export default class ClosedCandleRenderer {
     gl.uniform3fv(uLocs.uDownOutlineColor, this.style.downOutlineColor);
 
     gl.drawArraysInstanced(
-        gl.TRIANGLE_STRIP,
-        0,
-        4,
-        totalCandles
+      gl.TRIANGLE_STRIP,
+      0,
+      4,
+      totalCandles
     );
 
     gl.bindVertexArray(null);
@@ -436,11 +433,12 @@ void main(void) {
   float offsetX = uTransform.z;
   float offsetY = uTransform.w;
 
-  float centerX = floor(aCandleData.x * scaleX - offsetX) + 0.5;
-  float openY   = floor(aCandleData.y * scaleY - offsetY) + 0.5;
-  float highY   = floor(aCandleData.z * scaleY - offsetY) + 0.5;
-  float lowY    = floor(aCandleData.w * scaleY - offsetY) + 0.5;
-  float closeY  = floor(aCloseY       * scaleY - offsetY) + 0.5;
+  // Apply offset first, then scale around screen space
+  float centerX = floor(aCandleData.x * scaleX + offsetX) + 0.5;
+  float openY   = floor(aCandleData.y * scaleY + offsetY) + 0.5;
+  float highY   = floor(aCandleData.z * scaleY + offsetY) + 0.5;
+  float lowY    = floor(aCandleData.w * scaleY + offsetY) + 0.5;
+  float closeY  = floor(aCloseY       * scaleY + offsetY) + 0.5;
 
   float minHeight = 1.0;
   if (abs(highY - lowY) < minHeight) {

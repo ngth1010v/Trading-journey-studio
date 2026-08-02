@@ -12,7 +12,7 @@ export default class ViewportEventController {
 
   // Timer reference for debouncing the wheel flush
   private wheelFlushTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly WHEEL_DEBOUNCE_MS = 500;
+  private readonly WHEEL_DEBOUNCE_MS = 100;
 
   private readonly PAN_EVENT_ID = "ViewportEventController_Pan";
   private readonly WHEEL_EVENT_ID = "ViewportEventController_Wheel";
@@ -83,40 +83,40 @@ export default class ViewportEventController {
     this.isPanning = true;
     this.lastMousePos = this.getMousePosition(e);
   };
-
+  
   private handleMouseUp = (): void => {
     if (!this.chart) return;
     if (!this.enabled) return;
     this.isPanning = false;
     this.state?.viewport.flushTransform();
   };
-
+  
   private handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     if (!this.chart) return;
     if (!this.enabled || !this.isPanning) return;
-
+    
     const view = this.getViewport();
     if (!view) return;
-
+    
     const currentPos = this.getMousePosition(e);
     const dx = currentPos.x - this.lastMousePos.x;
     const dy = currentPos.y - this.lastMousePos.y;
     this.lastMousePos = currentPos;
-
+    
     const state = this.getState();
     const { w, h } = this.chart.event.getCanvasSize();
     if (w <= 0 || h <= 0) return;
-
+    
     const transform = state.viewport.getTransform();
 
     // Directly apply pixel translation offsets
     state.viewport.setTransform({
       ...transform,
-      offsetX: transform.offsetX - dx,
-      offsetY: transform.offsetY - dy,
+      offsetX: transform.offsetX + dx,
+      offsetY: transform.offsetY + dy,
     });
   };
-
+  
   private handleWheel = (e: React.WheelEvent<HTMLCanvasElement>): void => {
     if (!this.chart) return;
     if (!this.enabled) return;
@@ -152,9 +152,11 @@ export default class ViewportEventController {
       newScaleY *= zoomFactor;
     }
 
-    // Adjust pixel offsets so scaling stays anchored around current mouse position
-    const newOffsetX = currentTransform.offsetX - mouseX * (newScaleX - currentTransform.scaleX);
-    const newOffsetY = currentTransform.offsetY - mouseY * (newScaleY - currentTransform.scaleY);
+    const worldX = (mouseX - currentTransform.offsetX) / currentTransform.scaleX;
+    const worldY = (mouseY - currentTransform.offsetY) / currentTransform.scaleY;
+
+    const newOffsetX = mouseX - worldX * newScaleX;
+    const newOffsetY = mouseY - worldY * newScaleY;
 
     const newTransform: ViewportTransform = {
       scaleX: newScaleX,
@@ -163,7 +165,6 @@ export default class ViewportEventController {
       offsetY: newOffsetY,
     };
 
-    return
     state.viewport.setTransform(newTransform);
 
     // Schedule debounced flush

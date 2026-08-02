@@ -35,8 +35,13 @@ export default class CandleRenderer {
     // this.opening.updateStyle();
   }
 
-  public updateViewport(): void {
-    this.closed.updateViewport();
+  public updateTransform(): void {
+    this.closed.updateTransform();
+    // this.opening.updateViewport();
+  }
+
+  public render(): void {
+    this.closed.render();
     // this.opening.updateViewport();
   }
 }

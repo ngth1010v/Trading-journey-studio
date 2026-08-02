@@ -14,6 +14,7 @@ export default class Renderer {
     this.state = state
 
     this.candle.init(state, chart);
+    this.render()
 
     state.source.candle.addOnClosedCandleDataChange(
       "Closed candle render",
@@ -32,7 +33,8 @@ export default class Renderer {
     state.viewport.addOnViewportTransformDataChange(
       "Viewport render",
       () => {
-        this.candle.updateViewport();
+        this.candle.updateTransform();
+        this.render()
       }
     );
   }
@@ -62,5 +64,13 @@ export default class Renderer {
 
   public getGl(): WebGL2RenderingContext | null {
     return this.gl
+  }
+
+  public render(){
+    if (!this.gl) return
+
+    this.gl.clearColor(0.0, 0.0, 0.0, 0.0); // Transparent canvas background
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    this.candle.render()
   }
 }

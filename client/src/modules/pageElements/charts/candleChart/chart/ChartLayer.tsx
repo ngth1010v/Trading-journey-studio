@@ -27,19 +27,38 @@ export default function ChartLayer({ chart }: { chart: ChartController }) {
         inset: "0",
       }}
       onMouseDown={(e) => {
+        // e.preventDefault()
         e.currentTarget.focus();
         chart.event.onMouseDown(e);
       }}
       onMouseEnter={(e) => {
+        // e.preventDefault()
         e.currentTarget.focus();
         chart.event.onMouseEnter(e);
       }}
-      onMouseMove={chart.event.onMouseMove}
-      onMouseUp={chart.event.onMouseUp}
-      onMouseLeave={chart.event.onMouseLeave}
-      onKeyDown={chart.event.onKeyDown}
-      onKeyUp={chart.event.onKeyUp}
-      onWheel={chart.event.onWheel}
+      onMouseMove={(e)=>{
+        // e.preventDefault()
+        chart.event.onMouseMove(e)
+      }}
+      onMouseUp={(e)=>{
+        // e.preventDefault()
+        chart.event.onMouseUp(e)
+      }}
+      onMouseLeave={(e)=>{
+        // e.preventDefault()
+        chart.event.onMouseLeave(e)
+      }}
+      onKeyDown={(e)=>{
+        // e.preventDefault()
+        chart.event.onKeyDown(e)
+      }}
+      onKeyUp={(e)=>{
+        // e.preventDefault()
+        chart.event.onKeyUp(e)
+      }}
+      onWheel={(e)=>{
+        chart.event.onWheel(e)
+      }}
     />
   );
 }

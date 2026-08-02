@@ -3,6 +3,8 @@ import ViewportData from "./viewport/ViewportData";
 import ConfigData from "./ConfigData";
 import ChartController from "../chart/ChartController";
 
+const LOAD_OFFSET_RATIO = 1
+
 export default class StateData {
   public viewport: ViewportData = new ViewportData();
   public source: SourceData = new SourceData();
@@ -22,9 +24,13 @@ export default class StateData {
     this.config.addOnConfigDataChange("Default[data.viewport]Refresh", ["viewport"], () => {
       const view = this.config.get()?.viewport;
       if (view) {
-        this.source.candle.setView(view.fromTs, view.toTs);
-        this.source.trade.setView(view.fromTs, view.toTs);
-        this.source.shape.setView(view.fromTs, view.toTs);
+        const delta = view.toTs - view.fromTs
+        const offset = delta * LOAD_OFFSET_RATIO
+        const fromTs = view.fromTs - offset
+        const toTs    = view.toTs + offset
+        this.source.candle.setView(fromTs, toTs);
+        this.source.trade .setView(fromTs, toTs);
+        this.source.shape .setView(fromTs, toTs);
       }
     });
 

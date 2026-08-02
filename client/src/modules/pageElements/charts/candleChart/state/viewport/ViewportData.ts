@@ -62,59 +62,73 @@ export default class ViewportData {
   }
 
   /**
-   * Delegates retrieving viewport to ConfigData (source of truth).
-   */
-  private getView(): Viewport {
-    if (!this.stateData) {
-      throw new Error("ViewportData: ViewportData has not been initialized with StateData yet.");
-    }
-
-    const viewport = this.stateData.config.get()?.viewport;
-    if (!viewport) {
-      throw new Error("ViewportData: Viewport has not been set in ConfigData yet.");
-    }
-
-    return { ...viewport };
-  }
-
-  /**
-   * Delegates setting viewport to ConfigData (source of truth).
-   */
-  private setView(viewport: Viewport): void {
-    if (!this.stateData) {
-      throw new Error("ViewportData: ViewportData has not been initialized with StateData yet.");
-    }
-
-    this.stateData.config.set({
-      viewport: { ...viewport },
-    });
-  }
-
-  /**
    * Merges current transformCache into ConfigData viewport and resets transformCache to default.
    */
   public flushTransform(): void {
-    const currentView = this.getView(); // Will throw if stateData or viewport is missing
-    const { offsetX, offsetY } = this.transformCache;
-    
-    const offsetTime = (this.chart?.viewport.converter.pixelToTimestamp(offsetX) ?? 0) - (this.chart?.viewport.converter.pixelToTimestamp(0) ?? 0)
-    const offsetPrice = (this.chart?.viewport.converter.pixelToPrice(offsetY) ?? 0) - (this.chart?.viewport.converter.pixelToPrice(0) ?? 0)
+    const chart = this.chart;
+    if (!chart) {
+      throw new Error("ViewportController: Chart is not initialized.");
+    }
 
-    if (offsetPrice == null || offsetTime == null) return
-    
-    const newViewport: Viewport = {
-      fromTs: currentView.fromTs + offsetTime,
-      toTs: currentView.toTs + offsetTime,
-      fromPrice: currentView.fromPrice + offsetPrice,
-      toPrice: currentView.toPrice + offsetPrice,
-    };
+    const { w, h } = chart.event.getCanvasSize();
+    if (w <= 0 || h <= 0) {
+      throw new Error("ViewportController: Invalid canvas size.");
+    }
 
-    // Update config viewport
-    this.setView(newViewport);
+    const { offsetX, offsetY, scaleX, scaleY } = this.transformCache;
 
-    // Reset transform to default and notify listeners
+    // Ensure we don't divide by zero if scale became 0
+    if (scaleX === 0 || scaleY === 0) {
+      return;
+    }
+
+    const converter = chart.viewport.converter;
+
+    // Convert current transformed screen boundaries back to original canvas pixel space:
+    // Screen X=0 -> Original Pixel X = -offsetX / scaleX
+    // Screen X=w -> Original Pixel X = (w - offsetX) / scaleX
+    const leftPixel = -offsetX / scaleX;
+    const rightPixel = (w - offsetX) / scaleX;
+
+    // Screen Y=0 (top)    -> Original Pixel Y = -offsetY / scaleY
+    // Screen Y=h (bottom) -> Original Pixel Y = (h - offsetY) / scaleY
+    const topPixel = -offsetY / scaleY;
+    const bottomPixel = (h - offsetY) / scaleY;
+
+    // Convert pixel offsets to world coordinates (ts / price)
+    const fromTs = converter.pixelToTimestamp(leftPixel);
+    const toTs = converter.pixelToTimestamp(rightPixel);
+
+    // Note: Y=0 (topPixel) maps to toPrice; Y=h (bottomPixel) maps to fromPrice
+    const toPrice = converter.pixelToPrice(topPixel);
+    const fromPrice = converter.pixelToPrice(bottomPixel);
+
+    if (
+      fromTs == null ||
+      toTs == null ||
+      fromPrice == null ||
+      toPrice == null
+    ) {
+      return;
+    }
+
+    if (!this.stateData) {
+      throw new Error("ViewportData: ViewportData has not been initialized with StateData yet.");
+    }
+    this.stateData.config.set({
+      viewport: {
+        fromTs,
+        toTs,
+        fromPrice,
+        toPrice,
+      },
+    });
+
     this.setTransform({ ...DEFAULT_TRANSFORM });
   }
+
+
+  
 
   public getTransform(): ViewportTransform {
     return { ...this.transformCache };
