@@ -1,4 +1,4 @@
-import type { SyntheticEvent, MouseEvent, WheelEvent, KeyboardEvent } from "react";
+import type { SyntheticEvent, MouseEvent, KeyboardEvent } from "react";
 import ViewportEventController from "./viewport/ViewportEventController";
 import type StateData from "../../state/StateData";
 import type ChartController from "../ChartController";
@@ -133,7 +133,7 @@ export default class EventController {
     this.dispatch("mouseLeave", e);
   };
 
-  public onWheel = (e: WheelEvent<HTMLCanvasElement>): void => {
+  public onWheel = (e: WheelEvent): void => {
     this.dispatch("wheel", e);
   };
 

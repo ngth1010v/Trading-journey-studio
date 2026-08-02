@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import ChartController from "./ChartController";
 
-export default function ChartLayer({ chart }: { chart: ChartController }) {
+export default function ChartLayer({
+  chart,
+}: {
+  chart: ChartController;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -10,7 +14,20 @@ export default function ChartLayer({ chart }: { chart: ChartController }) {
 
     chart.setCanvas(canvas);
 
+    const handleWheel = (e: WheelEvent) => {
+      // Ngăn browser scroll / Ctrl + Wheel zoom
+      e.preventDefault();
+
+      // Forward native event
+      chart.event.onWheel(e);
+    };
+
+    canvas.addEventListener("wheel", handleWheel, {
+      passive: false,
+    });
+
     return () => {
+      canvas.removeEventListener("wheel", handleWheel);
       chart.destroy();
     };
   }, [chart]);
@@ -24,40 +41,31 @@ export default function ChartLayer({ chart }: { chart: ChartController }) {
         width: "100%",
         height: "100%",
         position: "absolute",
-        inset: "0",
+        inset: 0,
+        touchAction: "none",
       }}
       onMouseDown={(e) => {
-        // e.preventDefault()
         e.currentTarget.focus();
         chart.event.onMouseDown(e);
       }}
       onMouseEnter={(e) => {
-        // e.preventDefault()
         e.currentTarget.focus();
         chart.event.onMouseEnter(e);
       }}
-      onMouseMove={(e)=>{
-        // e.preventDefault()
-        chart.event.onMouseMove(e)
+      onMouseMove={(e) => {
+        chart.event.onMouseMove(e);
       }}
-      onMouseUp={(e)=>{
-        // e.preventDefault()
-        chart.event.onMouseUp(e)
+      onMouseUp={(e) => {
+        chart.event.onMouseUp(e);
       }}
-      onMouseLeave={(e)=>{
-        // e.preventDefault()
-        chart.event.onMouseLeave(e)
+      onMouseLeave={(e) => {
+        chart.event.onMouseLeave(e);
       }}
-      onKeyDown={(e)=>{
-        // e.preventDefault()
-        chart.event.onKeyDown(e)
+      onKeyDown={(e) => {
+        chart.event.onKeyDown(e);
       }}
-      onKeyUp={(e)=>{
-        // e.preventDefault()
-        chart.event.onKeyUp(e)
-      }}
-      onWheel={(e)=>{
-        chart.event.onWheel(e)
+      onKeyUp={(e) => {
+        chart.event.onKeyUp(e);
       }}
     />
   );

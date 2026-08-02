@@ -4,15 +4,16 @@ import type ChartController from "../../ChartController";
 //======================================================================================================
 // CONSTANTS & HELPERS
 //======================================================================================================
-// Unit quad corners (4 vertices using TRIANGLE_STRIP: [x, y])
+// Unit quad corners (4 vertices using TRIANGLE_STRIP covering [0,0] to [1,1])
 const QUAD_CORNERS = new Float32Array([
-  -0.5, -1.0,
-   0.5, -1.0,
-  -0.5,  1.0,
-   0.5,  1.0,
+  0.0, 0.0,
+  1.0, 0.0,
+  0.0, 1.0,
+  1.0, 1.0,
 ]);
 
-const FLOATS_PER_CANDLE = 5; // [x, openY, highY, lowY, closeY]
+// Instance layout: [openTimePx, closeTimePx, openY, highY, lowY, closeY]
+const FLOATS_PER_CANDLE = 6;
 
 function rgbaToVec3(rgba: number[]): [number, number, number] {
   return [
@@ -34,7 +35,7 @@ export default class ClosedCandleRenderer {
   private program: WebGLProgram | null = null;
   private vao: WebGLVertexArrayObject | null = null;
 
-  // Reusable projection matrix buffer to avoid per-frame GC allocation
+  // Reusable projection matrix buffer
   private projectionMatrix: Float32Array = new Float32Array(9);
 
   // WebGL Buffers
@@ -46,32 +47,29 @@ export default class ClosedCandleRenderer {
     candleInstances: null,
   };
 
-  // Uniform Locations
+  // Uniform & Attribute Locations
   private locations = {
     attributes: {
       aCorner: -1,
-      aCandleData: -1, // vec4: [x, openY, highY, lowY]
-      aCloseY: -1,     // float: closeY
+      aCandleTimes: -1,  // vec2: [openTimePx, closeTimePx]
+      aCandlePrices: -1, // vec4: [openY, highY, lowY, closeY]
     },
     uniforms: {
       uProjectionMatrix: null as WebGLUniformLocation | null,
-      uOutlineThickness: null as WebGLUniformLocation | null,
-      uCandleWidth: null as WebGLUniformLocation | null,
+      uTransform: null as WebGLUniformLocation | null,
+      uPadding: null as WebGLUniformLocation | null,
       uUpOutlineColor: null as WebGLUniformLocation | null,
       uUpBodyColor: null as WebGLUniformLocation | null,
       uDownOutlineColor: null as WebGLUniformLocation | null,
       uDownBodyColor: null as WebGLUniformLocation | null,
-      uTransform: null as WebGLUniformLocation | null, // [scaleX, scaleY, offsetX, offsetY]
     },
   };
 
-  // Geometry array pooling & reference caches
+  // Geometry state
   private geomState = {
     instanceBuffer: new Float32Array(0),
     capacity: 0,
     totalCandlesCount: 0,
-    timeStepPx: 0,
-    pixelXPositions: [] as number[], // Used for fast CPU binary search culling
   };
 
   // Cached Style Settings
@@ -80,7 +78,7 @@ export default class ClosedCandleRenderer {
     upOutlineColor: new Float32Array([0.2, 1.0, 0.2]),
     downBodyColor: new Float32Array([1.0, 0.2, 0.2]),
     downOutlineColor: new Float32Array([1.0, 0.2, 0.2]),
-    outlineThickness: 2.0,
+    padding: 2.0,
   };
 
   private readonly transformListenerId = `ClosedCandleRenderer_${Math.random().toString(36).substring(2, 9)}`;
@@ -103,7 +101,6 @@ export default class ClosedCandleRenderer {
     this.state = state;
     this.chart = chart;
 
-    // Listen to real-time high-frequency transform changes (pan / zoom)
     this.state.viewport.addOnViewportTransformDataChange(
       this.transformListenerId,
       () => {
@@ -132,9 +129,7 @@ export default class ClosedCandleRenderer {
     this.style.upOutlineColor = new Float32Array(rgbaToVec3(configStyle.bull?.border || [50, 255, 50, 255]));
     this.style.downBodyColor = new Float32Array(rgbaToVec3(configStyle.bear?.background || [255, 50, 50, 255]));
     this.style.downOutlineColor = new Float32Array(rgbaToVec3(configStyle.bear?.border || [255, 50, 50, 255]));
-    this.style.outlineThickness = 2.0;
-
-    // Note: Style updates CPU cache only; uniforms are uploaded during render().
+    this.style.padding = 2.0;
   }
 
   public updateData(): void {
@@ -165,31 +160,48 @@ export default class ClosedCandleRenderer {
 
     if (deltaTs === 0 || deltaPrice === 0) return;
 
-    // Convert raw time/price directly to base pixel coordinate reference space
     const tToPx = canvas.w / deltaTs;
     const pToPx = canvas.h / deltaPrice;
 
-    gState.pixelXPositions = new Array(count);
+    // Retrieve opening candle to determine closeTime of the last closed candle
+    const openingCandle = this.state.source.candle.getOpening();
 
     for (let i = 0; i < count; i++) {
-      const x = (candles.t[i] - view.fromTs) * tToPx;
+      const openTs = candles.t[i];
+      let closeTs: number;
+
+      if (i < count - 1) {
+        closeTs = candles.t[i + 1];
+      } else {
+        if (openingCandle && openingCandle.t != null && openingCandle.t > openTs) {
+          closeTs = openingCandle.t;
+        } else {
+          // Fallback to previous candle duration
+          const prevDuration = count >= 2 ? candles.t[count - 1] - candles.t[count - 2] : 60;
+          closeTs = openTs + prevDuration;
+        }
+      }
+
+      // Time conversion to pixels
+      const openTimePx = (openTs - view.fromTs) * tToPx;
+      const closeTimePx = (closeTs - view.fromTs) * tToPx;
+
+      // Price conversion to pixels (higher price -> smaller Y pixel)
       const openY = canvas.h - (candles.o[i] - view.fromPrice) * pToPx;
       const highY = canvas.h - (candles.h[i] - view.fromPrice) * pToPx;
       const lowY = canvas.h - (candles.l[i] - view.fromPrice) * pToPx;
       const closeY = canvas.h - (candles.c[i] - view.fromPrice) * pToPx;
 
       const offset = i * FLOATS_PER_CANDLE;
-      gState.instanceBuffer[offset] = x;
-      gState.instanceBuffer[offset + 1] = openY;
-      gState.instanceBuffer[offset + 2] = highY;
-      gState.instanceBuffer[offset + 3] = lowY;
-      gState.instanceBuffer[offset + 4] = closeY;
-
-      gState.pixelXPositions[i] = x;
+      gState.instanceBuffer[offset]     = openTimePx;
+      gState.instanceBuffer[offset + 1] = closeTimePx;
+      gState.instanceBuffer[offset + 2] = openY;
+      gState.instanceBuffer[offset + 3] = highY;
+      gState.instanceBuffer[offset + 4] = lowY;
+      gState.instanceBuffer[offset + 5] = closeY;
     }
 
     gState.totalCandlesCount = count;
-    gState.timeStepPx = count >= 2 ? Math.abs(gState.pixelXPositions[1] - gState.pixelXPositions[0]) : 5;
 
     // Upload instance buffer to GPU
     const gl = this.gl;
@@ -204,7 +216,7 @@ export default class ClosedCandleRenderer {
   }
 
   public updateTransform(): void {
-    // Transform updates state on GPU/CPU cache without triggering an immediate render call
+    // Pipeline handles viewport transforms directly via GPU uniforms
   }
 
   public render(): void {
@@ -220,7 +232,6 @@ export default class ClosedCandleRenderer {
 
     const gl = this.gl;
 
-    // Viewport & Pixel Density Setup
     const dpr = window.devicePixelRatio || 1;
     const pixelWidth = Math.floor(canvas.w * dpr);
     const pixelHeight = Math.floor(canvas.h * dpr);
@@ -234,21 +245,14 @@ export default class ClosedCandleRenderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Dynamic Zoom / Pan Transform Parameters
     const scaleX = transform.scaleX || 1;
     const scaleY = transform.scaleY || 1;
     const offsetX = transform.offsetX || 0;
     const offsetY = transform.offsetY || 0;
 
-    // Calculate Candle Width in Pixel Space
-    const baseWidth = Math.max(1, this.geomState.timeStepPx - 1);
-    const candleWidth = Math.max(1, baseWidth * scaleX);
-
-    // Issue WebGL Draw Calls
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
 
-    // Apply Uniforms
     const uLocs = this.locations.uniforms;
 
     // 2D Orthographic Projection Matrix
@@ -264,8 +268,7 @@ export default class ClosedCandleRenderer {
 
     gl.uniformMatrix3fv(uLocs.uProjectionMatrix, false, this.projectionMatrix);
     gl.uniform4f(uLocs.uTransform, scaleX, scaleY, offsetX, offsetY);
-    gl.uniform1f(uLocs.uCandleWidth, candleWidth);
-    gl.uniform1f(uLocs.uOutlineThickness, this.style.outlineThickness);
+    gl.uniform1f(uLocs.uPadding, this.style.padding);
     gl.uniform3fv(uLocs.uUpBodyColor, this.style.upBodyColor);
     gl.uniform3fv(uLocs.uUpOutlineColor, this.style.upOutlineColor);
     gl.uniform3fv(uLocs.uDownBodyColor, this.style.downBodyColor);
@@ -292,22 +295,20 @@ export default class ClosedCandleRenderer {
     this.program = this.createProgram(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC);
     if (!this.program) return;
 
-    // Cache Attributes
+    // Attributes
     this.locations.attributes.aCorner = gl.getAttribLocation(this.program, "aCorner");
-    this.locations.attributes.aCandleData = gl.getAttribLocation(this.program, "aCandleData");
-    this.locations.attributes.aCloseY = gl.getAttribLocation(this.program, "aCloseY");
+    this.locations.attributes.aCandleTimes = gl.getAttribLocation(this.program, "aCandleTimes");
+    this.locations.attributes.aCandlePrices = gl.getAttribLocation(this.program, "aCandlePrices");
 
-    // Cache Uniforms
+    // Uniforms
     this.locations.uniforms.uProjectionMatrix = gl.getUniformLocation(this.program, "uProjectionMatrix");
     this.locations.uniforms.uTransform = gl.getUniformLocation(this.program, "uTransform");
-    this.locations.uniforms.uOutlineThickness = gl.getUniformLocation(this.program, "uOutlineThickness");
-    this.locations.uniforms.uCandleWidth = gl.getUniformLocation(this.program, "uCandleWidth");
+    this.locations.uniforms.uPadding = gl.getUniformLocation(this.program, "uPadding");
     this.locations.uniforms.uUpOutlineColor = gl.getUniformLocation(this.program, "uUpOutlineColor");
     this.locations.uniforms.uUpBodyColor = gl.getUniformLocation(this.program, "uUpBodyColor");
     this.locations.uniforms.uDownOutlineColor = gl.getUniformLocation(this.program, "uDownOutlineColor");
     this.locations.uniforms.uDownBodyColor = gl.getUniformLocation(this.program, "uDownBodyColor");
 
-    // Create Buffers & VAO
     this.vao = gl.createVertexArray();
     this.buffers.quadCorners = gl.createBuffer();
     this.buffers.candleInstances = gl.createBuffer();
@@ -325,15 +326,15 @@ export default class ClosedCandleRenderer {
 
     const stride = FLOATS_PER_CANDLE * Float32Array.BYTES_PER_ELEMENT;
 
-    // aCandleData = vec4 [x, openY, highY, lowY]
-    gl.enableVertexAttribArray(this.locations.attributes.aCandleData);
-    gl.vertexAttribPointer(this.locations.attributes.aCandleData, 4, gl.FLOAT, false, stride, 0);
-    gl.vertexAttribDivisor(this.locations.attributes.aCandleData, 1);
+    // aCandleTimes = vec2 [openTimePx, closeTimePx]
+    gl.enableVertexAttribArray(this.locations.attributes.aCandleTimes);
+    gl.vertexAttribPointer(this.locations.attributes.aCandleTimes, 2, gl.FLOAT, false, stride, 0);
+    gl.vertexAttribDivisor(this.locations.attributes.aCandleTimes, 1);
 
-    // aCloseY = float [closeY]
-    gl.enableVertexAttribArray(this.locations.attributes.aCloseY);
-    gl.vertexAttribPointer(this.locations.attributes.aCloseY, 1, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
-    gl.vertexAttribDivisor(this.locations.attributes.aCloseY, 1);
+    // aCandlePrices = vec4 [openY, highY, lowY, closeY]
+    gl.enableVertexAttribArray(this.locations.attributes.aCandlePrices);
+    gl.vertexAttribPointer(this.locations.attributes.aCandlePrices, 4, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribDivisor(this.locations.attributes.aCandlePrices, 1);
 
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -413,19 +414,16 @@ const VERTEX_SHADER_SRC = `#version 300 es
 precision highp float;
 
 in vec2 aCorner;
-in vec4 aCandleData; // [x, openY, highY, lowY]
-in float aCloseY;
+in vec2 aCandleTimes;  // [openTimePx, closeTimePx]
+in vec4 aCandlePrices; // [openY, highY, lowY, closeY]
 
 uniform mat3 uProjectionMatrix;
 uniform vec4 uTransform; // [scaleX, scaleY, offsetX, offsetY]
-uniform float uCandleWidth;
+uniform float uPadding;
 
 out vec2 vPixelPos;
-out float vCenterX;
-out float vOpenY;
-out float vHighY;
-out float vLowY;
-out float vCloseY;
+out vec2 vTimes;        // [openTimePx, closeTimePx]
+out vec4 vPrices;       // [openY, highY, lowY, closeY]
 
 void main(void) {
   float scaleX = uTransform.x;
@@ -433,29 +431,30 @@ void main(void) {
   float offsetX = uTransform.z;
   float offsetY = uTransform.w;
 
-  // Apply offset first, then scale around screen space
-  float centerX = floor(aCandleData.x * scaleX + offsetX) + 0.5;
-  float openY   = floor(aCandleData.y * scaleY + offsetY) + 0.5;
-  float highY   = floor(aCandleData.z * scaleY + offsetY) + 0.5;
-  float lowY    = floor(aCandleData.w * scaleY + offsetY) + 0.5;
-  float closeY  = floor(aCloseY       * scaleY + offsetY) + 0.5;
+  // Transform coordinates into screen pixel space
+  float openTimePx  = floor(aCandleTimes.x * scaleX + offsetX) + 0.5;
+  float closeTimePx = floor(aCandleTimes.y * scaleX + offsetX) + 0.5;
 
-  float minHeight = 1.0;
-  if (abs(highY - lowY) < minHeight) {
-    highY = highY + minHeight;
-  }
+  float openY  = floor(aCandlePrices.x * scaleY + offsetY) + 0.5;
+  float highY  = floor(aCandlePrices.y * scaleY + offsetY) + 0.5;
+  float lowY   = floor(aCandlePrices.z * scaleY + offsetY) + 0.5;
+  float closeY = floor(aCandlePrices.w * scaleY + offsetY) + 0.5;
+
+  // Calculate quad bounds to cover wick and border lines completely
+  float minX = min(openTimePx, openTimePx + uPadding - 1.0);
+  float maxX = max(closeTimePx, closeTimePx - uPadding + 1.0);
+  
+  float minY = min(highY - 1.0, lowY - 1.0);
+  float maxY = max(highY + 1.0, lowY + 1.0);
 
   vec2 pos = vec2(
-    centerX + aCorner.x * uCandleWidth,
-    mix(highY, lowY, (aCorner.y + 1.0) * 0.5)
+    mix(minX, maxX, aCorner.x),
+    mix(minY, maxY, aCorner.y)
   );
 
   vPixelPos = pos;
-  vCenterX = centerX;
-  vOpenY = openY;
-  vHighY = highY;
-  vLowY = lowY;
-  vCloseY = closeY;
+  vTimes = vec2(openTimePx, closeTimePx);
+  vPrices = vec4(openY, highY, lowY, closeY);
 
   vec3 projected = uProjectionMatrix * vec3(pos, 1.0);
   gl_Position = vec4(projected.xy, 0.0, 1.0);
@@ -465,74 +464,93 @@ void main(void) {
 const FRAGMENT_SHADER_SRC = `#version 300 es
 precision highp float;
 
-uniform float uOutlineThickness;
-uniform float uCandleWidth;
+uniform float uPadding;
 uniform vec3 uUpOutlineColor;
 uniform vec3 uUpBodyColor;
 uniform vec3 uDownOutlineColor;
 uniform vec3 uDownBodyColor;
 
 in vec2 vPixelPos;
-in float vCenterX;
-in float vOpenY;
-in float vHighY;
-in float vLowY;
-in float vCloseY;
+in vec2 vTimes;  // [openTimePx, closeTimePx]
+in vec4 vPrices; // [openY, highY, lowY, closeY]
 
 out vec4 fragColor;
 
 void main(void) {
-  bool isUp = vCloseY < vOpenY;
+  float openTimePx  = vTimes.x;
+  float closeTimePx = vTimes.y;
+
+  float openY  = vPrices.x;
+  float highY  = vPrices.y;
+  float lowY   = vPrices.z;
+  float closeY = vPrices.w;
+
+  // Screen space: higher price = smaller Y
+  bool isUp = closeY <= openY;
 
   vec3 outlineColor = isUp ? uUpOutlineColor : uDownOutlineColor;
-  vec3 bodyColor = isUp ? uUpBodyColor : uDownBodyColor;
+  vec3 bodyColor    = isUp ? uUpBodyColor    : uDownBodyColor;
 
-  float halfWidth = uCandleWidth * 0.5;
-  float halfOutline = uOutlineThickness * 0.5;
+  bool hasWidth = (closeTimePx - openTimePx) > (uPadding * 2.0);
 
-  float rawBodyTop = min(vOpenY, vCloseY);
-  float rawBodyBottom = max(vOpenY, vCloseY);
+  // 1. Wick Line
+  float wickX = (openTimePx + closeTimePx) * 0.5;
+  bool inWick =
+      abs(vPixelPos.x - wickX) <= 0.5 &&
+      vPixelPos.y >= highY &&
+      vPixelPos.y <= lowY;
 
-  float bodyHeight = max(abs(vOpenY - vCloseY), uOutlineThickness);
+  // 2. Body Rectangle
+  float topY    = min(openY, closeY);
+  float bottomY = max(openY, closeY);
+  float leftX   = openTimePx + uPadding;
+  float rightX  = closeTimePx - uPadding;
 
-  float bodyTop;
-  float bodyBottom;
+  bool inBody =
+      hasWidth &&
+      vPixelPos.x >= leftX &&
+      vPixelPos.x <= rightX &&
+      vPixelPos.y >= topY &&
+      vPixelPos.y <= bottomY;
 
-  if (abs(vOpenY - vCloseY) < 0.0001) {
-    bodyTop = rawBodyTop;
-    bodyBottom = rawBodyTop + bodyHeight;
-  } else {
-    float bodyCenter = (rawBodyTop + rawBodyBottom) * 0.5;
-    bodyTop = bodyCenter - bodyHeight * 0.5;
-    bodyBottom = bodyCenter + bodyHeight * 0.5;
-  }
+  // 3. Border Lines (around BODY only)
+  float bLeftX  = openTimePx + uPadding - 0.5;
+  float bRightX = closeTimePx - uPadding + 0.5;
 
-  bool canrenderOutline = uCandleWidth >= uOutlineThickness && bodyHeight >= uOutlineThickness;
-  bool canrenderBodyInner =
-    uCandleWidth > (uOutlineThickness * 2.0) &&
-    bodyHeight > (uOutlineThickness * 2.0);
+  bool inHLine1 =
+      hasWidth &&
+      vPixelPos.x >= bLeftX &&
+      vPixelPos.x <= bRightX &&
+      abs(vPixelPos.y - (topY - 0.5)) <= 0.5;
 
-  float dx = abs(vPixelPos.x - vCenterX);
+  bool inHLine2 =
+      hasWidth &&
+      vPixelPos.x >= bLeftX &&
+      vPixelPos.x <= bRightX &&
+      abs(vPixelPos.y - (bottomY + 0.5)) <= 0.5;
 
-  bool inWick = dx <= halfOutline && vPixelPos.y >= vHighY && vPixelPos.y <= vLowY;
-  bool inBodyOuter = canrenderOutline && dx <= halfWidth && vPixelPos.y >= bodyTop && vPixelPos.y <= bodyBottom;
-  bool inBodyInner = canrenderBodyInner
-    && dx <= (halfWidth - uOutlineThickness)
-    && vPixelPos.y >= (bodyTop + uOutlineThickness)
-    && vPixelPos.y <= (bodyBottom - uOutlineThickness);
+  bool inVLine1 =
+      hasWidth &&
+      abs(vPixelPos.x - bLeftX) <= 0.5 &&
+      vPixelPos.y >= (topY - 1.0) &&
+      vPixelPos.y <= (bottomY + 1.0);
+
+  bool inVLine2 =
+      hasWidth &&
+      abs(vPixelPos.x - bRightX) <= 0.5 &&
+      vPixelPos.y >= (topY - 1.0) &&
+      vPixelPos.y <= (bottomY + 1.0);
+
+  bool inBorder = inHLine1 || inHLine2 || inVLine1 || inVLine2;
 
   vec4 color = vec4(0.0);
 
-  if (inWick) {
-    color = vec4(outlineColor, 1.0);
-  }
-
-  if (inBodyOuter) {
-    color = vec4(outlineColor, 1.0);
-  }
-
-  if (inBodyInner) {
+  if (inBody) {
     color = vec4(bodyColor, 1.0);
+  }
+
+  if (inWick || inBorder) {
+    color = vec4(outlineColor, 1.0);
   }
 
   if (color.a <= 0.0) {
