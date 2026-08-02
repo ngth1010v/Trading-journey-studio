@@ -8,47 +8,45 @@ import OpeningCandleRenderer from "./OpeningCandleRenderer";
 //======================================================================================================
 export default class CandleRenderer {
   public closed: ClosedCandleRenderer;
-  // public opening: OpeningCandleRenderer;
+  public opening: OpeningCandleRenderer;
 
   constructor() {
     this.closed = new ClosedCandleRenderer();
-    // this.opening = new OpeningCandleRenderer();
+    this.opening = new OpeningCandleRenderer();
   }
 
   public init(state: StateData, chart: ChartController): void {
     this.closed.init(state, chart);
-    // this.opening.init(state, chart);
+    this.opening.init(state, chart);
   }
 
   public destroy(): void {
     this.closed.destroy();
-    // this.opening.destroy();
+    this.opening.destroy();
   }
 
   public setGl(gl: WebGL2RenderingContext): void {
     this.closed.setGl(gl);
-    // this.opening.addToContainer(parentContainer);
+    this.opening.setGl(gl);
   }
-
-
 
   public updateData(): void {
     this.closed.updateData();
-    // this.opening.updateStyle();
+    this.opening.updateData();
   }
 
   public updateStyle(): void {
     this.closed.updateStyle();
-    // this.opening.updateStyle();
+    this.opening.updateStyle();
   }
 
   public updateTransform(): void {
     this.closed.updateTransform();
-    // this.opening.updateViewport();
+    this.opening.updateTransform();
   }
 
   public render(): void {
     this.closed.render();
-    // this.opening.updateViewport();
+    this.opening.render();
   }
 }

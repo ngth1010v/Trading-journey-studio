@@ -1,27 +1,82 @@
-import { Container, Geometry, Mesh, Shader } from "pixi.js";
 import type StateData from "../../../state/StateData";
 import type ChartController from "../../ChartController";
-import type { Candle } from "../../../state/source/candle/CandleData";
+import { CANDLE_SHADER } from "./candleRenderShader";
 
 //======================================================================================================
-// CONSTANT & HELPERS
+// CONSTANTS & HELPERS
 //======================================================================================================
-const CANDLE_VERTEX_CORNERS: Float32Array = new Float32Array([
-  -1, -1,
-   1, -1,
-   1,  1,
-  -1, -1,
-   1,  1,
-  -1,  1,
+// Unit quad corners (4 vertices using TRIANGLE_STRIP covering [0,0] to [1,1])
+const QUAD_CORNERS = new Float32Array([
+  0.0, 0.0,
+  1.0, 0.0,
+  0.0, 1.0,
+  1.0, 1.0,
 ]);
-const VERTICES_PER_CANDLE = 6;
+
+// Single instance layout: [openTimePx, closeTimePx, openY, highY, lowY, closeY]
+const FLOATS_PER_CANDLE = 6;
 
 function rgbaToVec3(rgba: number[]): [number, number, number] {
   return [
-    Math.max(0, Math.min(255, rgba[0])) / 255,
-    Math.max(0, Math.min(255, rgba[1])) / 255,
-    Math.max(0, Math.min(255, rgba[2])) / 255,
+    Math.max(0, Math.min(255, rgba[0] ?? 255)) / 255,
+    Math.max(0, Math.min(255, rgba[1] ?? 255)) / 255,
+    Math.max(0, Math.min(255, rgba[2] ?? 255)) / 255,
   ];
+}
+
+/**
+ * Calculates the next close time (in unix milliseconds) based on openTime and timeframe.
+ * Timeframe format: ${number}${prefix} (e.g. '15M', '1MN', '1Y', '15S')
+ * Prefixes supported: ['S', 'M', 'H', 'D', 'W', 'MN', 'Y']
+ */
+function calculateCloseTime(openTimeMs: number, timeframeStr: string): number | null {
+  if (!timeframeStr || typeof timeframeStr !== "string") return null;
+
+  const match = timeframeStr.trim().match(/^(\d+)(S|M|H|D|W|MN|Y)$/i);
+  if (!match) return null;
+
+  const count = parseInt(match[1], 10);
+  const prefix = match[2].toUpperCase();
+
+  if (isNaN(count) || count <= 0) return null;
+
+  // 1. Fixed duration units in milliseconds
+  const MS_MAP: Record<string, number> = {
+    S: 1000,
+    M: 60 * 1000,
+    H: 60 * 60 * 1000,
+    D: 24 * 60 * 60 * 1000,
+  };
+
+  if (prefix in MS_MAP) {
+    const intervalMs = count * MS_MAP[prefix];
+    // Align/modulo to unix ms boundaries
+    return (Math.floor(openTimeMs / intervalMs) + 1) * intervalMs;
+  }
+
+  // 2. Calendar-dependent units (W, MN, Y) using Date objects
+  const date = new Date(openTimeMs);
+  if (isNaN(date.getTime())) return null;
+
+  switch (prefix) {
+    case "W": {
+      // Add 'count' weeks
+      date.setUTCDate(date.getUTCDate() + count * 7);
+      return date.getTime();
+    }
+    case "MN": {
+      // Add 'count' months
+      date.setUTCMonth(date.getUTCMonth() + count);
+      return date.getTime();
+    }
+    case "Y": {
+      // Add 'count' years
+      date.setUTCFullYear(date.getUTCFullYear() + count);
+      return date.getTime();
+    }
+    default:
+      return null;
+  }
 }
 
 //======================================================================================================
@@ -30,54 +85,92 @@ function rgbaToVec3(rgba: number[]): [number, number, number] {
 export default class OpeningCandleRenderer {
   private state: StateData | null = null;
   private chart: ChartController | null = null;
+  private gl: WebGL2RenderingContext | null = null;
 
-  private container: Container;
-  private mesh: Mesh | null = null;
-  private geometry: Geometry | null = null;
-  private shader: Shader;
+  // WebGL Pipeline Objects
+  private program: WebGLProgram | null = null;
+  private vao: WebGLVertexArrayObject | null = null;
 
-  // Static allocation for exactly 1 candle (Choice 3A)
-  private corners = new Float32Array(12);
-  private centers = new Float32Array(6);
-  private opens = new Float32Array(6);
-  private highs = new Float32Array(6);
-  private lows = new Float32Array(6);
-  private closes = new Float32Array(6);
+  // Reusable projection matrix buffer
+  private projectionMatrix: Float32Array = new Float32Array(9);
 
-  constructor() {
-    this.container = new Container();
-    this.shader = this.buildShader();
-    this.initCornerBuffer();
+  // Fixed GPU Buffers (Single candle instance)
+  private buffers: {
+    quadCorners: WebGLBuffer | null;
+    candleInstance: WebGLBuffer | null;
+  } = {
+    quadCorners: null,
+    candleInstance: null,
+  };
+
+  // Uniform & Attribute Locations
+  private locations = {
+    attributes: {
+      aCorner: -1,
+      aCandleTimes: -1,  // vec2: [openTimePx, closeTimePx]
+      aCandlePrices: -1, // vec4: [openY, highY, lowY, closeY]
+    },
+    uniforms: {
+      uProjectionMatrix: null as WebGLUniformLocation | null,
+      uTransform: null as WebGLUniformLocation | null,
+      uPadding: null as WebGLUniformLocation | null,
+      uUpOutlineColor: null as WebGLUniformLocation | null,
+      uUpBodyColor: null as WebGLUniformLocation | null,
+      uDownOutlineColor: null as WebGLUniformLocation | null,
+      uDownBodyColor: null as WebGLUniformLocation | null,
+    },
+  };
+
+  // Single fixed instance buffer
+  private instanceData = new Float32Array(FLOATS_PER_CANDLE);
+  private hasValidCandle = false;
+
+  // Cached Style Settings
+  private style = {
+    upBodyColor: new Float32Array([0.2, 1.0, 0.2]),
+    upOutlineColor: new Float32Array([0.2, 1.0, 0.2]),
+    downBodyColor: new Float32Array([1.0, 0.2, 0.2]),
+    downOutlineColor: new Float32Array([1.0, 0.2, 0.2]),
+    padding: 2.0,
+  };
+
+  private readonly transformListenerId = `OpeningCandleRenderer_${Math.random().toString(36).substring(2, 9)}`;
+
+  public setGl(gl: WebGL2RenderingContext): void {
+    if (this.gl === gl) return;
+
+    this.cleanupGlResources();
+    this.gl = gl;
+
+    if (this.gl) {
+      this.initGlPipeline();
+      this.updateStyle();
+      this.updateData();
+      this.updateTransform();
+    }
   }
 
   public init(state: StateData, chart: ChartController): void {
     this.state = state;
     this.chart = chart;
 
-    this.updateStyle();
-    this.updateData();
-    this.updateViewport();
+    this.state.viewport.addOnViewportTransformDataChange(
+      this.transformListenerId,
+      () => {
+        this.updateTransform();
+      }
+    );
   }
 
   public destroy(): void {
-    if (this.mesh) {
-      this.mesh.destroy();
-      this.mesh = null;
+    if (this.state) {
+      this.state.viewport.removeOnViewportTransformDataChange(this.transformListenerId);
     }
-    if (this.geometry) {
-      this.geometry.destroy();
-      this.geometry = null;
-    }
-    this.container.destroy({ children: true });
 
+    this.cleanupGlResources();
+    this.gl = null;
     this.state = null;
     this.chart = null;
-  }
-
-  public addToContainer(parentContainer: any): void {
-    if (this.container && parentContainer) {
-      parentContainer.addChild(this.container);
-    }
   }
 
   public updateStyle(): void {
@@ -85,66 +178,44 @@ export default class OpeningCandleRenderer {
     const configStyle = this.state.config.get()?.style?.candle;
     if (!configStyle) return;
 
-    const shaderAny = this.shader as any;
-    const uniforms = shaderAny.resources?.uCandleUniforms?.uniforms;
-
-    if (uniforms) {
-      uniforms.uUpBodyColor = rgbaToVec3(configStyle.bull?.background || [50, 255, 50, 255]);
-      uniforms.uUpOutlineColor = rgbaToVec3(configStyle.bull?.border || [50, 255, 50, 255]);
-      uniforms.uDownBodyColor = rgbaToVec3(configStyle.bear?.background || [255, 50, 50, 255]);
-      uniforms.uDownOutlineColor = rgbaToVec3(configStyle.bear?.border || [255, 50, 50, 255]);
-      uniforms.uOutlineThickness = 2.0;
-    }
-
-    this.render();
-  }
-
-  public updateViewport(): void {
-    if (!this.state || !this.chart) return;
-
-    const view = this.state.config.get()?.viewport;
-    const transform = this.state.viewport.getTransform();
-    const canvas = (this.chart as any).event?.getCanvasSize();
-
-    if (!view || !canvas || canvas.w <= 0 || canvas.h <= 0) return;
-
-    const deltaTs = view.toTs - view.fromTs;
-    const deltaPrice = view.toPrice - view.fromPrice;
-
-    if (deltaTs === 0 || deltaPrice === 0) return;
-
-    // Direct ViewportTransform projection matrix
-    const Mx = 1 / transform.scaleX;
-    const Ax = ((view.fromTs * (1 - transform.scaleX) - transform.offsetX) / (deltaTs * transform.scaleX)) * canvas.w;
-
-    const My = 1 / transform.scaleY;
-    const Ay = canvas.h * (1 - My) - ((view.fromPrice * (1 - transform.scaleY) - transform.offsetY) / (deltaPrice * transform.scaleY)) * canvas.h;
-
-    const shaderAny = this.shader as any;
-    const uniforms = shaderAny.resources?.uCandleUniforms?.uniforms;
-    if (uniforms) {
-      uniforms.uPixelWeights = [Mx, Ax, My, Ay];
-    }
-
-    this.render();
+    this.style.upBodyColor = new Float32Array(rgbaToVec3(configStyle.bull?.background || [50, 255, 50, 255]));
+    this.style.upOutlineColor = new Float32Array(rgbaToVec3(configStyle.bull?.border || [50, 255, 50, 255]));
+    this.style.downBodyColor = new Float32Array(rgbaToVec3(configStyle.bear?.background || [255, 50, 50, 255]));
+    this.style.downOutlineColor = new Float32Array(rgbaToVec3(configStyle.bear?.border || [255, 50, 50, 255]));
+    this.style.padding = 2.0;
   }
 
   public updateData(): void {
-    if (!this.state || !this.chart) return;
+    if (!this.state || !this.gl) return;
 
-    const openingCandle: Candle | null = this.state.source.candle.getOpening();
+    const openingCandle = this.state.source.candle.getOpening();
+    const timeframe = this.state.config.get()?.timeframe;
+    const view = this.state.config.get()?.viewport;
+    const canvas = (this.chart as any)?.event?.getCanvasSize();
 
-    // Choice 1B: If null, set attribute buffers to 0 length
-    if (!openingCandle) {
-      this.clearGeometry();
+    // Edge case check: missing candle data, timeframe, viewport, or invalid canvas size -> clear buffer flag
+    if (
+      !openingCandle ||
+      openingCandle.t == null ||
+      openingCandle.o == null ||
+      openingCandle.h == null ||
+      openingCandle.l == null ||
+      openingCandle.c == null ||
+      !timeframe ||
+      !view ||
+      !canvas ||
+      canvas.w <= 0 ||
+      canvas.h <= 0
+    ) {
+      this.hasValidCandle = false;
       return;
     }
 
-    const view = this.state.config.get()?.viewport;
-    const canvas = (this.chart as any).event?.getCanvasSize();
+    const openTs = openingCandle.t;
+    const closeTs = calculateCloseTime(openTs, timeframe);
 
-    if (!view || !canvas || canvas.w <= 0 || canvas.h <= 0) {
-      this.clearGeometry();
+    if (closeTs == null) {
+      this.hasValidCandle = false;
       return;
     }
 
@@ -152,252 +223,234 @@ export default class OpeningCandleRenderer {
     const deltaPrice = view.toPrice - view.fromPrice;
 
     if (deltaTs === 0 || deltaPrice === 0) {
-      this.clearGeometry();
+      this.hasValidCandle = false;
       return;
     }
 
-    // 1. Convert opening candle (Time/Price) -> Pixel Coordinates
-    const baseX = ((openingCandle.t - view.fromTs) / deltaTs) * canvas.w;
-    const openY = canvas.h - ((openingCandle.o - view.fromPrice) / deltaPrice) * canvas.h;
-    const highY = canvas.h - ((openingCandle.h - view.fromPrice) / deltaPrice) * canvas.h;
-    const lowY = canvas.h - ((openingCandle.l - view.fromPrice) / deltaPrice) * canvas.h;
-    const closeY = canvas.h - ((openingCandle.c - view.fromPrice) / deltaPrice) * canvas.h;
+    const tToPx = canvas.w / deltaTs;
+    const pToPx = canvas.h / deltaPrice;
 
-    for (let v = 0; v < VERTICES_PER_CANDLE; v++) {
-      this.centers[v] = baseX;
-      this.opens[v] = openY;
-      this.highs[v] = highY;
-      this.lows[v] = lowY;
-      this.closes[v] = closeY;
-    }
+    // Time conversion to pixels
+    const openTimePx = (openTs - view.fromTs) * tToPx;
+    const closeTimePx = (closeTs - view.fromTs) * tToPx;
 
-    // 2. Dynamic candle width sampling from last closed candle to opening candle (Choice 2A)
-    let candleWidth = 5.0; // Fallback
-    const closedCandles = this.state.source.candle.getAllClosed();
-    if (closedCandles && closedCandles.t.length > 0) {
-      const lastClosedTs = closedCandles.t[closedCandles.t.length - 1];
-      const xLastClosed = ((lastClosedTs - view.fromTs) / deltaTs) * canvas.w;
-      const xOpening = baseX;
-      candleWidth = Math.max(1, Math.abs(xOpening - xLastClosed) - 1);
-    }
+    // Price conversion to pixels (higher price -> smaller Y pixel)
+    const openY = canvas.h - (openingCandle.o - view.fromPrice) * pToPx;
+    const highY = canvas.h - (openingCandle.h - view.fromPrice) * pToPx;
+    const lowY = canvas.h - (openingCandle.l - view.fromPrice) * pToPx;
+    const closeY = canvas.h - (openingCandle.c - view.fromPrice) * pToPx;
 
-    const shaderAny = this.shader as any;
-    const uniforms = shaderAny.resources?.uCandleUniforms?.uniforms;
-    if (uniforms) {
-      uniforms.uCandleWidth = candleWidth;
-    }
+    this.instanceData[0] = openTimePx;
+    this.instanceData[1] = closeTimePx;
+    this.instanceData[2] = openY;
+    this.instanceData[3] = highY;
+    this.instanceData[4] = lowY;
+    this.instanceData[5] = closeY;
 
-    // 3. Build or update Mesh/Geometry with active candle data
-    this.rebuildOrUpdateGeometry(1);
-    this.render();
+    this.hasValidCandle = true;
+
+    // Upload single instance data to fixed GPU buffer
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.candleInstance);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  public updateTransform(): void {
+    // Pipeline handles viewport transforms directly via GPU uniforms
   }
 
   public render(): void {
-    // PixiJS pipeline render trigger cycle
+    if (!this.gl || !this.program || !this.state || !this.chart) return;
+    if (!this.hasValidCandle) return;
+
+    const transform = this.state.viewport.getTransform();
+    const canvas = (this.chart as any).event?.getCanvasSize();
+
+    if (!canvas || canvas.w <= 0 || canvas.h <= 0) return;
+
+    const gl = this.gl;
+
+    const dpr = window.devicePixelRatio || 1;
+    const pixelWidth = Math.floor(canvas.w * dpr);
+    const pixelHeight = Math.floor(canvas.h * dpr);
+
+    if (gl.canvas.width !== pixelWidth || gl.canvas.height !== pixelHeight) {
+      gl.canvas.width = pixelWidth;
+      gl.canvas.height = pixelHeight;
+    }
+
+    gl.viewport(0, 0, pixelWidth, pixelHeight);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+    const scaleX = transform.scaleX || 1;
+    const scaleY = transform.scaleY || 1;
+    const offsetX = transform.offsetX || 0;
+    const offsetY = transform.offsetY || 0;
+
+    gl.useProgram(this.program);
+    gl.bindVertexArray(this.vao);
+
+    const uLocs = this.locations.uniforms;
+
+    // 2D Orthographic Projection Matrix
+    this.projectionMatrix[0] = 2 / canvas.w;
+    this.projectionMatrix[1] = 0;
+    this.projectionMatrix[2] = 0;
+    this.projectionMatrix[3] = 0;
+    this.projectionMatrix[4] = -2 / canvas.h;
+    this.projectionMatrix[5] = 0;
+    this.projectionMatrix[6] = -1;
+    this.projectionMatrix[7] = 1;
+    this.projectionMatrix[8] = 1;
+
+    gl.uniformMatrix3fv(uLocs.uProjectionMatrix, false, this.projectionMatrix);
+    gl.uniform4f(uLocs.uTransform, scaleX, scaleY, offsetX, offsetY);
+    gl.uniform1f(uLocs.uPadding, this.style.padding);
+    gl.uniform3fv(uLocs.uUpBodyColor, this.style.upBodyColor);
+    gl.uniform3fv(uLocs.uUpOutlineColor, this.style.upOutlineColor);
+    gl.uniform3fv(uLocs.uDownBodyColor, this.style.downBodyColor);
+    gl.uniform3fv(uLocs.uDownOutlineColor, this.style.downOutlineColor);
+
+    // Draw 1 candle instance
+    gl.drawArraysInstanced(
+      gl.TRIANGLE_STRIP,
+      0,
+      4,
+      1
+    );
+
+    gl.bindVertexArray(null);
+    gl.useProgram(null);
   }
 
   //======================================================================================================
-  // PRIVATE HELPER METHODS
+  // PRIVATE HELPERS
   //======================================================================================================
+  private initGlPipeline(): void {
+    const gl = this.gl;
+    if (!gl) return;
 
-  private initCornerBuffer(): void {
-    for (let v = 0; v < VERTICES_PER_CANDLE; v++) {
-      this.corners[v * 2] = CANDLE_VERTEX_CORNERS[v * 2];
-      this.corners[v * 2 + 1] = CANDLE_VERTEX_CORNERS[v * 2 + 1];
+    this.program = this.createProgram(gl, CANDLE_SHADER.vertex, CANDLE_SHADER.fragment);
+    if (!this.program) return;
+
+    // Attributes
+    this.locations.attributes.aCorner = gl.getAttribLocation(this.program, "aCorner");
+    this.locations.attributes.aCandleTimes = gl.getAttribLocation(this.program, "aCandleTimes");
+    this.locations.attributes.aCandlePrices = gl.getAttribLocation(this.program, "aCandlePrices");
+
+    // Uniforms
+    this.locations.uniforms.uProjectionMatrix = gl.getUniformLocation(this.program, "uProjectionMatrix");
+    this.locations.uniforms.uTransform = gl.getUniformLocation(this.program, "uTransform");
+    this.locations.uniforms.uPadding = gl.getUniformLocation(this.program, "uPadding");
+    this.locations.uniforms.uUpOutlineColor = gl.getUniformLocation(this.program, "uUpOutlineColor");
+    this.locations.uniforms.uUpBodyColor = gl.getUniformLocation(this.program, "uUpBodyColor");
+    this.locations.uniforms.uDownOutlineColor = gl.getUniformLocation(this.program, "uDownOutlineColor");
+    this.locations.uniforms.uDownBodyColor = gl.getUniformLocation(this.program, "uDownBodyColor");
+
+    this.vao = gl.createVertexArray();
+    this.buffers.quadCorners = gl.createBuffer();
+    this.buffers.candleInstance = gl.createBuffer();
+
+    gl.bindVertexArray(this.vao);
+
+    // Quad Corners Buffer (Per Vertex)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.quadCorners);
+    gl.bufferData(gl.ARRAY_BUFFER, QUAD_CORNERS, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(this.locations.attributes.aCorner);
+    gl.vertexAttribPointer(this.locations.attributes.aCorner, 2, gl.FLOAT, false, 0, 0);
+
+    // Fixed Candle Instance Buffer (1 Candle, Fixed Byte Size)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.candleInstance);
+    gl.bufferData(gl.ARRAY_BUFFER, FLOATS_PER_CANDLE * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
+
+    const stride = FLOATS_PER_CANDLE * Float32Array.BYTES_PER_ELEMENT;
+
+    // aCandleTimes = vec2 [openTimePx, closeTimePx]
+    gl.enableVertexAttribArray(this.locations.attributes.aCandleTimes);
+    gl.vertexAttribPointer(this.locations.attributes.aCandleTimes, 2, gl.FLOAT, false, stride, 0);
+    gl.vertexAttribDivisor(this.locations.attributes.aCandleTimes, 1);
+
+    // aCandlePrices = vec4 [openY, highY, lowY, closeY]
+    gl.enableVertexAttribArray(this.locations.attributes.aCandlePrices);
+    gl.vertexAttribPointer(
+      this.locations.attributes.aCandlePrices,
+      4,
+      gl.FLOAT,
+      false,
+      stride,
+      2 * Float32Array.BYTES_PER_ELEMENT
+    );
+    gl.vertexAttribDivisor(this.locations.attributes.aCandlePrices, 1);
+
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  private cleanupGlResources(): void {
+    if (!this.gl) return;
+    const gl = this.gl;
+
+    if (this.vao) {
+      gl.deleteVertexArray(this.vao);
+      this.vao = null;
+    }
+
+    if (this.buffers.quadCorners) {
+      gl.deleteBuffer(this.buffers.quadCorners);
+      this.buffers.quadCorners = null;
+    }
+
+    if (this.buffers.candleInstance) {
+      gl.deleteBuffer(this.buffers.candleInstance);
+      this.buffers.candleInstance = null;
+    }
+
+    if (this.program) {
+      gl.deleteProgram(this.program);
+      this.program = null;
     }
   }
 
-  private clearGeometry(): void {
-    if (this.geometry) {
-      this.rebuildOrUpdateGeometry(0);
+  private createProgram(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): WebGLProgram | null {
+    const vertShader = this.compileShader(gl, gl.VERTEX_SHADER, vertSrc);
+    const fragShader = this.compileShader(gl, gl.FRAGMENT_SHADER, fragSrc);
+
+    if (!vertShader || !fragShader) return null;
+
+    const program = gl.createProgram();
+    if (!program) return null;
+
+    gl.attachShader(program, vertShader);
+    gl.attachShader(program, fragShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error("WebGL2 Program Link Error:", gl.getProgramInfoLog(program));
+      gl.deleteProgram(program);
+      return null;
     }
+
+    gl.deleteShader(vertShader);
+    gl.deleteShader(fragShader);
+
+    return program;
   }
 
-  private rebuildOrUpdateGeometry(count: number): void {
-    if (!this.geometry) {
-      this.geometry = new Geometry();
-      this.geometry.addAttribute("aCorner", { buffer: this.corners.subarray(0, count * 12), size: 2 });
-      this.geometry.addAttribute("aCenterX", { buffer: this.centers.subarray(0, count * 6), size: 1 });
-      this.geometry.addAttribute("aOpenY", { buffer: this.opens.subarray(0, count * 6), size: 1 });
-      this.geometry.addAttribute("aHighY", { buffer: this.highs.subarray(0, count * 6), size: 1 });
-      this.geometry.addAttribute("aLowY", { buffer: this.lows.subarray(0, count * 6), size: 1 });
-      this.geometry.addAttribute("aCloseY", { buffer: this.closes.subarray(0, count * 6), size: 1 });
+  private compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader | null {
+    const shader = gl.createShader(type);
+    if (!shader) return null;
 
-      if (this.mesh) {
-        this.container.removeChild(this.mesh);
-        this.mesh.destroy();
-      }
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
 
-      this.mesh = new Mesh({ geometry: this.geometry, shader: this.shader } as any);
-      this.container.addChild(this.mesh);
-    } else {
-      // Re-link attribute dynamic subarray sizes (0 for null state, 1 for active)
-      const g = this.geometry as any;
-      if (g.attributes?.aCorner) g.attributes.aCorner.buffer.data = this.corners.subarray(0, count * 12);
-      if (g.attributes?.aCenterX) g.attributes.aCenterX.buffer.data = this.centers.subarray(0, count * 6);
-      if (g.attributes?.aOpenY) g.attributes.aOpenY.buffer.data = this.opens.subarray(0, count * 6);
-      if (g.attributes?.aHighY) g.attributes.aHighY.buffer.data = this.highs.subarray(0, count * 6);
-      if (g.attributes?.aLowY) g.attributes.aLowY.buffer.data = this.lows.subarray(0, count * 6);
-      if (g.attributes?.aCloseY) g.attributes.aCloseY.buffer.data = this.closes.subarray(0, count * 6);
-
-      const buffers = this.geometry.buffers;
-      if (buffers) {
-        buffers.forEach((b: any) => b.update?.());
-      }
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error("WebGL2 Shader Compile Error:", gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
     }
-  }
 
-  private buildShader(): Shader {
-    const uCandleUniforms = {
-      uProjectionMatrix: { value: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), type: "mat3x3<f32>" },
-      uPixelWeights: { value: new Float32Array([1, 0, 1, 0]), type: "vec4<f32>" },
-      uOutlineThickness: { value: 2.0, type: "f32" },
-      uCandleWidth: { value: 5.0, type: "f32" },
-      uUpOutlineColor: { value: [0.2, 1.0, 0.2], type: "vec3<f32>" },
-      uUpBodyColor: { value: [0.2, 1.0, 0.2], type: "vec3<f32>" },
-      uDownOutlineColor: { value: [1.0, 0.2, 0.2], type: "vec3<f32>" },
-      uDownBodyColor: { value: [1.0, 0.2, 0.2], type: "vec3<f32>" },
-    };
-
-    const vertexSrc = `
-precision mediump float;
-
-attribute vec2 aCorner;
-attribute float aCenterX;
-attribute float aOpenY;
-attribute float aHighY;
-attribute float aLowY;
-attribute float aCloseY;
-
-uniform mat3 uProjectionMatrix;
-uniform vec4 uPixelWeights;
-uniform float uCandleWidth;
-
-varying vec2 vPixelPos;
-varying float vCenterX;
-varying float vOpenY;
-varying float vHighY;
-varying float vLowY;
-varying float vCloseY;
-
-void main(void) {
-  float Mx = uPixelWeights.x;
-  float Ax = uPixelWeights.y;
-  float My = uPixelWeights.z;
-  float Ay = uPixelWeights.w;
-
-  float x = aCenterX * Mx + Ax;
-  float openY = aOpenY * My + Ay;
-  float highY = aHighY * My + Ay;
-  float lowY = aLowY * My + Ay;
-  float closeY = aCloseY * My + Ay;
-
-  float halfWidth = (uCandleWidth * Mx) * 0.5;
-
-  float minHeight = 1.0;
-  if (abs(highY - lowY) < minHeight) {
-    highY = highY + minHeight;
-  }
-
-  vec2 pos = vec2(
-    x + aCorner.x * halfWidth,
-    mix(highY, lowY, (aCorner.y + 1.0) * 0.5)
-  );
-
-  vPixelPos = pos;
-  vCenterX = x;
-  vOpenY = openY;
-  vHighY = highY;
-  vLowY = lowY;
-  vCloseY = closeY;
-
-  vec3 projected = uProjectionMatrix * vec3(pos, 1.0);
-  gl_Position = vec4(projected.xy, 0.0, 1.0);
-}
-`;
-
-    const fragmentSrc = `
-precision mediump float;
-
-uniform float uOutlineThickness;
-uniform float uCandleWidth;
-uniform vec4 uPixelWeights;
-uniform vec3 uUpOutlineColor;
-uniform vec3 uUpBodyColor;
-uniform vec3 uDownOutlineColor;
-uniform vec3 uDownBodyColor;
-
-varying vec2 vPixelPos;
-varying float vCenterX;
-varying float vOpenY;
-varying float vHighY;
-varying float vLowY;
-varying float vCloseY;
-
-void main(void) {
-  bool isUp = vCloseY < vOpenY;
-
-  vec3 outlineColor = isUp ? uUpOutlineColor : uDownOutlineColor;
-  vec3 bodyColor = isUp ? uUpBodyColor : uDownBodyColor;
-  
-  float Mx = uPixelWeights.x;
-  float halfWidth = (uCandleWidth * Mx) * 0.5;
-  float halfOutline = uOutlineThickness * 0.5;
-
-  float rawBodyTop = min(vOpenY, vCloseY);
-  float rawBodyBottom = max(vOpenY, vCloseY);
-
-  float bodyHeight = max(abs(vOpenY - vCloseY), uOutlineThickness);
-
-  float bodyTop;
-  float bodyBottom;
-
-  if (abs(vOpenY - vCloseY) < 0.0001) {
-    bodyTop = rawBodyTop;
-    bodyBottom = rawBodyTop + bodyHeight;
-  } else {
-    float bodyCenter = (rawBodyTop + rawBodyBottom) * 0.5;
-    bodyTop = bodyCenter - bodyHeight * 0.5;
-    bodyBottom = bodyCenter + bodyHeight * 0.5;
-  }
-
-  float dx = abs(vPixelPos.x - vCenterX);
-  
-  bool canDrawOutline = (uCandleWidth * Mx) >= uOutlineThickness && bodyHeight >= uOutlineThickness;
-  bool canDrawBodyInner = (uCandleWidth * Mx) > (uOutlineThickness * 2.0) && bodyHeight > (uOutlineThickness * 2.0);
-
-  bool inWick = dx <= halfOutline && vPixelPos.y >= vHighY && vPixelPos.y <= vLowY;
-  bool inBodyOuter = canDrawOutline && dx <= halfWidth && vPixelPos.y >= bodyTop && vPixelPos.y <= bodyBottom;
-  bool inBodyInner = canDrawBodyInner 
-    && dx <= (halfWidth - uOutlineThickness) 
-    && vPixelPos.y >= (bodyTop + uOutlineThickness) 
-    && vPixelPos.y <= (bodyBottom - uOutlineThickness);
-
-  vec4 color = vec4(0.0);
-
-  if (inWick || inBodyOuter) {
-    color = vec4(outlineColor, 1.0);
-  }
-  if (inBodyInner) {
-    color = vec4(bodyColor, 1.0);
-  }
-
-  if (color.a <= 0.0) {
-    discard;
-  }
-
-  gl_FragColor = color;
-}
-`;
-
-    return Shader.from({
-      gl: {
-        vertex: vertexSrc,
-        fragment: fragmentSrc,
-      },
-      resources: {
-        uCandleUniforms,
-      },
-    });
+    return shader;
   }
 }
