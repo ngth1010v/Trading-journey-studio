@@ -62,7 +62,7 @@ export default function CandleChart({
         //====================================================================================================
         // StateData & ChartController
         //====================================================================================================
-        await state.init(pageId, elementId);
+        await state.init(pageId, elementId, chart);
 
         chart.init(state);
 

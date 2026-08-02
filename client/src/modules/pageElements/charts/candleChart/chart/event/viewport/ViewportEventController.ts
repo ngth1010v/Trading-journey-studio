@@ -112,8 +112,8 @@ export default class ViewportEventController {
     // Directly apply pixel translation offsets
     state.viewport.setTransform({
       ...transform,
-      offsetX: transform.offsetX + dx,
-      offsetY: transform.offsetY + dy,
+      offsetX: transform.offsetX - dx,
+      offsetY: transform.offsetY - dy,
     });
   };
 
@@ -163,6 +163,7 @@ export default class ViewportEventController {
       offsetY: newOffsetY,
     };
 
+    return
     state.viewport.setTransform(newTransform);
 
     // Schedule debounced flush

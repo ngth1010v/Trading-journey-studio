@@ -41,7 +41,7 @@ export default class ConfigData {
     this.elementId = elementId;
     this.cache = {
       viewport: {
-        fromTs: Date.now() - (1000*60*60*24)*3/4,
+        fromTs: Date.now() - (1000*60*60*24*5)*3/4,
         toTs: Date.now() + (1000*60*60*24)/4,
         fromPrice: 0,
         toPrice: 1,

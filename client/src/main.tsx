@@ -39,6 +39,7 @@ const root = createRoot(document.getElementById('root')!)
 // RENDER
 //====================================================================================================
 root.render(
+  // <App />
   <StrictMode>
     <App />
   </StrictMode>,

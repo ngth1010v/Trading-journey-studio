@@ -1,5 +1,6 @@
 import LinkData from "./link/LinkData";
 import type StateData from "../StateData";
+import ChartController from "../../chart/ChartController";
 
 export interface Viewport {
   fromTs: number;
@@ -33,6 +34,7 @@ export default class ViewportData {
   public link: LinkData;
 
   private stateData: StateData | null = null;
+  private chart: ChartController | null = null
   private transformCache: ViewportTransform = { ...DEFAULT_TRANSFORM };
   private transformListeners: Map<string, () => void> = new Map();
 
@@ -43,7 +45,8 @@ export default class ViewportData {
   /**
    * Initializes the transform state, stores StateData reference, and initializes LinkData.
    */
-  public init(stateData: StateData): void {
+  public init(stateData: StateData, chart: ChartController): void {
+    this.chart = chart
     this.stateData = stateData;
     this.transformCache = { ...DEFAULT_TRANSFORM };
     this.link.init();
@@ -92,13 +95,18 @@ export default class ViewportData {
    */
   public flushTransform(): void {
     const currentView = this.getView(); // Will throw if stateData or viewport is missing
-    const { scaleX, offsetX, scaleY, offsetY } = this.transformCache;
+    const { offsetX, offsetY } = this.transformCache;
+    
+    const offsetTime = (this.chart?.viewport.converter.pixelToTimestamp(offsetX) ?? 0) - (this.chart?.viewport.converter.pixelToTimestamp(0) ?? 0)
+    const offsetPrice = (this.chart?.viewport.converter.pixelToPrice(offsetY) ?? 0) - (this.chart?.viewport.converter.pixelToPrice(0) ?? 0)
 
+    if (offsetPrice == null || offsetTime == null) return
+    
     const newViewport: Viewport = {
-      fromTs: currentView.fromTs * scaleX + offsetX,
-      toTs: currentView.toTs * scaleX + offsetX,
-      fromPrice: currentView.fromPrice * scaleY + offsetY,
-      toPrice: currentView.toPrice * scaleY + offsetY,
+      fromTs: currentView.fromTs + offsetTime,
+      toTs: currentView.toTs + offsetTime,
+      fromPrice: currentView.fromPrice + offsetPrice,
+      toPrice: currentView.toPrice + offsetPrice,
     };
 
     // Update config viewport
@@ -134,4 +142,5 @@ export default class ViewportData {
       }
     }
   }
+
 }

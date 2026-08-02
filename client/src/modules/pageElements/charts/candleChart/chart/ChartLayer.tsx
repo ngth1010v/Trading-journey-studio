@@ -8,10 +8,8 @@ export default function ChartLayer({ chart }: { chart: ChartController }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Attach canvas once on mount
     chart.setCanvas(canvas);
 
-    // Optional cleanup if chart needs to be destroyed on unmount
     return () => {
       chart.destroy();
     };

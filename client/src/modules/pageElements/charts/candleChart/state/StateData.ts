@@ -1,6 +1,7 @@
 import SourceData from "./source/SourceData";
 import ViewportData from "./viewport/ViewportData";
 import ConfigData from "./ConfigData";
+import ChartController from "../chart/ChartController";
 
 export default class StateData {
   public viewport: ViewportData = new ViewportData();
@@ -10,9 +11,9 @@ export default class StateData {
   /**
    * Initializes config, viewport, and source data instances.
    */
-  public async init(pageId: number, elementId: number): Promise<void> {
+  public async init(pageId: number, elementId: number, chart: ChartController): Promise<void> {
     this.config.init(pageId, elementId);
-    this.viewport.init(this);
+    this.viewport.init(this, chart);
     await this.source.init();
 
     //====================================================================================================

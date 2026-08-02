@@ -11,17 +11,17 @@ export default class ChartController {
     public init(state: StateData): void {
         this.viewport.init(state, this)
         this.event.init(state, this)
-        // this.render.init(state, this)
+        this.render.init(state, this)
     }
 
     public setCanvas(canvas: HTMLCanvasElement) {
         this.event.setCanvas(canvas)
-        // this.render.setCanvas(canvas)
+        this.render.setCanvas(canvas)
     }
     
     public destroy(): void {
         this.viewport.destroy();
         this.event.destroy();
-        // this.render.destroy()
+        this.render.destroy()
     }
 }
