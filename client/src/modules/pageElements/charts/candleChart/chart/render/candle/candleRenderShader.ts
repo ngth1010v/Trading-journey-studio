@@ -78,6 +78,8 @@ void main(void) {
   float lowY   = vPrices.z;
   float closeY = vPrices.w;
 
+  vec2 pixelPos = floor(vPixelPos) + 0.5;
+
   // Screen space: higher price = smaller Y
   bool isUp = closeY <= openY;
 
@@ -89,9 +91,9 @@ void main(void) {
   // 1. Wick Line
   float wickX = (openTimePx + closeTimePx) * 0.5;
   bool inWick =
-      abs(vPixelPos.x - wickX) <= 0.5 &&
-      vPixelPos.y >= highY &&
-      vPixelPos.y <= lowY;
+      abs(pixelPos.x - wickX) <= 0.5 &&
+      pixelPos.y >= highY &&
+      pixelPos.y <= lowY;
 
   // 2. Body Rectangle
   float topY    = min(openY, closeY);
@@ -101,10 +103,10 @@ void main(void) {
 
   bool inBody =
       hasWidth &&
-      vPixelPos.x >= leftX &&
-      vPixelPos.x <= rightX &&
-      vPixelPos.y >= topY &&
-      vPixelPos.y <= bottomY;
+      pixelPos.x >= leftX &&
+      pixelPos.x <= rightX &&
+      pixelPos.y >= topY &&
+      pixelPos.y <= bottomY;
 
   // 3. Border Lines (around BODY only)
   float bLeftX  = openTimePx + uPadding - 0.5;
@@ -112,27 +114,27 @@ void main(void) {
 
   bool inHLine1 =
       hasWidth &&
-      vPixelPos.x >= bLeftX &&
-      vPixelPos.x <= bRightX &&
-      abs(vPixelPos.y - (topY - 0.5)) <= 0.5;
+      pixelPos.x >= bLeftX &&
+      pixelPos.x <= bRightX &&
+      abs(pixelPos.y - (topY - 0.5)) <= 0.5;
 
   bool inHLine2 =
       hasWidth &&
-      vPixelPos.x >= bLeftX &&
-      vPixelPos.x <= bRightX &&
-      abs(vPixelPos.y - (bottomY + 0.5)) <= 0.5;
+      pixelPos.x >= bLeftX &&
+      pixelPos.x <= bRightX &&
+      abs(pixelPos.y - (bottomY + 0.5)) <= 0.5;
 
   bool inVLine1 =
       hasWidth &&
-      abs(vPixelPos.x - bLeftX) <= 0.5 &&
-      vPixelPos.y >= (topY - 1.0) &&
-      vPixelPos.y <= (bottomY + 1.0);
+      abs(pixelPos.x - bLeftX) <= 0.5 &&
+      pixelPos.y >= (topY - 1.0) &&
+      pixelPos.y <= (bottomY + 1.0);
 
   bool inVLine2 =
       hasWidth &&
-      abs(vPixelPos.x - bRightX) <= 0.5 &&
-      vPixelPos.y >= (topY - 1.0) &&
-      vPixelPos.y <= (bottomY + 1.0);
+      abs(pixelPos.x - bRightX) <= 0.5 &&
+      pixelPos.y >= (topY - 1.0) &&
+      pixelPos.y <= (bottomY + 1.0);
 
   bool inBorder = inHLine1 || inHLine2 || inVLine1 || inVLine2;
 
