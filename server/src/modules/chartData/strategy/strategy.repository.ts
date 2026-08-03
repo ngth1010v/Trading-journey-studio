@@ -15,7 +15,7 @@ export class StrategyRepository {
   public init(): void {
     fs.mkdirSync(DB_DIR, { recursive: true });
     this.db = new Database(DB_PATH);
-    
+
     // Enable WAL mode for better performance
     this.db.pragma("journal_mode = WAL");
 
@@ -48,15 +48,61 @@ export class StrategyRepository {
     }
   }
 
-  // --- STRATEGY TAG METHODS ---
-  
-  public getAllTags(): any[] {
-    const stmt = this.db.prepare("SELECT id, name, color FROM strategy_tags");
-    return stmt.all().map((row: any) => ({
+  // --- HELPER PARSERS WITH FALLBACK DEFAULTS ---
+
+  private parseTagRow(row: any): StrategyTag {
+    let color = { font: [0, 0, 0], background: [255, 255, 255, 1], border: [0, 0, 0, 1] };
+    try {
+      if (row.color) color = JSON.parse(row.color);
+    } catch {
+      // Keep default color fallback
+    }
+
+    return {
       id: row.id,
-      name: row.name,
-      color: JSON.parse(row.color)
-    }));
+      name: row.name ?? "",
+      createdTimestamp: row.createdTimestamp ?? Date.now(),
+      desc: row.desc ?? "",
+      color: color as StrategyTag["color"],
+    };
+  }
+
+  private parseStrategyRow(row: any): Strategy {
+    let tagIds: string[] = [];
+    try {
+      if (row.tagIds) tagIds = JSON.parse(row.tagIds);
+    } catch {}
+
+    let favorite = { symbols: [], timeframes: [] };
+    try {
+      if (row.favorite) favorite = JSON.parse(row.favorite);
+    } catch {}
+
+    let color = { font: [0, 0, 0], background: [255, 255, 255, 1], border: [0, 0, 0, 1] };
+    try {
+      if (row.color) color = JSON.parse(row.color);
+    } catch {}
+
+    return {
+      id: row.id,
+      name: row.name ?? "",
+      desc: row.desc ?? "",
+      tagIds: Array.isArray(tagIds) ? tagIds : [],
+      status: (["live", "end", "backtest"].includes(row.status) ? row.status : "backtest") as Strategy["status"],
+      createdTimestamp: row.createdTimestamp ?? Date.now(),
+      favorite: {
+        symbols: Array.isArray(favorite?.symbols) ? favorite.symbols : [],
+        timeframes: Array.isArray(favorite?.timeframes) ? favorite.timeframes : [],
+      },
+      color: color as Strategy["color"],
+    };
+  }
+
+  // --- STRATEGY TAG METHODS ---
+
+  public getAllTags(): StrategyTag[] {
+    const stmt = this.db.prepare("SELECT * FROM strategy_tags");
+    return stmt.all().map((row: any) => this.parseTagRow(row));
   }
 
   public getTagById(id: number): StrategyTag | null {
@@ -64,13 +110,7 @@ export class StrategyRepository {
     const row = stmt.get(id) as any;
     if (!row) return null;
 
-    return {
-      id: row.id,
-      name: row.name,
-      createdTimestamp: row.createdTimestamp,
-      desc: row.desc,
-      color: JSON.parse(row.color)
-    };
+    return this.parseTagRow(row);
   }
 
   public createTag(tag: Omit<StrategyTag, "id">): number {
@@ -97,21 +137,23 @@ export class StrategyRepository {
       // 1. Delete the tag itself
       const stmt = this.db.prepare("DELETE FROM strategy_tags WHERE id = ?");
       const result = stmt.run(id);
-      
+
       if (result.changes === 0) return false;
 
-      // 2. Scrub the tag ID from all strategies (Choice 3B)
+      // 2. Scrub the tag ID from all strategies
       const stringId = String(id);
       const selectStmt = this.db.prepare("SELECT id, tagIds FROM strategies");
       const updateStmt = this.db.prepare("UPDATE strategies SET tagIds = ? WHERE id = ?");
-      
+
       const strategies = selectStmt.all() as any[];
       for (const strat of strategies) {
-        const tagIds: string[] = JSON.parse(strat.tagIds);
-        if (tagIds.includes(stringId)) {
-          const updatedTags = tagIds.filter(tId => tId !== stringId);
-          updateStmt.run(JSON.stringify(updatedTags), strat.id);
-        }
+        try {
+          const tagIds: string[] = JSON.parse(strat.tagIds);
+          if (tagIds.includes(stringId)) {
+            const updatedTags = tagIds.filter((tId) => tId !== stringId);
+            updateStmt.run(JSON.stringify(updatedTags), strat.id);
+          }
+        } catch {}
       }
       return true;
     });
@@ -121,14 +163,9 @@ export class StrategyRepository {
 
   // --- STRATEGY METHODS ---
 
-  public getAllStrategies(): any[] {
-    const stmt = this.db.prepare("SELECT id, name, status, color FROM strategies");
-    return stmt.all().map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      status: row.status,
-      color: JSON.parse(row.color)
-    }));
+  public getAllStrategies(): Strategy[] {
+    const stmt = this.db.prepare("SELECT * FROM strategies");
+    return stmt.all().map((row: any) => this.parseStrategyRow(row));
   }
 
   public getStrategyById(id: number): Strategy | null {
@@ -136,16 +173,7 @@ export class StrategyRepository {
     const row = stmt.get(id) as any;
     if (!row) return null;
 
-    return {
-      id: row.id,
-      name: row.name,
-      desc: row.desc,
-      tagIds: JSON.parse(row.tagIds),
-      status: row.status as "live" | "end" | "backtest",
-      createdTimestamp: row.createdTimestamp,
-      favorite: JSON.parse(row.favorite),
-      color: JSON.parse(row.color)
-    };
+    return this.parseStrategyRow(row);
   }
 
   public createStrategy(strat: Omit<Strategy, "id">): number {

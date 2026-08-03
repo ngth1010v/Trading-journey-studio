@@ -1,5 +1,5 @@
 import type { RGB, RGBA } from "../../../shared/type";
-import StrategyTagData from "./tag/StrategyTagData";
+import StrategyTagData, { initStrategyTag, destroyStrategyTag } from "./tag/StrategyTagData";
 import {
   fetchAllStrategies,
   saveStrategy,
@@ -26,79 +26,144 @@ export interface Strategy {
 }
 
 const DEFAULT_STRATEGY = {
-  name: "Default", // add prefix " 1", " 2" if duplicate
+  name: "Default",
   desc: "",
   tagIds: [],
   status: "live",
-  createdTimestamp: 0, // = auto set when create
+  createdTimestamp: 0,
 
   favorite: {
     symbols: [],
     timeframes: [],
   },
   color: {
-    font: [255,255,255] as RGB,
+    font: [255, 255, 255] as RGB,
     background: [120, 90, 150, 1] as RGBA,
     border: [145, 118, 175, 1] as RGBA,
-  }
-} as Strategy
+  },
+} as Strategy;
 
-const REFRESH_DURATION = 500; // ms
+export const REFRESH_DURATION = 500; // ms
+
+// ============================================================================
+// GLOBAL STATE & LOOP
+// ============================================================================
+
+interface StrategyMainTrigger {
+  triggerStrategyDataChange: () => void;
+}
+
+let isStrategyInitialized = false;
+let globalStrategyIntervalId: ReturnType<typeof setInterval> | null = null;
+let strategyCacheMap: Map<number, Strategy> = new Map();
+let previousStrategyJson = "";
+
+const strategyDataCallbackMap = new Map<string, StrategyMainTrigger>();
+
+async function executeGlobalStrategyRefresh(): Promise<void> {
+  try {
+    const freshStrategies = await fetchAllStrategies();
+    const freshJson = JSON.stringify(freshStrategies);
+    const hasDataChanged = freshJson !== previousStrategyJson;
+
+    const newMap = new Map<number, Strategy>();
+    for (const item of freshStrategies) {
+      if (item.id !== undefined) {
+        newMap.set(item.id, item);
+      }
+    }
+
+    strategyCacheMap = newMap;
+    previousStrategyJson = freshJson;
+
+    if (hasDataChanged) {
+      for (const { triggerStrategyDataChange } of strategyDataCallbackMap.values()) {
+        triggerStrategyDataChange();
+      }
+    }
+  } catch (err) {
+    // Silently swallow fetch/network errors during polling cycles
+  }
+}
+
+export function initStrategy(): void {
+  if (isStrategyInitialized) {
+    return;
+  }
+  isStrategyInitialized = true;
+
+  // Initialize tags alongside strategy
+  initStrategyTag();
+
+  executeGlobalStrategyRefresh();
+  globalStrategyIntervalId = setInterval(executeGlobalStrategyRefresh, REFRESH_DURATION);
+}
+
+export function destroyStrategy(): void {
+  if (!isStrategyInitialized) {
+    return;
+  }
+
+  if (globalStrategyIntervalId !== null) {
+    clearInterval(globalStrategyIntervalId);
+    globalStrategyIntervalId = null;
+  }
+
+  // Destroy strategy tag loop as well
+  destroyStrategyTag();
+
+  strategyDataCallbackMap.clear();
+  strategyCacheMap.clear();
+  previousStrategyJson = "";
+  isStrategyInitialized = false;
+}
+
+// ============================================================================
+// STRATEGYDATA CLASS
+// ============================================================================
 
 export default class StrategyData {
+  public id: string | null = null;
   public tag: StrategyTagData;
 
-  private cache: Map<number, Strategy> = new Map();
-  private initialized: boolean = false;
-  private timerId: ReturnType<typeof setInterval> | null = null;
-  private callbacks: Map<string, () => void> = new Map();
+  private callbacks = new Map<string, () => void>();
 
   constructor() {
     this.tag = new StrategyTagData();
   }
 
-  /**
-   * Start refresh loop for loading strategies + auto-init internal StrategyTagData.
-   */
-  public async init(): Promise<void> {
-    if (this.initialized) return;
+  public init(): void {
+    if (this.id !== null) {
+      return; // Prevent duplicate initialization
+    }
 
-    this.initialized = true;
+    this.id = `strategy_data_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
 
-    // Initialize tags along with strategies
-    await Promise.all([this.tag.init(), this.poll()]);
+    // Initialize internal StrategyTagData instance
+    this.tag.init();
 
-    this.timerId = setInterval(() => {
-      this.poll();
-    }, REFRESH_DURATION);
+    strategyDataCallbackMap.set(this.id, {
+      triggerStrategyDataChange: () => this.notifyDataChange(),
+    });
   }
 
-  /**
-   * Stop the refresh loop and clean up tags as well.
-   */
   public destroy(): void {
-    if (this.timerId !== null) {
-      clearInterval(this.timerId);
-      this.timerId = null;
+    if (this.id !== null) {
+      strategyDataCallbackMap.delete(this.id);
+      this.id = null;
     }
     this.tag.destroy();
-    this.cache.clear();
     this.callbacks.clear();
-    this.initialized = false;
   }
 
   /**
    * Return specific strategy, or null if not found.
-   * Throws an error if init was not called.
    */
   public get(id: number): Strategy | null {
-    this.ensureInitialized();
-    return this.cache.get(id) ?? null;
+    return strategyCacheMap.get(id) ?? null;
   }
 
   public getDefault(): Strategy {
-    this.ensureInitialized();
-
     const strategy: Strategy = structuredClone(DEFAULT_STRATEGY);
     strategy.createdTimestamp = Date.now();
 
@@ -121,11 +186,9 @@ export default class StrategyData {
 
   /**
    * Return all strategies, or [] if empty.
-   * Throws an error if init was not called.
    */
   public getAll(): Strategy[] {
-    this.ensureInitialized();
-    return Array.from(this.cache.values());
+    return Array.from(strategyCacheMap.values());
   }
 
   /**
@@ -147,55 +210,20 @@ export default class StrategyData {
   }
 
   public removeOnStrateryDataChange(id: string): void {
+    if (!this.callbacks.has(id)) {
+      console.warn(`[StrategyData] Listener ID '${id}' not found.`);
+      return;
+    }
     this.callbacks.delete(id);
   }
 
-  private ensureInitialized(): void {
-    if (!this.initialized) {
-      throw new Error("StrategyData has not been initialized. Call init() first.");
-    }
-  }
-
-  private async poll(): Promise<void> {
-    try {
-      const strategies = await fetchAllStrategies();
-      const newCache = new Map<number, Strategy>();
-
-      for (const item of strategies) {
-        if (item.id !== undefined) {
-          newCache.set(item.id, item);
-        }
-      }
-
-      if (this.hasDataChanged(newCache)) {
-        this.cache = newCache;
-        this.notifySubscribers();
-      }
-    } catch (err) {
-      // Silently swallow fetch/network errors during polling cycles
-    }
-  }
-
-  private hasDataChanged(newCache: Map<number, Strategy>): boolean {
-    if (this.cache.size !== newCache.size) return true;
-
-    for (const [id, newItem] of newCache.entries()) {
-      const oldItem = this.cache.get(id);
-      if (!oldItem || JSON.stringify(oldItem) !== JSON.stringify(newItem)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private notifySubscribers(): void {
-    this.callbacks.forEach((cb) => {
+  private notifyDataChange(): void {
+    for (const cb of this.callbacks.values()) {
       try {
         cb();
       } catch (err) {
         console.error("Error executing StrategyData subscriber callback:", err);
       }
-    });
+    }
   }
 }

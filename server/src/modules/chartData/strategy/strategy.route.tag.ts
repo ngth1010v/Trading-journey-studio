@@ -3,9 +3,9 @@ import { repo } from "./strategy.repository.js";
 import { StrategyService } from "./strategy.service.js";
 
 const router = Router();
-const BASE = "/api/chartData/strategies/tags"
+const BASE = "/api/chartData/strategies/tags";
 
-// GET all summaries
+// GET all tags
 router.get(`${BASE}`, (req: Request, res: Response) => {
   try {
     const data = repo.getAllTags();
@@ -51,7 +51,7 @@ router.post(`${BASE}`, (req: Request, res: Response) => {
         res.status(404).json({ error: `Cannot update. Tag with ID ${targetId} does not exist.` });
         return;
       }
-      
+
       repo.updateTag(req.body);
       res.json({ id: targetId });
     } else {
@@ -64,7 +64,7 @@ router.post(`${BASE}`, (req: Request, res: Response) => {
 });
 
 // DELETE
-router.delete("/:id", (req: Request, res: Response) => {
+router.delete(`${BASE}/:id`, (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {

@@ -17,48 +17,111 @@ export interface StrategyTag {
   };
 }
 
-const REFRESH_DURATION = 500; // ms
+export const REFRESH_DURATION = 500; // ms
 
-export default class StrategyTagData {
-  private cache: Map<number, StrategyTag> = new Map();
-  private initialized: boolean = false;
-  private timerId: ReturnType<typeof setInterval> | null = null;
-  private callbacks: Map<string, () => void> = new Map();
+// ============================================================================
+// GLOBAL STATE & LOOP
+// ============================================================================
 
-  /**
-   * Start polling refresh loop to load strategy tags.
-   */
-  public async init(): Promise<void> {
-    if (this.initialized) return;
+interface StrategyTagMainTrigger {
+  triggerStrategyTagDataChange: () => void;
+}
 
-    this.initialized = true;
-    await this.poll();
+let isStrategyTagInitialized = false;
+let globalStrategyTagIntervalId: ReturnType<typeof setInterval> | null = null;
+let strategyTagCacheMap: Map<number, StrategyTag> = new Map();
+let previousStrategyTagJson = "";
 
-    this.timerId = setInterval(() => {
-      this.poll();
-    }, REFRESH_DURATION);
+const strategyTagDataCallbackMap = new Map<string, StrategyTagMainTrigger>();
+
+async function executeGlobalStrategyTagRefresh(): Promise<void> {
+  try {
+    const freshTags = await fetchAllStrategyTags();
+    const freshJson = JSON.stringify(freshTags);
+
+    const hasDataChanged = freshJson !== previousStrategyTagJson;
+
+    const newMap = new Map<number, StrategyTag>();
+    for (const item of freshTags) {
+      if (item.id !== undefined) {
+        newMap.set(item.id, item);
+      }
+    }
+
+    strategyTagCacheMap = newMap;
+    previousStrategyTagJson = freshJson;
+
+    if (hasDataChanged) {
+      for (const { triggerStrategyTagDataChange } of strategyTagDataCallbackMap.values()) {
+        triggerStrategyTagDataChange();
+      }
+    }
+  } catch (err) {
+    // Silently swallow fetch/network errors during polling cycles
+  }
+}
+
+export function initStrategyTag(): void {
+  if (isStrategyTagInitialized) {
+    return;
+  }
+  isStrategyTagInitialized = true;
+
+  executeGlobalStrategyTagRefresh();
+  globalStrategyTagIntervalId = setInterval(executeGlobalStrategyTagRefresh, REFRESH_DURATION);
+}
+
+export function destroyStrategyTag(): void {
+  if (!isStrategyTagInitialized) {
+    return;
   }
 
-  /**
-   * Stop the refresh loop.
-   */
-  public destroy(): void {
-    if (this.timerId !== null) {
-      clearInterval(this.timerId);
-      this.timerId = null;
+  if (globalStrategyTagIntervalId !== null) {
+    clearInterval(globalStrategyTagIntervalId);
+    globalStrategyTagIntervalId = null;
+  }
+
+  strategyTagDataCallbackMap.clear();
+  strategyTagCacheMap.clear();
+  previousStrategyTagJson = "";
+  isStrategyTagInitialized = false;
+}
+
+// ============================================================================
+// STRATEGYTAGDATA CLASS
+// ============================================================================
+
+export default class StrategyTagData {
+  public id: string | null = null;
+
+  private callbacks = new Map<string, () => void>();
+
+  public init(): void {
+    if (this.id !== null) {
+      return; // Prevent duplicate initialization
     }
-    this.cache.clear();
+
+    this.id = `strategy_tag_data_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+
+    strategyTagDataCallbackMap.set(this.id, {
+      triggerStrategyTagDataChange: () => this.notifyDataChange(),
+    });
+  }
+
+  public destroy(): void {
+    if (this.id !== null) {
+      strategyTagDataCallbackMap.delete(this.id);
+      this.id = null;
+    }
     this.callbacks.clear();
-    this.initialized = false;
   }
 
   /**
    * Return specific tag.
-   * Throws an error if init was not called or if tag is not found.
+   * Throws an error if tag is not found.
    */
   public get(id: number): StrategyTag {
-    this.ensureInitialized();
-    const tag = this.cache.get(id);
+    const tag = strategyTagCacheMap.get(id);
     if (!tag) {
       throw new Error(`StrategyTag with id ${id} not found.`);
     }
@@ -67,11 +130,9 @@ export default class StrategyTagData {
 
   /**
    * Return all tags, or [] if empty.
-   * Throws an error if init was not called.
    */
   public getAll(): StrategyTag[] {
-    this.ensureInitialized();
-    return Array.from(this.cache.values());
+    return Array.from(strategyTagCacheMap.values());
   }
 
   /**
@@ -93,55 +154,20 @@ export default class StrategyTagData {
   }
 
   public removeOnStrateryTagDataChange(id: string): void {
+    if (!this.callbacks.has(id)) {
+      console.warn(`[StrategyTagData] Listener ID '${id}' not found.`);
+      return;
+    }
     this.callbacks.delete(id);
   }
 
-  private ensureInitialized(): void {
-    if (!this.initialized) {
-      throw new Error("StrategyTagData has not been initialized. Call init() first.");
-    }
-  }
-
-  private async poll(): Promise<void> {
-    try {
-      const tags = await fetchAllStrategyTags();
-      const newCache = new Map<number, StrategyTag>();
-
-      for (const tag of tags) {
-        if (tag.id !== undefined) {
-          newCache.set(tag.id, tag);
-        }
-      }
-
-      if (this.hasDataChanged(newCache)) {
-        this.cache = newCache;
-        this.notifySubscribers();
-      }
-    } catch (err) {
-      // Silently swallow fetch/network errors during polling cycles
-    }
-  }
-
-  private hasDataChanged(newCache: Map<number, StrategyTag>): boolean {
-    if (this.cache.size !== newCache.size) return true;
-
-    for (const [id, newTag] of newCache.entries()) {
-      const oldTag = this.cache.get(id);
-      if (!oldTag || JSON.stringify(oldTag) !== JSON.stringify(newTag)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private notifySubscribers(): void {
-    this.callbacks.forEach((cb) => {
+  private notifyDataChange(): void {
+    for (const cb of this.callbacks.values()) {
       try {
         cb();
       } catch (err) {
         console.error("Error executing StrategyTagData subscriber callback:", err);
       }
-    });
+    }
   }
 }

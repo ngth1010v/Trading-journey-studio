@@ -3,9 +3,9 @@ import { repo } from "./strategy.repository.js";
 import { StrategyService } from "./strategy.service.js";
 
 const router = Router();
-const BASE = "/api/chartData/strategies"
+const BASE = "/api/chartData/strategies";
 
-// GET all summaries
+// GET all strategies
 router.get(`${BASE}`, (req: Request, res: Response) => {
   try {
     const data = repo.getAllStrategies();
@@ -20,8 +20,8 @@ router.get(`${BASE}/:id`, (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
-       res.status(400).json({ error: "ID must be a structural number." });
-       return;
+      res.status(400).json({ error: "ID must be a structural number." });
+      return;
     }
     const item = repo.getStrategyById(id);
     if (!item) {
@@ -46,13 +46,12 @@ router.post(`${BASE}`, (req: Request, res: Response) => {
     const targetId = req.body.id;
 
     if (targetId !== undefined && targetId !== null) {
-      // Logic Option 4C: If ID is provided, verify existence first
       const exists = repo.getStrategyById(targetId);
       if (!exists) {
         res.status(404).json({ error: `Cannot update. Strategy with ID ${targetId} does not exist.` });
         return;
       }
-      
+
       repo.updateStrategy(req.body);
       res.json({ id: targetId });
     } else {
@@ -65,7 +64,7 @@ router.post(`${BASE}`, (req: Request, res: Response) => {
 });
 
 // DELETE
-router.delete("/:id", (req: Request, res: Response) => {
+router.delete(`${BASE}/:id`, (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) {
