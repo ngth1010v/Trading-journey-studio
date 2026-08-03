@@ -10,6 +10,8 @@ export default class StateData {
   public source: SourceData = new SourceData();
   public config: ConfigData = new ConfigData();
 
+  private needResetViewport: boolean = false
+
   /**
    * Initializes config, viewport, and source data instances.
    */
@@ -48,6 +50,7 @@ export default class StateData {
         this.source.candle.setSource(symbol, null);
         this.source.trade.setSource(symbol, null);
         this.source.shape.setSource(symbol, null);
+        this.needResetViewport = true
       }
     });
 
@@ -62,6 +65,13 @@ export default class StateData {
       const linkId = this.config.get()?.linkId;
       this.viewport.link.state.setSource(linkId ? linkId : null);
     });
+
+    this.source.candle.addOnClosedCandleDataChange("Symbol refresh", ()=>{
+      if (this.needResetViewport){
+        chart.viewport.aligner.autoViewport()
+        this.needResetViewport = false
+      }
+    })
   }
 
   /**

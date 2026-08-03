@@ -16,6 +16,7 @@ export default class ViewportEventController {
 
   private readonly PAN_EVENT_ID = "ViewportEventController_Pan";
   private readonly WHEEL_EVENT_ID = "ViewportEventController_Wheel";
+  private readonly RESET_VIEWPORT_EVENT_ID = "ViewportEventController_ResetViewport";
 
   /**
    * Initializes the event controller with state, chart, and converter references.
@@ -30,6 +31,7 @@ export default class ViewportEventController {
     this.chart.event.addOnEvent("mouseLeave", `${this.PAN_EVENT_ID}_leave`, this.handleMouseUp);
     this.chart.event.addOnEvent("mouseMove", `${this.PAN_EVENT_ID}_move`, this.handleMouseMove);
     this.chart.event.addOnEvent("wheel", this.WHEEL_EVENT_ID, this.handleWheel);
+    this.chart.event.addOnEvent("keyDown", this.RESET_VIEWPORT_EVENT_ID, this.handleResetViewport);
   }
 
   /**
@@ -77,6 +79,13 @@ export default class ViewportEventController {
   //======================================================================================================
   // EVENT HANDLERS
   //======================================================================================================
+
+  private handleResetViewport = (e: React.KeyboardEvent<HTMLCanvasElement>): void => {
+    if (e.ctrlKey && e.code === "KeyR") {
+      e.preventDefault(); // chặn Ctrl+R reload trang
+      this.chart?.viewport.aligner.autoViewport();
+    }
+  };
 
   private handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     if (!this.enabled || e.button !== 0) return;

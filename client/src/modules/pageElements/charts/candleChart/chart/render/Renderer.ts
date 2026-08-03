@@ -19,7 +19,8 @@ export default class Renderer {
     state.source.candle.addOnClosedCandleDataChange(
       "Closed candle render",
       () => {
-        // this.candle.closed.updateData()
+        this.candle.updateData();
+        this.render()
       }
     );
 
