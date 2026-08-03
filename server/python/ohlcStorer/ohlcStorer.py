@@ -158,21 +158,25 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[float, f
         source_first_boundary = first_src_ts
         source_last_boundary  = last_src_ts + src_step_ms
 
-        while periods and periods[0][0] < source_first_boundary:
-            periods.pop(0)
-        while periods and source_last_boundary < periods[-1][1]:
-            periods.pop(-1)
+        # [FIX]: Only exclude periods that are COMPLETELY outside the bounds of the existing data.
+        # This keeps the partially overlapping forming/recent candle so it doesn't get incorrectly omitted.
+        valid_periods = []
+        for p_from, p_to in periods:
+            if p_from < source_last_boundary and p_to > source_first_boundary:
+                valid_periods.append((p_from, p_to))
+        
+        periods = valid_periods
 
         if not periods:
             return []
-
+        
         # 4. Extract target data segment using public range queries
         min_from = periods[0][0]
         max_to   = periods[-1][1]
         source_rows = getRange(symbol, srcTimeframe, min_from, max_to)
-        
+
         if source_rows.size == 0:
-            _logger.error(_SECTION, f"Source rows missing in range {min_from}..{max_to}")
+            _logger.warning(_SECTION, f"Source rows missing in range {min_from}..{max_to}")
             return []
 
         # 5. Process continuous sequential aggregation
@@ -188,22 +192,18 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[float, f
                     _SECTION,
                     f"Period [{period_from}, {period_to}) unaligned to step {src_step_ms}ms",
                 )
-                return []
+                continue  # Skip unaligned instead of crashing entire fetch
 
-            expected_count = span_ms // src_step_ms
-            matched_count = 0
             valid_count = 0
 
             # [t, o, h, l, c, v]
-            bar = [period_from, 0, 0, 0, 0, 0]
+            bar = [period_from, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             while j < src_count and source_rows[j, 0] < period_from:
                 j += 1
 
             while j < src_count and period_from <= source_rows[j, 0] < period_to:
                 _, o, h, l, c, v = source_rows[j]
-
-                matched_count += 1
 
                 # Ignore empty source bar
                 if o == h == l == c == v == 0:
@@ -217,9 +217,9 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[float, f
                     bar[4] = float(c)
                     bar[5] = float(v)
                 else:
-                    if h > bar[2]:
+                    if float(h) > bar[2]:
                         bar[2] = float(h)
-                    if l < bar[3]:
+                    if float(l) < bar[3]:
                         bar[3] = float(l)
                     bar[4] = float(c)
                     bar[5] += float(v)
@@ -227,16 +227,11 @@ def aggregate(symbol: str, srcTimeframe: str, targetPeriods: list[tuple[float, f
                 valid_count += 1
                 j += 1
 
-            if matched_count != expected_count:
-                _logger.error(
-                    _SECTION,
-                    f"Missing source data for period [{period_from}, {period_to}): "
-                    f"expected {expected_count}, got {matched_count}",
-                )
-                return []
-
-            # Nếu toàn bộ source bar đều rỗng thì giữ nguyên bar = [t,0,0,0,0,0]
-            result.append(bar)
+            # [FIX]: Allow gaps! Don't crash out if matched_count != expected_count. 
+            # If the period has valid trades inside it, we append it. Otherwise, we omit it 
+            # so the chart doesn't plunge to 0.
+            if valid_count > 0:
+                result.append(bar)
 
         # 6. Perform simple chronological deduplication filter pass
         unique_result: list[list[float]] = []
@@ -283,5 +278,3 @@ def prepend(symbol: str, timeframe: str, data: np.ndarray) -> None:
         raise ValueError("Invalid OHLC block shape. Expected [N, 6] array framework layout.")
 
     _hotFirstStorer.prepend(symbol, timeframe, np_data)
-
-

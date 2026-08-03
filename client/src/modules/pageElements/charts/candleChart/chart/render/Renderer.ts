@@ -19,7 +19,7 @@ export default class Renderer {
     state.source.candle.addOnClosedCandleDataChange(
       "Closed candle render",
       () => {
-        this.candle.updateData();
+        this.candle.closed.updateData();
         this.render()
       }
     );
@@ -27,7 +27,9 @@ export default class Renderer {
     state.source.candle.addOnOpeningCandleDataChange(
       "Opening candle render",
       () => {
-        // this.candle.opening.updateData()
+        console.log()
+        this.candle.opening.updateData()
+        this.render()
       }
     );
 
