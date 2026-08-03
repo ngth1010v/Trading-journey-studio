@@ -4,7 +4,7 @@ from __future__ import annotations
 import threading
 import time
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 
 import _logger as logger
 from symbols._reader import getSymbols
@@ -18,6 +18,16 @@ bp = Blueprint("base", __name__)
 
 _running = False
 _watchlist_thread: threading.Thread | None = None
+
+
+def registryWatchingSymbol(symbol: str) -> None:
+    """Public API for symbol module to register a symbol to watchlist."""
+    _watchList.registry(symbol)
+
+
+def unregistryWatchingSymbol(symbol: str) -> None:
+    """Public API for symbol module to unregister a symbol from watchlist."""
+    _watchList.unregistry(symbol)
 
 
 def _watchlist_loop() -> None:
@@ -71,58 +81,6 @@ def shutdown():
     _stager.putQueue("1D", {"cmd": "SHUTDOWN"})
     logger.info(_SECTION, "Base shutdown requested.")
     return jsonify({"status": "ok", "msg": "shutdown"}), 200
-
-
-@bp.route(f"{BASE}/", methods=["GET"])
-def get_watchlist():
-    try:
-        data = _watchList.getWatchList()
-        return jsonify({"status": "ok", "data": data}), 200
-    except Exception as e:
-        logger.error(_SECTION, f"Failed to fetch watchlist: {e}")
-        return jsonify({"status": "error", "msg": str(e)}), 500
-
-
-@bp.route(f"{BASE}/", methods=["POST"])
-def set_watchlist():
-    body = request.get_json(silent=True)
-    if not isinstance(body, dict):
-        return jsonify({"status": "error", "msg": "Invalid JSON body"}), 400
-
-    symbol = body.get("symbol")
-    order = body.get("order", 0)
-
-    if not symbol or not isinstance(symbol, str):
-        return jsonify({"status": "error", "msg": "Field 'symbol' (str) is required"}), 400
-
-    if not isinstance(order, int):
-        return jsonify({"status": "error", "msg": "Field 'order' must be an integer"}), 400
-
-    symbol = symbol.strip()
-    valid_symbols = [item.symbol for item in getSymbols()]
-    if symbol not in valid_symbols:
-        return jsonify({"status": "error", "msg": f"Symbol '{symbol}' not found in available symbols"}), 400
-
-    try:
-        _watchList.setWatchList(symbol, order)
-        return jsonify({"status": "ok", "msg": "Symbol queued for addition/update"}), 200
-    except Exception as e:
-        logger.error(_SECTION, f"Failed to set watchlist item: {e}")
-        return jsonify({"status": "error", "msg": str(e)}), 400
-
-
-@bp.route(f"{BASE}/<symbol>", methods=["DELETE"])
-def remove_watchlist(symbol: str):
-    symbol = (symbol or "").strip()
-    if not symbol:
-        return jsonify({"status": "error", "msg": "Symbol parameter missing"}), 400
-
-    try:
-        _watchList.removeWatchList(symbol)
-        return jsonify({"status": "ok", "msg": f"Symbol '{symbol}' queued for removal"}), 200
-    except Exception as e:
-        logger.error(_SECTION, f"Failed to remove symbol '{symbol}': {e}")
-        return jsonify({"status": "error", "msg": str(e)}), 400
 
 
 @bp.route(f"{BASE}/extend/<symbol>/<timestamp>", methods=["GET"])

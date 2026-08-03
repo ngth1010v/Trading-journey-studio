@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 import _logger as logger
 
@@ -16,7 +15,8 @@ CREATE TABLE IF NOT EXISTS symbols (
     symbol TEXT PRIMARY KEY,
     point INTEGER NOT NULL,
     contract_size REAL NOT NULL,
-    currency TEXT NOT NULL
+    currency TEXT NOT NULL,
+    watching INTEGER NOT NULL DEFAULT 0
 )
 """
 
@@ -40,12 +40,39 @@ def writeSymbols(symbols: list[Symbol]) -> None:
             conn.execute("DELETE FROM symbols")
             if symbols:
                 conn.executemany(
-                    "INSERT INTO symbols(symbol, point, contract_size, currency) VALUES (?, ?, ?, ?)",
-                    [(item.symbol, int(item.point), float(item.contractSize), str(item.currency)) for item in symbols],
+                    "INSERT INTO symbols(symbol, point, contract_size, currency, watching) VALUES (?, ?, ?, ?, ?)",
+                    [
+                        (
+                            item.symbol,
+                            int(item.point),
+                            float(item.contractSize),
+                            str(item.currency),
+                            1 if item.watching else 0,
+                        )
+                        for item in symbols
+                    ],
                 )
             conn.commit()
 
         logger.info(_SECTION, f"Write completed successfully: {len(symbols)} rows.")
     except Exception as exc:
         logger.error(_SECTION, f"Failed to write symbols: {exc}")
+        raise
+
+
+def updateSymbolWatching(symbol: str, watching: bool) -> None:
+    """Update the 'watching' field for a specific symbol in SQLite."""
+    _ensure_parent()
+
+    try:
+        with sqlite3.connect(_DB_PATH) as conn:
+            conn.execute(_TABLE_SQL)
+            conn.execute(
+                "UPDATE symbols SET watching = ? WHERE symbol = ?",
+                (1 if watching else 0, symbol),
+            )
+            conn.commit()
+        logger.info(_SECTION, f"Updated watching status for symbol '{symbol}' to {watching}.")
+    except Exception as exc:
+        logger.error(_SECTION, f"Failed to update watching status for symbol '{symbol}': {exc}")
         raise

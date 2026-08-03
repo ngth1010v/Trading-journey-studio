@@ -7,7 +7,7 @@ import _logger
 
 def get_directory(symbol: str, timeframe: str) -> Path:
     """Returns and ensures creation of the base path for a specific symbol and timeframe."""
-    path = Path(config.DATABASE_PATH) / "chartData" / "candles" / symbol / timeframe
+    path = Path(config.DATABASE_PATH) / "chartData" / "candleChart" / "candles" / symbol / timeframe
     path.mkdir(parents=True, exist_ok=True)
     return path
 

@@ -9,6 +9,7 @@ class Symbol:
     point        : int
     contractSize : float
     currency     : str
+    watching     : bool = False
 
     ask          : int = None
     bid          : int = None

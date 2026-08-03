@@ -19,7 +19,7 @@ def getSymbols() -> list[Symbol]:
 
         rows = conn.execute(
             """
-            SELECT symbol, point, contract_size, currency
+            SELECT symbol, point, contract_size, currency, watching
             FROM symbols
             ORDER BY symbol
             """
@@ -31,6 +31,7 @@ def getSymbols() -> list[Symbol]:
                 point=row[1],
                 contractSize=row[2],
                 currency=row[3],
+                watching=bool(row[4]),
             )
             for row in rows
         ]
@@ -52,7 +53,7 @@ def getSymbol(symbol: str) -> Symbol | None:
 
         row = conn.execute(
             """
-            SELECT symbol, point, contract_size, currency
+            SELECT symbol, point, contract_size, currency, watching
             FROM symbols
             WHERE symbol = ?
             LIMIT 1
@@ -68,6 +69,7 @@ def getSymbol(symbol: str) -> Symbol | None:
             point=row[1],
             contractSize=row[2],
             currency=row[3],
+            watching=bool(row[4]),
         )
 
     except Exception as e:

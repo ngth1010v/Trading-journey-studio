@@ -1,10 +1,11 @@
-import { fetchSymbols } from "./symbolApi.js";
+import { fetchSymbols, updateSymbol } from "./symbolApi.js";
 
 export interface Symbol {
     symbol: string;
     point: number;
     contractSize: number;
     currency: string;
+    watching: boolean;
 }
 
 export const REFRESH_DURATION = 500; // 500ms
@@ -41,6 +42,7 @@ async function executeGlobalRefresh(): Promise<void> {
                 point: item.point,
                 contractSize: item.contractSize,
                 currency: item.currency,
+                watching: item.watching,
             });
         }
 
@@ -115,6 +117,22 @@ export default class SymbolData {
 
     public getAll(): Symbol[] {
         return Array.from(symbolsCacheMap.values());
+    }
+
+    public async setWatching(symbol: string, watching: boolean): Promise<boolean> {
+        try {
+            await updateSymbol(symbol, watching);
+            // Optimistically update local cache
+            const target = symbolsCacheMap.get(symbol);
+            if (target) {
+                target.watching = watching;
+                this.notifyDataChange();
+            }
+            return true;
+        } catch (err) {
+            console.error(`Failed to set watching status for symbol ${symbol}:`, err);
+            return false;
+        }
     }
 
     public addOnSymbolDataChange(id: string, cb: () => void): void {
