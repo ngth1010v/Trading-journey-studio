@@ -49,6 +49,17 @@ export default class ViewportAligner {
           continue;
         }
 
+        // Skip empty candles (market closed)
+        if (
+          closed.o[i] === 0 &&
+          closed.h[i] === 0 &&
+          closed.l[i] === 0 &&
+          closed.c[i] === 0 &&
+          closed.v[i] === 0
+        ) {
+          continue;
+        }
+
         if (closed.l[i] < minPrice) minPrice = closed.l[i];
         if (closed.h[i] > maxPrice) maxPrice = closed.h[i];
       }
