@@ -1,6 +1,6 @@
-import PageData, { type Page, type PageElement } from "../../../../data/page/PageData";
-import type { Viewport } from "./viewport/ViewportData";
-import type { RGBA } from "../../../../shared/type";
+import PageData, { type Page, type PageElement } from "../../../../../data/page/PageData";
+import type { Viewport } from "../viewport/ViewportData";
+import type { RGBA } from "../../../../../shared/type";
 
 export interface Config {
   viewport?: Viewport;
@@ -9,6 +9,15 @@ export interface Config {
   timeframe?: string;
   linkId?: number;
   style?: {
+    crosshair?:{
+      color?: RGBA;
+      thickness?: number
+      type?: "dash" | "solid"
+      dash?: {
+        space: number //px
+        width: number //px
+      }
+    }
     candle?: {
       bull?:{
         background?: RGBA;
@@ -48,6 +57,15 @@ export default class ConfigData {
       } as Viewport,
       timeframe: "1H",
       style: {
+        crosshair:{
+          color: [255,255,255,255] as RGBA,
+          thickness: 1,
+          type: "dash",
+          dash: {
+            space: 5, //px
+            width: 5, //px
+          }
+        },
         candle: {
           bull: {
             background: [50,255,50,255] as RGBA,

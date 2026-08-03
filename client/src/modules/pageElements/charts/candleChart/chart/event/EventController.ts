@@ -1,5 +1,6 @@
 import type { SyntheticEvent, MouseEvent, KeyboardEvent } from "react";
 import ViewportEventController from "./viewport/ViewportEventController";
+import CrosshairEventController from "./crosshair/CrosshairEventController";
 import type StateData from "../../state/StateData";
 import type ChartController from "../ChartController";
 
@@ -30,13 +31,16 @@ export default class EventController {
   private listeners: Map<string, ListenerEntry> = new Map();
 
   public viewport : ViewportEventController = new ViewportEventController()
+  public crosshair : CrosshairEventController = new CrosshairEventController()
 
   public init(state: StateData, chart: ChartController): void {
     this.viewport.init(state, chart)
+    this.crosshair.init(state, chart)
   }
 
   public destroy() {
     this.viewport.destroy()
+    this.crosshair.destroy()
   }
 
   /**

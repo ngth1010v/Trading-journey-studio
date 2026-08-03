@@ -24,61 +24,6 @@ function rgbaToVec3(rgba: number[]): [number, number, number] {
   ];
 }
 
-/**
- * Calculates the next close time (in unix milliseconds) based on openTime and timeframe.
- * Timeframe format: ${number}${prefix} (e.g. '15M', '1MN', '1Y', '15S')
- * Prefixes supported: ['S', 'M', 'H', 'D', 'W', 'MN', 'Y']
- */
-function calculateCloseTime(openTimeMs: number, timeframeStr: string): number | null {
-  if (!timeframeStr || typeof timeframeStr !== "string") return null;
-
-  const match = timeframeStr.trim().match(/^(\d+)(S|M|H|D|W|MN|Y)$/i);
-  if (!match) return null;
-
-  const count = parseInt(match[1], 10);
-  const prefix = match[2].toUpperCase();
-
-  if (isNaN(count) || count <= 0) return null;
-
-  // 1. Fixed duration units in milliseconds
-  const MS_MAP: Record<string, number> = {
-    S: 1000,
-    M: 60 * 1000,
-    H: 60 * 60 * 1000,
-    D: 24 * 60 * 60 * 1000,
-  };
-
-  if (prefix in MS_MAP) {
-    const intervalMs = count * MS_MAP[prefix];
-    // Align/modulo to unix ms boundaries
-    return (Math.floor(openTimeMs / intervalMs) + 1) * intervalMs;
-  }
-
-  // 2. Calendar-dependent units (W, MN, Y) using Date objects
-  const date = new Date(openTimeMs);
-  if (isNaN(date.getTime())) return null;
-
-  switch (prefix) {
-    case "W": {
-      // Add 'count' weeks
-      date.setUTCDate(date.getUTCDate() + count * 7);
-      return date.getTime();
-    }
-    case "MN": {
-      // Add 'count' months
-      date.setUTCMonth(date.getUTCMonth() + count);
-      return date.getTime();
-    }
-    case "Y": {
-      // Add 'count' years
-      date.setUTCFullYear(date.getUTCFullYear() + count);
-      return date.getTime();
-    }
-    default:
-      return null;
-  }
-}
-
 //======================================================================================================
 // CLASS EXPORT
 //======================================================================================================
@@ -189,11 +134,10 @@ export default class OpeningCandleRenderer {
     if (!this.state || !this.gl) return;
 
     const openingCandle = this.state.source.candle.getOpening();
-    const timeframe = this.state.config.get()?.timeframe;
     const view = this.state.config.get()?.viewport;
     const canvas = (this.chart as any)?.event?.getCanvasSize();
 
-    // Edge case check: missing candle data, timeframe, viewport, or invalid canvas size -> clear buffer flag
+    // Edge case check: missing candle data, viewport, or invalid canvas size -> clear buffer flag
     if (
       !openingCandle ||
       openingCandle.t == null ||
@@ -201,7 +145,6 @@ export default class OpeningCandleRenderer {
       openingCandle.h == null ||
       openingCandle.l == null ||
       openingCandle.c == null ||
-      !timeframe ||
       !view ||
       !canvas ||
       canvas.w <= 0 ||
@@ -212,7 +155,7 @@ export default class OpeningCandleRenderer {
     }
 
     const openTs = openingCandle.t;
-    const closeTs = calculateCloseTime(openTs, timeframe);
+    const closeTs = this.state.source.candle.getOpeningCloseTime();
 
     if (closeTs == null) {
       this.hasValidCandle = false;

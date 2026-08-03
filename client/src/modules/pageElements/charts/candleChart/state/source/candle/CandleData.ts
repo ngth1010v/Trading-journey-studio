@@ -22,6 +22,61 @@ const REFRESH_DURATION = 250; // ms
 
 type Callback = () => void;
 
+/**
+ * Calculates the next close time (in unix milliseconds) based on openTime and timeframe.
+ * Timeframe format: ${number}${prefix} (e.g. '15M', '1MN', '1Y', '15S')
+ * Prefixes supported: ['S', 'M', 'H', 'D', 'W', 'MN', 'Y']
+ */
+function calculateCloseTime(openTimeMs: number, timeframeStr: string): number | null {
+  if (!timeframeStr || typeof timeframeStr !== "string") return null;
+
+  const match = timeframeStr.trim().match(/^(\d+)(S|M|H|D|W|MN|Y)$/i);
+  if (!match) return null;
+
+  const count = parseInt(match[1], 10);
+  const prefix = match[2].toUpperCase();
+
+  if (isNaN(count) || count <= 0) return null;
+
+  // 1. Fixed duration units in milliseconds
+  const MS_MAP: Record<string, number> = {
+    S: 1000,
+    M: 60 * 1000,
+    H: 60 * 60 * 1000,
+    D: 24 * 60 * 60 * 1000,
+  };
+
+  if (prefix in MS_MAP) {
+    const intervalMs = count * MS_MAP[prefix];
+    // Align/modulo to unix ms boundaries
+    return (Math.floor(openTimeMs / intervalMs) + 1) * intervalMs;
+  }
+
+  // 2. Calendar-dependent units (W, MN, Y) using Date objects
+  const date = new Date(openTimeMs);
+  if (isNaN(date.getTime())) return null;
+
+  switch (prefix) {
+    case "W": {
+      // Add 'count' weeks
+      date.setUTCDate(date.getUTCDate() + count * 7);
+      return date.getTime();
+    }
+    case "MN": {
+      // Add 'count' months
+      date.setUTCMonth(date.getUTCMonth() + count);
+      return date.getTime();
+    }
+    case "Y": {
+      // Add 'count' years
+      date.setUTCFullYear(date.getUTCFullYear() + count);
+      return date.getTime();
+    }
+    default:
+      return null;
+  }
+}
+
 export default class CandleData {
   private symbol: string | null = null;
   private timeframe: string | null = null;
@@ -68,17 +123,16 @@ export default class CandleData {
    * Updates source symbol and timeframe. Triggers fetch if all view parameters are set.
    */
   public setSource(symbol: string | null, timeframe: string | null): void {
-
-    let changed = false
-    if (symbol && symbol != this.symbol){
+    let changed = false;
+    if (symbol && symbol !== this.symbol) {
       this.symbol = symbol;
-      changed = true
+      changed = true;
     }
-    if (timeframe && timeframe != this.timeframe){
+    if (timeframe && timeframe !== this.timeframe) {
       this.timeframe = timeframe;
-      changed = true
+      changed = true;
     }
-    if (changed){
+    if (changed) {
       this.checkAndFetchAll();
     }
   }
@@ -119,6 +173,16 @@ export default class CandleData {
 
   public getOpening(): Candle | null {
     return this.openingCandle;
+  }
+
+  /**
+   * Returns unix ms of the close time of the current opening candle (or open time of next candle).
+   */
+  public getOpeningCloseTime(): number | null {
+    if (!this.openingCandle || this.openingCandle.t == null || !this.timeframe) {
+      return null;
+    }
+    return calculateCloseTime(this.openingCandle.t, this.timeframe);
   }
 
   public addOnClosedCandleDataChange(id: string, cb: Callback): void {

@@ -1,7 +1,8 @@
 import SourceData from "./source/SourceData";
 import ViewportData from "./viewport/ViewportData";
-import ConfigData from "./ConfigData";
+import ConfigData from "./config/ConfigData";
 import ChartController from "../chart/ChartController";
+import CrosshairData from "./crosshair/CrosshairData";
 
 const LOAD_OFFSET_RATIO = 1
 
@@ -9,6 +10,7 @@ export default class StateData {
   public viewport: ViewportData = new ViewportData();
   public source: SourceData = new SourceData();
   public config: ConfigData = new ConfigData();
+  public crosshair: CrosshairData = new CrosshairData();
 
   private needResetViewport: boolean = false
 
@@ -16,6 +18,7 @@ export default class StateData {
    * Initializes config, viewport, and source data instances.
    */
   public async init(pageId: number, elementId: number, chart: ChartController): Promise<void> {
+    this.crosshair.init();
     this.config.init(pageId, elementId);
     this.viewport.init(this, chart);
     await this.source.init();
@@ -81,5 +84,6 @@ export default class StateData {
     this.viewport.destroy();
     this.source.destroy();
     this.config.destroy();
+    this.crosshair.destroy();
   }
 }
