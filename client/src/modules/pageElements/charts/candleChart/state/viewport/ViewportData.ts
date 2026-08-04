@@ -141,6 +141,7 @@ export default class ViewportData {
 
   public addOnViewportTransformDataChange(id: string, cb: () => void): void {
     this.transformListeners.set(id, cb); // Map.set automatically overwrites duplicate key
+    cb()
   }
 
   public removeOnViewportTransformDataChange(id: string): void {

@@ -69,6 +69,9 @@ export default class LinkData {
 
   public addOnLinkDataChange(id: string, cb: () => void): void {
     this.listeners.set(id, cb);
+    if (this.cache.length){
+      cb()
+    }
   }
 
   public removeOnLinkDataChange(id: string): void {

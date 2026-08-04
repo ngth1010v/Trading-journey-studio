@@ -68,6 +68,9 @@ export default class ShapeTagData {
 
   public addOnShapeTagDataChange(id: string, cb: () => void): void {
     this.listeners.set(id, cb);
+    if (this.cache.length){
+      cb()
+    }
   }
 
   public removeOnShapeTagDataChange(id: string): void {

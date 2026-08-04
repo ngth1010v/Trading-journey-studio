@@ -18,8 +18,8 @@ export default class StateData {
    * Initializes config, viewport, and source data instances.
    */
   public async init(pageId: number, elementId: number, chart: ChartController): Promise<void> {
-    this.crosshair.init();
     this.config.init(pageId, elementId);
+    this.crosshair.init();
     this.viewport.init(this, chart);
     await this.source.init();
 

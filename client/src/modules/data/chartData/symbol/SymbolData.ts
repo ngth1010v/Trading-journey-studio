@@ -137,6 +137,14 @@ export default class SymbolData {
 
     public addOnSymbolDataChange(id: string, cb: () => void): void {
         this.onSymbolDataChangeListeners.set(id, cb);
+
+        if (symbolsCacheMap.size > 0) {
+            try {
+                cb();
+            } catch (err) {
+                console.error("Error executing onSymbolDataChange callback:", err);
+            }
+        }
     }
 
     public removeOnSymbolDataChange(id: string): void {

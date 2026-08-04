@@ -110,6 +110,9 @@ export default class ShapeData {
 
   public addOnShapeDataChange(id: string, cb: () => void): void {
     this.listeners.set(id, cb);
+    if (this.cache.length){
+      cb()
+    }
   }
 
   public removeOnShapeDataChange(id: string): void {

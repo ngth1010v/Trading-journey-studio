@@ -5,6 +5,7 @@ import ChartController from "./chart/ChartController";
 import ChartLayer from "./chart/ChartLayer";
 import Navigation from "./interface/navigation/Navigation";
 import styles from "./CandleChart.module.css";
+import ScaleBar from "./interface/scaleBar/ScaleBar";
 
 export default function CandleChart({
   elementId,
@@ -99,6 +100,7 @@ export default function CandleChart({
     >
       <Navigation state={state}/>
       <ChartLayer chart={chart}/>
+      <ScaleBar state={state} chart={chart}/>
     </div>
   );
 }

@@ -53,7 +53,7 @@ export default class Renderer {
     );
 
     // Crosshair State & Style Subscriptions
-    state.crosshair.addCrosshairDataChange("Crosshair render", () => {
+    state.crosshair.addOnCrosshairDataChange("Crosshair render", () => {
       this.crosshair.updateData();
       this.render();
     });

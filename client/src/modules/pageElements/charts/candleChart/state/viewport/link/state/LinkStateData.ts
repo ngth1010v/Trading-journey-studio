@@ -72,6 +72,9 @@ export default class LinkStateData {
 
   public addOnStateDataDataChange(id: string, cb: () => void): void {
     this.listeners.set(id, cb);
+    if (this.cache){
+      cb()
+    }
   }
 
   public removeOnStateDataDataChange(id: string): void {

@@ -65,6 +65,9 @@ export default class ShapeTemplateData {
 
   public addOnShapeTemplateDataChange(id: string, cb: () => void): void {
     this.listeners.set(id, cb);
+    if (this.cache.length){
+      cb()
+    }
   }
 
   public removeOnShapeTemplateDataChange(id: string): void {

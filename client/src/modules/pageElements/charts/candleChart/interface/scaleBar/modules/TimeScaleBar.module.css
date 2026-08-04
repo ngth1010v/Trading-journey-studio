@@ -1,0 +1,51 @@
+
+.timeScaleBar {
+  position: absolute;
+  bottom: var(--chart-gap, 10px);
+  left: var(--chart-gap, 10px);
+  width: calc(100% - var(--chart-gap, 10px) * 2 - var(--toggle-gap, 5px) - var(--price-bar-width, 70px));
+  height: var(--time-bar-height, 28px);
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  pointer-events: auto;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.hidden {
+  opacity: 0;
+  transform: translateY(100%);
+  pointer-events: none;
+}
+
+.label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  white-space: nowrap;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.labelVisible {
+  opacity: 1;
+}
+
+.labelHidden {
+  opacity: 0;
+}

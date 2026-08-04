@@ -1,0 +1,53 @@
+.scaleBarContainer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.toggleButton {
+  position: absolute;
+  bottom: var(--chart-gap, 10px);
+  right: var(--chart-gap, 10px);
+  width: var(--price-bar-width, 70px);
+  height: var(--time-bar-height, 28px);
+  display: flex;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 4px;
+  overflow: hidden;
+  pointer-events: auto;
+  box-sizing: border-box;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.togglePart {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.togglePartLeft {
+  border-right-style: solid;
+  border-right-width: 1px;
+  border-right-color: inherit;
+}
+
+.togglePartRight {
+  /* Right side styles */
+}
+
+.active {
+  opacity: 1;
+}
+
+.inactive {
+  opacity: 0.6;
+}

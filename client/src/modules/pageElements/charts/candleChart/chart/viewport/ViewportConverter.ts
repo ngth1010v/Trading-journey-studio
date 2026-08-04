@@ -133,11 +133,50 @@ export default class ViewportConverter {
       const state = this.getState();
       const transform = state.viewport.getTransform();
 
+      // Original viewport -> pixel
+      const fromX = this.timestampToPixel(view.fromTs);
+      const toX = this.timestampToPixel(view.toTs);
+
+      const fromY = this.priceToPixel(view.fromPrice);
+      const toY = this.priceToPixel(view.toPrice);
+
+      if (
+        fromX == null ||
+        toX == null ||
+        fromY == null ||
+        toY == null
+      ) {
+        return null;
+      }
+
+      // Apply transform in pixel space
+      const transformedFromX = fromX * transform.scaleX + transform.offsetX;
+      const transformedToX = toX * transform.scaleX + transform.offsetX;
+
+      const transformedFromY = fromY * transform.scaleY + transform.offsetY;
+      const transformedToY = toY * transform.scaleY + transform.offsetY;
+
+      // Convert back to viewport space
+      const newFromTs = this.pixelToTimestamp(transformedFromX);
+      const newToTs = this.pixelToTimestamp(transformedToX);
+
+      const newFromPrice = this.pixelToPrice(transformedFromY);
+      const newToPrice = this.pixelToPrice(transformedToY);
+
+      if (
+        newFromTs == null ||
+        newToTs == null ||
+        newFromPrice == null ||
+        newToPrice == null
+      ) {
+        return null;
+      }
+
       return {
-        fromTs: view.fromTs * transform.scaleX + transform.offsetX,
-        toTs: view.toTs * transform.scaleX + transform.offsetX,
-        fromPrice: view.fromPrice * transform.scaleY + transform.offsetY,
-        toPrice: view.toPrice * transform.scaleY + transform.offsetY,
+        fromTs: newFromTs,
+        toTs: newToTs,
+        fromPrice: newFromPrice,
+        toPrice: newToPrice,
       };
     }
 

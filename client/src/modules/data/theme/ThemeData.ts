@@ -204,6 +204,11 @@ export default class ThemeData {
 
     public addOnThemeDataChange(id: string, cb: () => void): void {
         this.onThemeDataChangeListeners.set(id, cb);
+
+        // Trigger immediately if initial data is already available
+        if (themesCache.length) {
+            cb();
+        }
     }
 
     public removeOnThemeDataChange(id: string): void {
@@ -216,6 +221,7 @@ export default class ThemeData {
 
     public addOnSelectedThemeDataChange(id: string, cb: () => void): void {
         this.onSelectedThemeDataChangeListeners.set(id, cb);
+        cb(); 
     }
 
     public removeOnSelectedThemeDataChange(id: string): void {

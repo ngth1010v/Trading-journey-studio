@@ -72,14 +72,15 @@ export default class CrosshairData {
   /**
    * Registers a callback for crosshair changes. Overwrites if duplicate ID.
    */
-  public addCrosshairDataChange(id: string, cb: Callback): void {
+  public addOnCrosshairDataChange(id: string, cb: Callback): void {
     this.listeners.set(id, cb);
+    cb()
   }
 
   /**
    * Removes a callback listener by ID safely without throwing an error if absent.
    */
-  public removeCrosshairDataChange(id: string): void {
+  public removeOnCrosshairDataChange(id: string): void {
     this.listeners.delete(id);
   }
 

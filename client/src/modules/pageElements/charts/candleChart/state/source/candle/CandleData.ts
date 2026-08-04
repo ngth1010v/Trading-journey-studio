@@ -187,6 +187,9 @@ export default class CandleData {
 
   public addOnClosedCandleDataChange(id: string, cb: Callback): void {
     this.onClosedCallbacks.set(id, cb);
+    if (this.closedCandles){
+      cb()
+    }
   }
 
   public removeOnClosedCandleDataChange(id: string): void {
@@ -195,6 +198,9 @@ export default class CandleData {
 
   public addOnOpeningCandleDataChange(id: string, cb: Callback): void {
     this.onOpeningCallbacks.set(id, cb);
+    if (this.openingCandle){
+      cb()
+    }
   }
 
   public removeOnOpeningCandleDataChange(id: string): void {
