@@ -4,8 +4,7 @@ import type ChartController from "../../chart/ChartController";
 import ThemeData from "../../../../../data/theme/ThemeData";
 import styles from "./modules/TimeScaleBar.module.css";
 import type { Theme } from "../../../../../data/theme/ThemeData";
-import type { Viewport } from "../../state/viewport/ViewportData";
-import type { ViewportTransform } from "../../state/viewport/ViewportData";
+import type { Viewport, ViewportTransform } from "../../state/viewport/ViewportData";
 import type { RGB, RGBA } from "../../../../../shared/type";
 
 const CHART_GAP = 10;
@@ -73,6 +72,14 @@ interface TimeScaleBarProps {
   onHeightChange: (height: number) => void;
 }
 
+interface CrosshairStyle {
+  background: string;
+  font: string;
+}
+
+const DEFAULT_CROSSHAIR_BG: RGBA = [255, 255, 255, 255];
+const DEFAULT_CROSSHAIR_FONT: RGB = [0, 0, 0];
+
 const toRgba = (c: RGBA | undefined | null) => {
   return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] ?? 1})` : "transparent";
 };
@@ -115,6 +122,21 @@ const formatTimestamp = (ts: number, stepMs: number): string => {
   }
 };
 
+const formatCrosshairTimestamp = (ts: number): string => {
+  const date = new Date(ts);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const dayOfWeek = date.toLocaleDateString("en-US", { weekday: "short" });
+  const dd = pad(date.getDate());
+  const mm = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+
+  return `${dayOfWeek} ${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+};
+
 export default function TimeScaleBar({
   state,
   chart,
@@ -130,6 +152,14 @@ export default function TimeScaleBar({
   const [view, setView] = useState<Viewport | null>(null);
   const [transform, setTransform] = useState<ViewportTransform | null>(null);
   const [height, setHeight] = useState(MIN_TIME_BAR_HEIGHT);
+
+  // Crosshair state
+  const [crosshairX, setCrosshairX] = useState<number | null>(null);
+  const [crosshairTimeText, setCrosshairTimeText] = useState<string | null>(null);
+  const [crosshairStyle, setCrosshairStyle] = useState<CrosshairStyle>({
+    background: toRgba(DEFAULT_CROSSHAIR_BG),
+    font: toRgb(DEFAULT_CROSSHAIR_FONT),
+  });
 
   // Step index state & ref
   const [stepIndex, setStepIndex] = useState<number | null>(null);
@@ -151,6 +181,8 @@ export default function TimeScaleBar({
     theme: `time_bar-theme-${Math.random().toString(36).substring(2, 9)}`,
     viewport: `time_bar-viewport-${Math.random().toString(36).substring(2, 9)}`,
     transform: `time_bar-transform-${Math.random().toString(36).substring(2, 9)}`,
+    crosshair: `time_bar-crosshair-${Math.random().toString(36).substring(2, 9)}`,
+    configStyle: `time_bar-config-style-${Math.random().toString(36).substring(2, 9)}`,
   });
 
   // THEME
@@ -189,6 +221,43 @@ export default function TimeScaleBar({
     });
     return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.transform);
   }, [state.viewport]);
+
+  // CROSSHAIR DATA LISTENER
+  useEffect(() => {
+    state.crosshair.addOnCrosshairDataChange(listenerId.current.crosshair, () => {
+      const isInside = state.crosshair.getIsInside();
+      const pixel = state.crosshair.getPixel();
+      const world = state.crosshair.get();
+
+      if (isInside && pixel && world) {
+        setCrosshairX(pixel.x - CHART_GAP);
+        setCrosshairTimeText(formatCrosshairTimestamp(world.timestamp));
+      } else {
+        setCrosshairX(null);
+        setCrosshairTimeText(null);
+      }
+    });
+
+    return () => state.crosshair.removeOnCrosshairDataChange(listenerId.current.crosshair);
+  }, [state.crosshair]);
+
+  // CONFIG STYLE LISTENER (CROSSHAIR COLOR)
+  useEffect(() => {
+    state.config.addOnConfigDataChange(listenerId.current.configStyle, ["style"], () => {
+      const config = state.config.get();
+      const crosshairColor = config?.style?.crosshair?.color;
+
+      const bg = crosshairColor?.background ?? DEFAULT_CROSSHAIR_BG;
+      const font = crosshairColor?.font ?? DEFAULT_CROSSHAIR_FONT;
+
+      setCrosshairStyle({
+        background: toRgba(bg),
+        font: toRgb(font),
+      });
+    });
+
+    return () => state.config.removeOnConfigDataChange(listenerId.current.configStyle);
+  }, [state.config]);
 
   // Clean up wheel flush timer on unmount
   useEffect(() => {
@@ -471,6 +540,8 @@ export default function TimeScaleBar({
     debounceWheelFlush();
   };
 
+  const isCrosshairVisible = crosshairX !== null && crosshairTimeText !== null;
+
   return (
     <div
       ref={containerRef}
@@ -481,12 +552,23 @@ export default function TimeScaleBar({
         borderColor: toRgba(theme?.button.disable.border),
         cursor: "ew-resize",
         userSelect: "none",
-        
       }}
       onMouseDown={handleMouseDown}
       onWheel={handleWheel}
     >
-      <canvas ref={canvasRef} className={styles.canvas} style={{width: "100%"}}/>
+      <canvas ref={canvasRef} className={styles.canvas} />
+      {isCrosshairVisible && (
+        <span
+          className={`${styles.crosshairLabel} ${styles.labelVisible}`}
+          style={{
+            left: `${crosshairX}px`,
+            backgroundColor: crosshairStyle.background,
+            color: crosshairStyle.font,
+          }}
+        >
+          {crosshairTimeText}
+        </span>
+      )}
     </div>
   );
 }

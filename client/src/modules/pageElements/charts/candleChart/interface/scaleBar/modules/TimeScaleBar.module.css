@@ -1,4 +1,3 @@
-
 .timeScaleBar {
   position: absolute;
   bottom: var(--chart-gap, 10px);
@@ -31,7 +30,13 @@
   pointer-events: none;
 }
 
-.label {
+.canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.crosshairLabel {
   position: absolute;
   top: 50%;
   transform: translateY(-50%) translateX(-50%);
@@ -39,7 +44,12 @@
   font-family: monospace;
   font-size: 11px;
   line-height: 1;
-  transition: opacity 0.2s ease-in-out;
+  padding: 3px 6px;
+  border-radius: 2px;
+  pointer-events: none;
+  width: fit-content;
+  z-index: 10;
+  box-sizing: border-box;
 }
 
 .labelVisible {

@@ -1,6 +1,6 @@
 import PageData, { type Page, type PageElement } from "../../../../../data/page/PageData";
 import type { Viewport } from "../viewport/ViewportData";
-import type { RGBA } from "../../../../../shared/type";
+import type { RGBA, RGB } from "../../../../../shared/type";
 
 export interface Config {
   viewport?: Viewport;
@@ -10,7 +10,10 @@ export interface Config {
   linkId?: number;
   style?: {
     crosshair?:{
-      color?: RGBA;
+      color?: {
+        background?: RGBA
+        font?: RGB
+      };
       thickness?: number
       type?: "dash" | "solid"
       dash?: {
@@ -58,7 +61,10 @@ export default class ConfigData {
       timeframe: "1H",
       style: {
         crosshair:{
-          color: [255,255,255,255] as RGBA,
+          color: {
+            background: [255,255,255,255] as RGBA,
+            font: [0,0,0] as RGB,
+          },
           thickness: 1,
           type: "dash",
           dash: {

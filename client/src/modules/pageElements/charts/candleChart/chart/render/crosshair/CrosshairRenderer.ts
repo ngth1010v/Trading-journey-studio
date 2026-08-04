@@ -109,16 +109,9 @@ export default class CrosshairRenderer {
     const pixel = this.state.crosshair.getPixel();
     if (pixel) {
       const dpr = window.devicePixelRatio || 1;
-      
-      // Get exact canvas top-left position relative to viewport if getPixel provides screen coordinates
-      const canvas = this.gl.canvas as HTMLCanvasElement;
-      const rect = canvas.getBoundingClientRect();
 
-      // If getPixel() returns clientX/clientY, subtract rect.top to normalize to local canvas pixel space:
-      // const canvasY = pixel.y - rect.top;
-      
-      this.currentX = (pixel.x - rect.left) * dpr;
-      this.currentY = (pixel.y - rect.top) * dpr;
+      this.currentX = pixel.x * dpr;
+      this.currentY = pixel.y * dpr;
     } else {
       this.currentX = -1000;
       this.currentY = -1000;
@@ -132,7 +125,7 @@ export default class CrosshairRenderer {
     const style = config?.style?.crosshair;
 
     if (style) {
-      if (style.color) this.color = style.color;
+      if (style.color?.background) this.color = style.color.background;
       if (style.thickness !== undefined) this.thickness = style.thickness;
       this.isDash = style.type !== "solid";
       if (style.dash) {

@@ -23,6 +23,11 @@ interface PriceScaleBarProps {
   onWidthChange: (width: number) => void;
 }
 
+interface CrosshairStyle {
+  background: string;
+  font: string;
+}
+
 /**
  * Dynamically calculates the optimal step size (1, 2, 5 * 10^k)
  * based on minimum required pixel spacing.
@@ -66,7 +71,7 @@ const formatPrice = (rawPrice: number, pointVal: number): string => {
 };
 
 const toRgba = (c: RGBA | undefined | null) => {
-  return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] ?? 1})` : "transparent";
+  return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] ?? 255)})` : "transparent";
 };
 const toRgb = (c: RGB | undefined | null) => (c ? `rgb(${c[0]}, ${c[1]}, ${c[2]})` : "#ffffff");
 
@@ -98,6 +103,13 @@ export default function PriceScaleBar({
   const [transform, setTransform] = useState<ViewportTransform | null>(null);
   const [width, setWidth] = useState(MIN_PRICE_BAR_WIDTH);
 
+  // Crosshair state
+  const [crosshairPos, setCrosshairPos] = useState<{ y: number; price: number } | null>(null);
+  const [crosshairStyle, setCrosshairStyle] = useState<CrosshairStyle>({
+    background: "rgba(255, 255, 255, 1)",
+    font: "rgb(0, 0, 0)",
+  });
+
   // Dragging interaction state
   const isDraggingRef = useRef<boolean>(false);
   const lastMouseYRef = useRef<number>(0);
@@ -115,6 +127,8 @@ export default function PriceScaleBar({
     point: `price_bar-point-${Math.random().toString(36).substring(2, 9)}`,
     viewport: `price_bar-viewport-${Math.random().toString(36).substring(2, 9)}`,
     transform: `price_bar-transform-${Math.random().toString(36).substring(2, 9)}`,
+    crosshairData: `price_bar-crosshair-data-${Math.random().toString(36).substring(2, 9)}`,
+    crosshairConfig: `price_bar-crosshair-config-${Math.random().toString(36).substring(2, 9)}`,
   });
 
   // THEME
@@ -165,6 +179,37 @@ export default function PriceScaleBar({
     });
     return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.transform);
   }, [state.viewport]);
+
+  // CROSSHAIR DATA
+  useEffect(() => {
+    state.crosshair.addOnCrosshairDataChange(listenerId.current.crosshairData, () => {
+      const pixel = state.crosshair.getPixel();
+      const world = state.crosshair.get();
+
+      if (pixel && world) {
+        setCrosshairPos({ y: pixel.y, price: world.price });
+      } else {
+        setCrosshairPos(null);
+      }
+    });
+
+    return () => state.crosshair.removeOnCrosshairDataChange(listenerId.current.crosshairData);
+  }, [state.crosshair]);
+
+  // CROSSHAIR CONFIG (STYLE)
+  useEffect(() => {
+    state.config.addOnConfigDataChange(listenerId.current.crosshairConfig, ["style"], () => {
+      const config = state.config.get();
+      const color = config?.style?.crosshair?.color;
+
+      setCrosshairStyle({
+        background: color?.background ? toRgba(color.background) : "rgba(255, 255, 255, 1)",
+        font: color?.font ? toRgb(color.font) : "rgb(0, 0, 0)",
+      });
+    });
+
+    return () => state.config.removeOnConfigDataChange(listenerId.current.crosshairConfig);
+  }, [state.config]);
 
   // Clean up wheel flush timer on unmount
   useEffect(() => {
@@ -430,6 +475,18 @@ export default function PriceScaleBar({
       onWheel={handleWheel}
     >
       <canvas ref={canvasRef} className={styles.canvas} />
+      {crosshairPos !== null && (
+        <span
+          className={styles.crosshairLabel}
+          style={{
+            top: `${crosshairPos.y - CHART_GAP}px`,
+            backgroundColor: crosshairStyle.background,
+            color: crosshairStyle.font,
+          }}
+        >
+          {formatPrice(crosshairPos.price, point)}
+        </span>
+      )}
     </div>
   );
 }
