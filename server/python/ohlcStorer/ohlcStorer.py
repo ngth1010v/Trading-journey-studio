@@ -99,11 +99,18 @@ def getRange(symbol: str, timeframe: str, fromTs: float, toTs: float) -> np.ndar
 
 
 def getAvailableSymbols() -> list[str]:
-    """Scans and lists out unique asset names tracked under the market folder database."""
-    base_dir = Path(config.DATABASE_PATH) / "markets" if hasattr(config, 'DATABASE_PATH') else Path("markets")
+    """Scans and lists out unique asset names tracked under the candle database folder."""
+    base_dir = (
+        Path(config.DATABASE_PATH)
+        / "chartData"
+        / "candleChart"
+        / "candles"
+        if hasattr(config, "DATABASE_PATH")
+        else Path("chartData/candleChart/candles")
+    )
     if not base_dir.exists() or not base_dir.is_dir():
         return []
-    
+
     return [d.name for d in base_dir.iterdir() if d.is_dir()]
 
 

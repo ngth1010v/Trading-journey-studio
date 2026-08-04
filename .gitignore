@@ -39,6 +39,8 @@ test.bat
 test[0-9].bat
 test.json
 test[0-9].json
+test.py
+test[0-9].py
 **.test/
 docs/
 **/_modules**

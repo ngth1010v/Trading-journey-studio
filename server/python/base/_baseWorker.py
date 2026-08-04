@@ -232,7 +232,6 @@ def init() -> None:
     
     # Retrieve available symbols; handles explicit structure from ohlcStorer
     symbols_list = ohlcStorer.getAvailableSymbols()
-        
     for symbol in symbols_list:
 
         first_ohlc = ohlcStorer.getFirst(symbol, "1S")

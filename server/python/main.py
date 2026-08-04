@@ -145,8 +145,8 @@ def main() -> None:
         logger.error("main.py", "Shutting down server startup due to MT5 initialization failure.")
         return
 
-    ohlcStorer.init()
     symbols.symbols.init()
+    ohlcStorer.init()
     base.base.init()
 
     logger.info("main.py", f"Starting server on 'localhost:{PORT}'...")
