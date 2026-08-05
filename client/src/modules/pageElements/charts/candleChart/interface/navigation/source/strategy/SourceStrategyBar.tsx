@@ -92,7 +92,7 @@ export default function SourceStrategyBar({ state }: { state: StateData }) {
             type="hover"
             position="bottom"
             align="start"
-            bufferSize="10px"
+            bufferSize="7px"
             button={
                 <div
                     className={style.Button}

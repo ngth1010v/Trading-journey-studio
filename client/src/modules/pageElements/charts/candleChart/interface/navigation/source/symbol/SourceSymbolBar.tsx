@@ -212,7 +212,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
                 type="hover"
                 position="right"
                 align="start"
-                bufferSize="15px"
+                bufferSize="7px"
                 buttonWidth="100%"
                 button={rowButton}
                 popup={popoverContent}
@@ -227,7 +227,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
                 type="hover"
                 position="bottom"
                 align="start"
-                bufferSize="10px"
+                bufferSize="7px"
                 button={<div className={style.Button}>{currentSymbol ?? "---"}</div>}
                 popup={
                     <VerticalScrollList
@@ -254,7 +254,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
             type="hover"
             position="bottom"
             align="start"
-            bufferSize="10px"
+            bufferSize="7px"
             button={<div className={style.Button}>{currentSymbol ?? "---"}</div>}
             popup={
                 <VerticalScrollList
@@ -270,7 +270,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
                         type="hover"
                         position="right"
                         align="start"
-                        bufferSize="15px"
+                        bufferSize="7px"
                         buttonWidth="100%"
                         button={
                             <div

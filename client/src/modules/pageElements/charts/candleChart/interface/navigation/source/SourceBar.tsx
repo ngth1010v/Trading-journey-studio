@@ -7,7 +7,6 @@ import SourceStrategyBar from "./strategy/SourceStrategyBar";
 export default function SourceBar({ state }: { state: StateData }) {
     return (
         <ListWithTheme
-            autoShrink
             type="horizontal"
             dividerList={[true, true, false]}
         >

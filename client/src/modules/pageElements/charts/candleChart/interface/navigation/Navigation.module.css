@@ -1,8 +1,8 @@
 /* Container positioned on the absolute top-left chart corner */
 .navigation {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 5px;
+  left: 5px;
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -16,41 +16,40 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 30px;
-  border-radius: 6px;
+  border-radius: 4px;
   background-color: var(--bg-color, rgba(22, 22, 24, 1));
   border: 1px solid var(--border-color, rgb(50, 50, 50));
   overflow: hidden;
   transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
   padding: 2px;
-  gap: 4px;
+  gap: 2px;
 }
 
 /* Home collapsed state: height shrinks to show only home button */
 .collapsed {
-  height: 30px;
+  height: 23px;
 }
 
 /* Home expanded state: expands height to show home + all sub-toggles */
 .expanded {
-  height: 160px;
+  height: 100px;
 }
 
 .homeButton {
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
+  width: 17px;
+  height: 17px;
   box-sizing: border-box;
   padding: 0;
   margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
   color: var(--font-color, #fff);
   background-color: transparent;
+  flex-shrink: 0;
   border: none;
   transition: background-color 0.15s, color 0.15s;
 }
@@ -60,25 +59,17 @@
   color: var(--hover-font, #fff);
 }
 
-.toggleGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  align-items: center;
-}
-
 .toggleButton {
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
+  width: 17px;
+  height: 17px;
   box-sizing: border-box;
   padding: 0;
   margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
   cursor: pointer;
   color: var(--font-color, #fff);
   background-color: transparent;
@@ -111,7 +102,7 @@
 
 /* Base wrapper configurations for individual active bars */
 .childWrapper {
-  margin-left: 6px;
+  margin-left: 4px;
   box-sizing: border-box;
 }
 
@@ -122,7 +113,7 @@
   justify-content: center;
   height: 30px;
   padding: 0 10px;
-  border-radius: 4px;
+  border-radius: 2px;
   background-color: var(--bg-color, rgba(22, 22, 24, 1));
   border: 1px solid var(--border-color, rgb(50, 50, 50));
   color: var(--font-color, #fff);

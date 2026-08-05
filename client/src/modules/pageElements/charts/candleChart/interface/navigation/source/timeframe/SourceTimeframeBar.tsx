@@ -184,7 +184,7 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
             type="hover"
             position="bottom"
             align="start"
-            bufferSize="10px"
+            bufferSize="7px"
             button={<div className={style.Button}>{currentTimeframe ?? "---"}</div>}
             popup={
                 <ListWithTheme
@@ -211,7 +211,7 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
                         type="hover"
                         position="bottom"
                         align="start"
-                        bufferSize="10px"
+                        bufferSize="7px"
                         buttonWidth="100%"
                         button={
                             <div className={style.PopupButton} style={{ width: "100%" }}>

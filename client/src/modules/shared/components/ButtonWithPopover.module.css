@@ -1,12 +1,12 @@
 /* Core Outer Container */
 .Container {
     position: relative;
-    display: inline-block;
+    /* display: inline-block; */
 }
 
 .ButtonContainer {
     position: relative;
-    display: inline-block;
+    /* display: inline-block; */
     cursor: pointer;
     width: 100%;
     height: 100%;

@@ -6,6 +6,7 @@
 
 :root {
     --font-ui: "Roboto", sans-serif;
+    font-family: monospace;
 }
 
 html,
@@ -15,4 +16,5 @@ input,
 select,
 textarea {
     font-family: var(--font-ui);
+    font-family: monospace;
 }

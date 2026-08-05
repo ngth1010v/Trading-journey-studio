@@ -15,21 +15,15 @@ interface VerticalScrollListProps {
   childrenHeight?: string;
   selectedList?: boolean[];
   maxVisibleChildrenCount?: number;
-  autoShrink?: boolean;
   dividerList?: boolean[];
-  padding?: string;
-  gap?: string;
 }
 
 export default function VerticalScrollList({
   children,
-  childrenHeight = "14px",
+  childrenHeight = "19px",
   selectedList = [],
   maxVisibleChildrenCount = 10,
-  autoShrink = false,
   dividerList = [],
-  padding = "4px",
-  gap = "5px",
 }: VerticalScrollListProps) {
   //---------------------------------------
   // Theme Data Setup
@@ -61,62 +55,6 @@ export default function VerticalScrollList({
       themeData.destroy();
     };
   }, [instanceId]);
-
-  //---------------------------------------
-  // Animation state locking for autoShrink
-  //---------------------------------------
-  const [isExtended, setIsExtended] = useState(false);
-  const isAnimatingRef = useRef(false);
-  const isHoveredRef = useRef(false);
-  const mousePosRef = useRef({ x: 0, y: 0 });
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    mousePosRef.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleMouseEnter = () => {
-    if (!autoShrink) return;
-    isHoveredRef.current = true;
-
-    if (!isAnimatingRef.current && !isExtended) {
-      isAnimatingRef.current = true;
-      setIsExtended(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (!autoShrink) return;
-    isHoveredRef.current = false;
-
-    if (!isAnimatingRef.current && isExtended) {
-      isAnimatingRef.current = true;
-      setIsExtended(false);
-    }
-  };
-
-  const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const { x, y } = mousePosRef.current;
-
-    const isStillInside =
-      x >= rect.left &&
-      x <= rect.right &&
-      y >= rect.top &&
-      y <= rect.bottom;
-
-    isHoveredRef.current = isStillInside;
-    isAnimatingRef.current = false;
-
-    if (isHoveredRef.current && !isExtended) {
-      isAnimatingRef.current = true;
-      setIsExtended(true);
-    } else if (!isHoveredRef.current && isExtended) {
-      isAnimatingRef.current = true;
-      setIsExtended(false);
-    }
-  };
 
   //---------------------------------------
   // Dynamic Unmounting / Virtual Scroll
@@ -174,8 +112,6 @@ export default function VerticalScrollList({
 
   const inlineThemeStyle: React.CSSProperties & { [key: string]: string } = normalTheme
     ? {
-        "--padding": padding,
-        "--gap": gap,
         "--children-height": childrenHeight,
         "--bg-color": toRGBAString(normalTheme.background),
         "--border-color": toRGBAString(normalTheme.border),
@@ -199,8 +135,6 @@ export default function VerticalScrollList({
           : toRGBAString(normalTheme.border),
       }
     : {
-        "--padding": padding,
-        "--gap": gap,
         "--children-height": childrenHeight,
         "--bg-color": "#1e1e1e",
         "--border-color": "#333333",
@@ -212,23 +146,11 @@ export default function VerticalScrollList({
         "--selected-border": "#3b82f6",
       };
 
-  const containerClasses = [
-    style.VerticalScrollList,
-    autoShrink ? style.autoShrink : "",
-    autoShrink && isExtended ? style.extended : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
     <div
-      className={containerClasses}
+      className={style.VerticalScrollList}
       style={inlineThemeStyle}
       onWheel={handleWheel}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onTransitionEnd={handleTransitionEnd}
     >
       {hasTopEllipsis && (
         <div className={style.ellipsisRow} onClick={scrollUp}>

@@ -111,18 +111,16 @@ export default function Navigation({ state }: { state: StateData }) {
           title="Toggle Navigation Height"
           onClick={toggleHome}
         >
-          <HouseIcon width="15" height="15" />
+          <HouseIcon width="12" height="12" />
         </button>
 
-        {/* Toggle buttons container - hidden when collapsed */}
-        <div className={styles.toggleGroup}>
           <button
             type="button"
             className={`${styles.toggleButton} ${openChildren[0] ? styles.toggleButtonActive : ''}`}
             title="Source"
             onClick={() => toggleChild(0)}
           >
-            <SourceIcon width="15" height="15" />
+            <SourceIcon width="12" height="12" />
           </button>
 
           <button
@@ -131,7 +129,7 @@ export default function Navigation({ state }: { state: StateData }) {
             title="Link / Sync"
             onClick={() => toggleChild(1)}
           >
-            <SyncIcon width="15" height="15" />
+            <SyncIcon width="12" height="12" />
           </button>
 
           <button
@@ -140,7 +138,7 @@ export default function Navigation({ state }: { state: StateData }) {
             title="Shape"
             onClick={() => toggleChild(2)}
           >
-            <DrawIcon width="15" height="15" />
+            <DrawIcon width="12" height="12" />
           </button>
 
           <button
@@ -149,9 +147,8 @@ export default function Navigation({ state }: { state: StateData }) {
             title="Replay"
             onClick={() => toggleChild(3)}
           >
-            <CalculatorIcon width="15" height="15" />
+            <CalculatorIcon width="12" height="12" />
           </button>
-        </div>
       </div>
 
       {/* Active sub-bars content container */}
