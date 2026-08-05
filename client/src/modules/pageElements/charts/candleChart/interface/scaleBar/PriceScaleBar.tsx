@@ -70,6 +70,44 @@ const formatPrice = (rawPrice: number, pointVal: number): string => {
   return `${intPart}.${fracPart}`;
 };
 
+/**
+ * Formats the remaining time to opening candle close based on timeframe rules.
+ */
+const formatRemainTime = (closeTimeMs: number | null, timeframe: string | undefined | null): string => {
+  if (!closeTimeMs || !timeframe || typeof timeframe !== "string") return "---";
+
+  const diffMs = closeTimeMs - Date.now();
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+
+  const tf = timeframe.trim().toUpperCase();
+
+  const ss = String(totalSeconds % 60).padStart(2, "0");
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const mm = String(totalMinutes % 60).padStart(2, "0");
+  const totalHours = Math.floor(totalMinutes / 60);
+  const hh = String(totalHours % 24).padStart(2, "0");
+  const dd = Math.floor(totalHours / 24);
+
+  // Formatting rules based on timeframe
+  if (tf.endsWith("S") || tf === "1M") {
+    return `00:00:${ss}`;
+  }
+  if ((tf.endsWith("M") && tf !== "1M") || tf === "1H") {
+    return `00:${mm}:${ss}`;
+  }
+  if ((tf.endsWith("H") && tf !== "1H") || tf === "1D") {
+    return `${hh}:${mm}:${ss}`;
+  }
+  if ((tf.endsWith("D") && tf !== "1D") || tf === "1W" || tf === "1MN") {
+    return `${dd}d ${hh}h`;
+  }
+  if (tf.endsWith("W") || tf.endsWith("MN") || tf.endsWith("Y")) {
+    return `${dd}d`;
+  }
+
+  return "---";
+};
+
 const toRgba = (c: RGBA | undefined | null) => {
   return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] ?? 255)})` : "transparent";
 };
@@ -117,6 +155,7 @@ export default function PriceScaleBar({
     background: "rgba(255, 255, 255, 1)",
     font: "rgb(0, 0, 0)",
   });
+  const [remainTimeStr, setRemainTimeStr] = useState<string>("---");
 
   // Dragging interaction state
   const isDraggingRef = useRef<boolean>(false);
@@ -230,7 +269,7 @@ export default function PriceScaleBar({
   useEffect(() => {
     state.source.candle.addOnOpeningCandleDataChange(listenerId.current.openingData, () => {
       const world = state.source.candle.getOpening()?.c;
-      setOpeningPrice(world != null ? world : null)
+      setOpeningPrice(world != null ? world : null);
     });
     return () => state.source.candle.removeOnOpeningCandleDataChange(listenerId.current.openingData);
   }, []);
@@ -239,12 +278,12 @@ export default function PriceScaleBar({
   useEffect(() => {
     state.viewport.addOnViewportTransformDataChange(listenerId.current.openingTransform, () => {
       if (openingPrice){
-        const pos = chart.viewport.converter.priceToPixel(openingPrice)
-        const transform = state.viewport.getTransform()
-          setOpeningPos(pos != null ? pos * transform.scaleY + transform.offsetY : null)
+        const pos = chart.viewport.converter.priceToPixel(openingPrice);
+        const transform = state.viewport.getTransform();
+        setOpeningPos(pos != null ? pos * transform.scaleY + transform.offsetY : null);
       }
       else {
-        setOpeningPos(null)
+        setOpeningPos(null);
       }
     });
     return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.openingTransform);
@@ -264,7 +303,19 @@ export default function PriceScaleBar({
     return () => state.config.removeOnConfigDataChange(listenerId.current.openingConfig);
   }, []);
 
+  // REALTIME TIMER FOR REMAINING TIME
+  useEffect(() => {
+    const updateTime = () => {
+      const closeTimeMs = state.source.candle.getOpeningCloseTime();
+      const timeframe = state.config.get()?.timeframe;
+      setRemainTimeStr(formatRemainTime(closeTimeMs, timeframe));
+    };
 
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+
+    return () => clearInterval(timer);
+  }, [state.source.candle, state.config]);
 
   // Clean up wheel flush timer on unmount
   useEffect(() => {
@@ -549,9 +600,14 @@ export default function PriceScaleBar({
             top: `${openingPos - CHART_GAP}px`,
             backgroundColor: openingStyle.background,
             color: openingStyle.font,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            lineHeight: 1.2,
           }}
         >
-          {formatPrice(openingPrice, point)}
+          <div>{formatPrice(openingPrice, point)}</div>
+          <div>{remainTimeStr}</div>
         </span>
       )}
     </div>
