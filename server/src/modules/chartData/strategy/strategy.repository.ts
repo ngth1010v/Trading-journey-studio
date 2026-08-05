@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { Strategy, StrategyTag } from "./strategy.model.js";
+import { Strategy, StrategySeason, StrategyTag } from "./strategy.model.js";
 
 import path from "path";
 import fs from "fs";
@@ -29,11 +29,22 @@ export class StrategyRepository {
         color TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS strategy_seasons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        desc TEXT NOT NULL,
+        style TEXT NOT NULL,
+        type TEXT NOT NULL,
+        fromTime TEXT NOT NULL,
+        toTime TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS strategies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         desc TEXT NOT NULL,
         tagIds TEXT NOT NULL,
+        seasonIds TEXT NOT NULL,
         status TEXT NOT NULL,
         createdTimestamp INTEGER NOT NULL,
         favorite TEXT NOT NULL,
@@ -61,16 +72,54 @@ export class StrategyRepository {
     return {
       id: row.id,
       name: row.name ?? "",
-      createdTimestamp: row.createdTimestamp ?? Date.now(),
       desc: row.desc ?? "",
       color: color as StrategyTag["color"],
     };
   }
 
+  private parseSeasonRow(row: any): StrategySeason {
+    let style = {
+      background: [0, 0, 0, 0],
+      border: { enable: false, thickness: 1, color: [0, 0, 0, 1] },
+      text: {
+        startText: { enable: false, size: 12, color: [0, 0, 0], align: { x: "left", y: "top" } },
+        endText: { enable: false, size: 12, color: [0, 0, 0], align: { x: "right", y: "bottom" } }
+      }
+    };
+    try {
+      if (row.style) style = JSON.parse(row.style);
+    } catch {}
+
+    let fromTime = { second: 0, minute: 0, hour: 0 };
+    try {
+      if (row.fromTime) fromTime = JSON.parse(row.fromTime);
+    } catch {}
+
+    let toTime = { second: 0, minute: 0, hour: 0 };
+    try {
+      if (row.toTime) toTime = JSON.parse(row.toTime);
+    } catch {}
+
+    return {
+      id: row.id,
+      name: row.name ?? "",
+      desc: row.desc ?? "",
+      style: style as StrategySeason["style"],
+      type: (["daily", "monthly", "yearly"].includes(row.type) ? row.type : "daily") as StrategySeason["type"],
+      fromTime: fromTime as StrategySeason["fromTime"],
+      toTime: toTime as StrategySeason["toTime"],
+    };
+  }
+
   private parseStrategyRow(row: any): Strategy {
-    let tagIds: string[] = [];
+    let tagIds: number[] = [];
     try {
       if (row.tagIds) tagIds = JSON.parse(row.tagIds);
+    } catch {}
+
+    let seasonIds: number[] = [];
+    try {
+      if (row.seasonIds) seasonIds = JSON.parse(row.seasonIds);
     } catch {}
 
     let favorite = { symbols: [], timeframes: [] };
@@ -88,6 +137,7 @@ export class StrategyRepository {
       name: row.name ?? "",
       desc: row.desc ?? "",
       tagIds: Array.isArray(tagIds) ? tagIds : [],
+      seasonIds: Array.isArray(seasonIds) ? seasonIds : [],
       status: (["live", "end", "backtest"].includes(row.status) ? row.status : "backtest") as Strategy["status"],
       createdTimestamp: row.createdTimestamp ?? Date.now(),
       favorite: {
@@ -118,17 +168,17 @@ export class StrategyRepository {
       INSERT INTO strategy_tags (name, createdTimestamp, desc, color)
       VALUES (?, ?, ?, ?)
     `);
-    const result = stmt.run(tag.name, tag.createdTimestamp, tag.desc, JSON.stringify(tag.color));
+    const result = stmt.run(tag.name, Date.now(), tag.desc, JSON.stringify(tag.color));
     return Number(result.lastInsertRowid);
   }
 
   public updateTag(tag: Required<StrategyTag>): boolean {
     const stmt = this.db.prepare(`
       UPDATE strategy_tags 
-      SET name = ?, createdTimestamp = ?, desc = ?, color = ?
+      SET name = ?, desc = ?, color = ?
       WHERE id = ?
     `);
-    const result = stmt.run(tag.name, tag.createdTimestamp, tag.desc, JSON.stringify(tag.color), tag.id);
+    const result = stmt.run(tag.name, tag.desc, JSON.stringify(tag.color), tag.id);
     return result.changes > 0;
   }
 
@@ -141,17 +191,93 @@ export class StrategyRepository {
       if (result.changes === 0) return false;
 
       // 2. Scrub the tag ID from all strategies
-      const stringId = String(id);
       const selectStmt = this.db.prepare("SELECT id, tagIds FROM strategies");
       const updateStmt = this.db.prepare("UPDATE strategies SET tagIds = ? WHERE id = ?");
 
       const strategies = selectStmt.all() as any[];
       for (const strat of strategies) {
         try {
-          const tagIds: string[] = JSON.parse(strat.tagIds);
-          if (tagIds.includes(stringId)) {
-            const updatedTags = tagIds.filter((tId) => tId !== stringId);
+          const tagIds: number[] = JSON.parse(strat.tagIds);
+          if (tagIds.includes(id)) {
+            const updatedTags = tagIds.filter((tId) => tId !== id);
             updateStmt.run(JSON.stringify(updatedTags), strat.id);
+          }
+        } catch {}
+      }
+      return true;
+    });
+
+    return deleteTx();
+  }
+
+  // --- STRATEGY SEASON METHODS ---
+
+  public getAllSeasons(): StrategySeason[] {
+    const stmt = this.db.prepare("SELECT * FROM strategy_seasons");
+    return stmt.all().map((row: any) => this.parseSeasonRow(row));
+  }
+
+  public getSeasonById(id: number): StrategySeason | null {
+    const stmt = this.db.prepare("SELECT * FROM strategy_seasons WHERE id = ?");
+    const row = stmt.get(id) as any;
+    if (!row) return null;
+
+    return this.parseSeasonRow(row);
+  }
+
+  public createSeason(season: Omit<StrategySeason, "id">): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO strategy_seasons (name, desc, style, type, fromTime, toTime)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(
+      season.name,
+      season.desc,
+      JSON.stringify(season.style),
+      season.type,
+      JSON.stringify(season.fromTime),
+      JSON.stringify(season.toTime)
+    );
+    return Number(result.lastInsertRowid);
+  }
+
+  public updateSeason(season: Required<StrategySeason>): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE strategy_seasons 
+      SET name = ?, desc = ?, style = ?, type = ?, fromTime = ?, toTime = ?
+      WHERE id = ?
+    `);
+    const result = stmt.run(
+      season.name,
+      season.desc,
+      JSON.stringify(season.style),
+      season.type,
+      JSON.stringify(season.fromTime),
+      JSON.stringify(season.toTime),
+      season.id
+    );
+    return result.changes > 0;
+  }
+
+  public deleteSeason(id: number): boolean {
+    const deleteTx = this.db.transaction(() => {
+      // 1. Delete the season itself
+      const stmt = this.db.prepare("DELETE FROM strategy_seasons WHERE id = ?");
+      const result = stmt.run(id);
+
+      if (result.changes === 0) return false;
+
+      // 2. Scrub the season ID from all strategies
+      const selectStmt = this.db.prepare("SELECT id, seasonIds FROM strategies");
+      const updateStmt = this.db.prepare("UPDATE strategies SET seasonIds = ? WHERE id = ?");
+
+      const strategies = selectStmt.all() as any[];
+      for (const strat of strategies) {
+        try {
+          const seasonIds: number[] = JSON.parse(strat.seasonIds);
+          if (seasonIds.includes(id)) {
+            const updatedSeasons = seasonIds.filter((sId) => sId !== id);
+            updateStmt.run(JSON.stringify(updatedSeasons), strat.id);
           }
         } catch {}
       }
@@ -178,13 +304,14 @@ export class StrategyRepository {
 
   public createStrategy(strat: Omit<Strategy, "id">): number {
     const stmt = this.db.prepare(`
-      INSERT INTO strategies (name, desc, tagIds, status, createdTimestamp, favorite, color)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO strategies (name, desc, tagIds, seasonIds, status, createdTimestamp, favorite, color)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       strat.name,
       strat.desc,
       JSON.stringify(strat.tagIds),
+      JSON.stringify(strat.seasonIds),
       strat.status,
       strat.createdTimestamp,
       JSON.stringify(strat.favorite),
@@ -196,13 +323,14 @@ export class StrategyRepository {
   public updateStrategy(strat: Required<Strategy>): boolean {
     const stmt = this.db.prepare(`
       UPDATE strategies 
-      SET name = ?, desc = ?, tagIds = ?, status = ?, createdTimestamp = ?, favorite = ?, color = ?
+      SET name = ?, desc = ?, tagIds = ?, seasonIds = ?, status = ?, createdTimestamp = ?, favorite = ?, color = ?
       WHERE id = ?
     `);
     const result = stmt.run(
       strat.name,
       strat.desc,
       JSON.stringify(strat.tagIds),
+      JSON.stringify(strat.seasonIds),
       strat.status,
       strat.createdTimestamp,
       JSON.stringify(strat.favorite),

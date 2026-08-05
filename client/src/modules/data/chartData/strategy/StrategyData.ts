@@ -1,5 +1,6 @@
 import type { RGB, RGBA } from "../../../shared/type";
 import StrategyTagData, { initStrategyTag, destroyStrategyTag } from "./tag/StrategyTagData";
+import StrategySeasonData, { initStrategySeason, destroyStrategySeason } from "./season/StrategySeasonData";
 import {
   fetchAllStrategies,
   saveStrategy,
@@ -10,7 +11,8 @@ export interface Strategy {
   id?: number;
   name: string;
   desc: string;
-  tagIds: string[];
+  tagIds: number[];
+  seasonIds: number[];
   status: "live" | "end" | "backtest";
   createdTimestamp: number;
 
@@ -29,6 +31,7 @@ const DEFAULT_STRATEGY = {
   name: "Default",
   desc: "",
   tagIds: [],
+  seasonIds: [],
   status: "live",
   createdTimestamp: 0,
 
@@ -92,8 +95,9 @@ export function initStrategy(): void {
   }
   isStrategyInitialized = true;
 
-  // Initialize tags alongside strategy
+  // Initialize tags and seasons alongside strategy
   initStrategyTag();
+  initStrategySeason();
 
   executeGlobalStrategyRefresh();
   globalStrategyIntervalId = setInterval(executeGlobalStrategyRefresh, REFRESH_DURATION);
@@ -109,8 +113,9 @@ export function destroyStrategy(): void {
     globalStrategyIntervalId = null;
   }
 
-  // Destroy strategy tag loop as well
+  // Destroy strategy tag and season loops as well
   destroyStrategyTag();
+  destroyStrategySeason();
 
   strategyDataCallbackMap.clear();
   strategyCacheMap.clear();
@@ -125,11 +130,13 @@ export function destroyStrategy(): void {
 export default class StrategyData {
   public id: string | null = null;
   public tag: StrategyTagData;
+  public season: StrategySeasonData;
 
   private callbacks = new Map<string, () => void>();
 
   constructor() {
     this.tag = new StrategyTagData();
+    this.season = new StrategySeasonData();
   }
 
   public init(): void {
@@ -139,8 +146,9 @@ export default class StrategyData {
 
     this.id = `strategy_data_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
 
-    // Initialize internal StrategyTagData instance
+    // Initialize internal StrategyTagData & StrategySeasonData instances
     this.tag.init();
+    this.season.init();
 
     strategyDataCallbackMap.set(this.id, {
       triggerStrategyDataChange: () => this.notifyDataChange(),
@@ -153,6 +161,7 @@ export default class StrategyData {
       this.id = null;
     }
     this.tag.destroy();
+    this.season.destroy();
     this.callbacks.clear();
   }
 
