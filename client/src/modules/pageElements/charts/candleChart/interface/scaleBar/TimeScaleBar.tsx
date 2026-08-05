@@ -7,12 +7,12 @@ import type { Theme } from "../../../../../data/theme/ThemeData";
 import type { Viewport, ViewportTransform } from "../../state/viewport/ViewportData";
 import type { RGB, RGBA } from "../../../../../shared/type";
 
-const CHART_GAP = 10;
+const CHART_GAP = 5;
 const MIN_TIME_LABEL_GAP = 40; // px
 const ESTIMATED_LABEL_WIDTH = 250; // px for dd:mm:yyyy hh:mm:ss
-const MIN_TIME_BAR_HEIGHT = 22;
+const MIN_TIME_BAR_HEIGHT = 20;
 const MAX_TIME_BAR_HEIGHT = 60;
-const VERTICAL_PADDING = 3;
+const VERTICAL_PADDING = 2;
 const SCALE_SENSITIVITY = 0.002;
 const WHEEL_DEBOUNCE_MS = 100;
 
@@ -377,7 +377,7 @@ export default function TimeScaleBar({
 
     const startTs = Math.ceil(minTs / stepMs) * stepMs;
 
-    ctx.font = "11px monospace";
+    ctx.font = "10px monospace";
     ctx.fillStyle = helperColors(theme).font;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

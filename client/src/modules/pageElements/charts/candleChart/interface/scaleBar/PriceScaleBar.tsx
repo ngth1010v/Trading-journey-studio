@@ -8,9 +8,9 @@ import type { Viewport } from "../../state/viewport/ViewportData";
 import type { ViewportTransform } from "../../state/viewport/ViewportData";
 import type { RGB, RGBA } from "../../../../../shared/type";
 
-const CHART_GAP = 10;
+const CHART_GAP = 5;
 const MIN_PRICE_LABEL_GAP = 24; // px distance minimum between label centers
-const HORIZONTAL_PADDING = 7; // px horizontal padding inside price bar
+const HORIZONTAL_PADDING = 6; // px horizontal padding inside price bar
 const MAX_PRICE_BAR_WIDTH = 120; // Hard max cap to prevent expanding across screen
 const MIN_PRICE_BAR_WIDTH = 40;
 const SCALE_SENSITIVITY = 0.002;
@@ -23,7 +23,7 @@ interface PriceScaleBarProps {
   onWidthChange: (width: number) => void;
 }
 
-interface CrosshairStyle {
+interface LableStyle {
   background: string;
   font: string;
 }
@@ -105,7 +105,15 @@ export default function PriceScaleBar({
 
   // Crosshair state
   const [crosshairPos, setCrosshairPos] = useState<{ y: number; price: number } | null>(null);
-  const [crosshairStyle, setCrosshairStyle] = useState<CrosshairStyle>({
+  const [crosshairStyle, setCrosshairStyle] = useState<LableStyle>({
+    background: "rgba(255, 255, 255, 1)",
+    font: "rgb(0, 0, 0)",
+  });
+
+  // Opening state
+  const [openingPrice, setOpeningPrice] = useState<number | null>(null);
+  const [openingPos, setOpeningPos] = useState<number | null>(null);
+  const [openingStyle, setOpeningStyle] = useState<LableStyle>({
     background: "rgba(255, 255, 255, 1)",
     font: "rgb(0, 0, 0)",
   });
@@ -129,6 +137,9 @@ export default function PriceScaleBar({
     transform: `price_bar-transform-${Math.random().toString(36).substring(2, 9)}`,
     crosshairData: `price_bar-crosshair-data-${Math.random().toString(36).substring(2, 9)}`,
     crosshairConfig: `price_bar-crosshair-config-${Math.random().toString(36).substring(2, 9)}`,
+    openingData: `price_bar-opening-data-${Math.random().toString(36).substring(2, 9)}`,
+    openingTransform: `price_bar-opening-transform-${Math.random().toString(36).substring(2, 9)}`,
+    openingConfig: `price_bar-opening-config-${Math.random().toString(36).substring(2, 9)}`,
   });
 
   // THEME
@@ -180,6 +191,8 @@ export default function PriceScaleBar({
     return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.transform);
   }, [state.viewport]);
 
+  
+  //========================================================================================
   // CROSSHAIR DATA
   useEffect(() => {
     state.crosshair.addOnCrosshairDataChange(listenerId.current.crosshairData, () => {
@@ -210,6 +223,48 @@ export default function PriceScaleBar({
 
     return () => state.config.removeOnConfigDataChange(listenerId.current.crosshairConfig);
   }, [state.config]);
+
+
+  //========================================================================================
+  // OPENING DATA
+  useEffect(() => {
+    state.source.candle.addOnOpeningCandleDataChange(listenerId.current.openingData, () => {
+      const world = state.source.candle.getOpening()?.c;
+      setOpeningPrice(world != null ? world : null)
+    });
+    return () => state.source.candle.removeOnOpeningCandleDataChange(listenerId.current.openingData);
+  }, []);
+  
+  // OPENING TRANSFORM
+  useEffect(() => {
+    state.viewport.addOnViewportTransformDataChange(listenerId.current.openingTransform, () => {
+      if (openingPrice){
+        const pos = chart.viewport.converter.priceToPixel(openingPrice)
+        const transform = state.viewport.getTransform()
+          setOpeningPos(pos != null ? pos * transform.scaleY + transform.offsetY : null)
+      }
+      else {
+        setOpeningPos(null)
+      }
+    });
+    return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.openingTransform);
+  }, [openingPrice]);
+
+  // OPENING STYLE
+  useEffect(() => {
+    state.config.addOnConfigDataChange(listenerId.current.openingConfig, ["style","candle","opening"], () => {
+      const config = state.config.get();
+      const color = config?.style?.candle?.opening?.color;
+      setOpeningStyle({
+        background: color?.background ? toRgba(color.background) : "rgba(255, 255, 255, 1)",
+        font: color?.font ? toRgb(color.font) : "rgb(0, 0, 0)",
+      });
+    });
+
+    return () => state.config.removeOnConfigDataChange(listenerId.current.openingConfig);
+  }, []);
+
+
 
   // Clean up wheel flush timer on unmount
   useEffect(() => {
@@ -300,7 +355,7 @@ export default function PriceScaleBar({
 
     const startPrice = Math.ceil(minPrice / step) * step;
 
-    ctx.font = "11px monospace";
+    ctx.font = "10px monospace";
     ctx.fillStyle = helperColors(theme).font;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -485,6 +540,18 @@ export default function PriceScaleBar({
           }}
         >
           {formatPrice(crosshairPos.price, point)}
+        </span>
+      )}
+      {openingPos !== null && openingPrice !== null && (
+        <span
+          className={styles.crosshairLabel}
+          style={{
+            top: `${openingPos - CHART_GAP}px`,
+            backgroundColor: openingStyle.background,
+            color: openingStyle.font,
+          }}
+        >
+          {formatPrice(openingPrice, point)}
         </span>
       )}
     </div>

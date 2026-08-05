@@ -20,8 +20,11 @@ export default class Renderer {
 
     this.render();
 
+    //===============================================================
+    // Candle
+    //===============================================================
     state.source.candle.addOnClosedCandleDataChange(
-      "Closed candle render",
+      "[chart][render][Renderer.ts] Closed candle render",
       () => {
         this.candle.closed.updateData();
         this.render();
@@ -29,7 +32,7 @@ export default class Renderer {
     );
 
     state.source.candle.addOnOpeningCandleDataChange(
-      "Opening candle render",
+      "[chart][render][Renderer.ts] Opening candle render",
       () => {
         this.candle.opening.updateData();
         this.render();
@@ -37,7 +40,7 @@ export default class Renderer {
     );
 
     state.config.addOnConfigDataChange(
-      "Viewport render",
+      "[chart][render][Renderer.ts] Viewport render",
       ["viewport"],
       () => {
         this.candle.updateData();
@@ -45,21 +48,32 @@ export default class Renderer {
     );
 
     state.viewport.addOnViewportTransformDataChange(
-      "Viewport render",
+      "[chart][render][Renderer.ts] Viewport render",
       () => {
         this.candle.updateTransform();
         this.render();
       }
     );
 
+    state.config.addOnConfigDataChange(
+      "[chart][render][Renderer.ts] Candle style update",
+      ["style","candle"],
+      () => {
+        this.candle.updateStyle();
+        this.candle.render()
+      }
+    );
+
+    //===============================================================
     // Crosshair State & Style Subscriptions
+    //===============================================================
     state.crosshair.addOnCrosshairDataChange("Crosshair render", () => {
       this.crosshair.updateData();
       this.render();
     });
 
     state.config.addOnConfigDataChange(
-      "Crosshair style change",
+      "[chart][render][Renderer.ts] Crosshair style change",
       ["style"],
       () => {
         this.crosshair.updateStyle();
@@ -89,9 +103,48 @@ export default class Renderer {
   }
 
   public destroy(): void {
+    if (this.state) {
+      //===============================================================
+      // Candle
+      //===============================================================
+      this.state.source.candle.removeOnClosedCandleDataChange(
+        "[chart][render][Renderer.ts] Closed candle render"
+      );
+
+      this.state.source.candle.removeOnOpeningCandleDataChange(
+        "[chart][render][Renderer.ts] Opening candle render"
+      );
+
+      this.state.config.removeOnConfigDataChange(
+        "[chart][render][Renderer.ts] Viewport render"
+      );
+
+      this.state.viewport.removeOnViewportTransformDataChange(
+        "[chart][render][Renderer.ts] Viewport render"
+      );
+
+      this.state.config.removeOnConfigDataChange(
+        "[chart][render][Renderer.ts] Candle style update"
+      );
+
+      //===============================================================
+      // Crosshair
+      //===============================================================
+      this.state.crosshair.removeOnCrosshairDataChange(
+        "Crosshair render"
+      );
+
+      this.state.config.removeOnConfigDataChange(
+        "[chart][render][Renderer.ts] Crosshair style change"
+      );
+    }
+
     this.candle.destroy();
     this.crosshair.destroy();
+
     this.gl = null;
+    this.chart = null;
+    this.state = null;
   }
 
   public getGl(): WebGL2RenderingContext | null {

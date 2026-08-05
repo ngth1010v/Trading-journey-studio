@@ -6,7 +6,7 @@ import PriceScaleBar from "./PriceScaleBar";
 import TimeScaleBar from "./TimeScaleBar";
 import styles from "./modules/ScaleBar.module.css";
 
-const CHART_GAP = 10;
+const CHART_GAP = 5;
 const TOGGLE_BUTTON_GAP = 5;
 
 export default function ScaleBar({
@@ -20,7 +20,7 @@ export default function ScaleBar({
   const [showPriceBar, setShowPriceBar] = useState<boolean>(true);
 
   const [priceBarWidth, setPriceBarWidth] = useState<number>(50);
-  const [timeBarHeight, setTimeBarHeight] = useState<number>(22);
+  const [timeBarHeight, setTimeBarHeight] = useState<number>(20);
 
   const themeDataRef = useRef<ThemeData>(new ThemeData());
   const [theme, setTheme] = useState(() => themeDataRef.current.getSelected());

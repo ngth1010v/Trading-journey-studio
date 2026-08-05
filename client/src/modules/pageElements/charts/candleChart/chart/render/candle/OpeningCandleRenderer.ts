@@ -1,11 +1,219 @@
 import type StateData from "../../../state/StateData";
 import type ChartController from "../../ChartController";
-import { CANDLE_SHADER } from "./candleRenderShader";
+
+//======================================================================================================
+// SHADER DEFINITION
+//======================================================================================================
+const OPENING_CANDLE_SHADER = {
+  vertex: `#version 300 es
+precision highp float;
+
+in vec2 aCorner;
+in vec2 aCandleTimes;  // [openTimePx, closeTimePx]
+in vec4 aCandlePrices; // [openY, highY, lowY, closeY]
+
+uniform mat3 uProjectionMatrix;
+uniform vec4 uTransform; // [scaleX, scaleY, offsetX, offsetY]
+uniform float uPadding;
+uniform float uCanvasWidth;
+uniform float uOpeningThickness;
+
+out vec2 vPixelPos;
+out vec2 vTimes;        // [openTimePx, closeTimePx]
+out vec4 vPrices;       // [openY, highY, lowY, closeY]
+
+void main(void) {
+  float scaleX = uTransform.x;
+  float scaleY = uTransform.y;
+  float offsetX = uTransform.z;
+  float offsetY = uTransform.w;
+
+  // Transform coordinates into screen pixel space
+  float openTimePx  = floor(aCandleTimes.x * scaleX + offsetX) + 0.5;
+  float closeTimePx = floor(aCandleTimes.y * scaleX + offsetX) + 0.5;
+
+  float openY  = floor(aCandlePrices.x * scaleY + offsetY) + 0.5;
+  float highY  = floor(aCandlePrices.y * scaleY + offsetY) + 0.5;
+  float lowY   = floor(aCandlePrices.z * scaleY + offsetY) + 0.5;
+  float closeY = floor(aCandlePrices.w * scaleY + offsetY) + 0.5;
+
+  // Candle quad bounds
+  float minCandleX = min(openTimePx, openTimePx + uPadding - 1.0);
+  float maxCandleX = max(closeTimePx, closeTimePx - uPadding + 1.0);
+  
+  float minCandleY = min(highY - 1.0, lowY - 1.0);
+  float maxCandleY = max(highY + 1.0, lowY + 1.0);
+
+  // Line quad bounds (From open time to canvas right edge, centered on closeY)
+  float halfThick = max(0.5, uOpeningThickness * 0.5);
+  float minLineX = openTimePx;
+  float maxLineX = max(openTimePx, uCanvasWidth);
+
+  float minLineY = closeY - halfThick - 1.0;
+  float maxLineY = closeY + halfThick + 1.0;
+
+  // Overall combined bounding quad for both candle and opening line
+  float minX = min(minCandleX, minLineX);
+  float maxX = max(maxCandleX, maxLineX);
+
+  float minY = min(minCandleY, minLineY);
+  float maxY = max(maxCandleY, maxLineY);
+
+  vec2 pos = vec2(
+    mix(minX, maxX, aCorner.x),
+    mix(minY, maxY, aCorner.y)
+  );
+
+  vPixelPos = pos;
+  vTimes = vec2(openTimePx, closeTimePx);
+  vPrices = vec4(openY, highY, lowY, closeY);
+
+  vec3 projected = uProjectionMatrix * vec3(pos, 1.0);
+  gl_Position = vec4(projected.xy, 0.0, 1.0);
+}
+`,
+
+  fragment: `#version 300 es
+precision highp float;
+
+uniform float uPadding;
+uniform vec3 uUpOutlineColor;
+uniform vec3 uUpBodyColor;
+uniform vec3 uDownOutlineColor;
+uniform vec3 uDownBodyColor;
+
+// Opening Line Uniforms
+uniform vec4 uOpeningColor;     // RGBA
+uniform float uOpeningThickness;
+uniform float uOpeningType;      // 0 = solid, 1 = dash
+uniform float uOpeningDashWidth;
+uniform float uOpeningDashSpace;
+
+in vec2 vPixelPos;
+in vec2 vTimes;  // [openTimePx, closeTimePx]
+in vec4 vPrices; // [openY, highY, lowY, closeY]
+
+out vec4 fragColor;
+
+void main(void) {
+  float openTimePx  = vTimes.x;
+  float closeTimePx = vTimes.y;
+
+  float openY  = vPrices.x;
+  float highY  = vPrices.y;
+  float lowY   = vPrices.z;
+  float closeY = vPrices.w;
+
+  vec2 pixelPos = floor(vPixelPos) + 0.5;
+
+  // Screen space: higher price = smaller Y
+  bool isUp = closeY <= openY;
+
+  vec3 outlineColor = isUp ? uUpOutlineColor : uDownOutlineColor;
+  vec3 bodyColor    = isUp ? uUpBodyColor    : uDownBodyColor;
+
+  bool hasWidth = (closeTimePx - openTimePx) > (uPadding * 2.0);
+
+  // 1. Wick Line
+  float wickX = (openTimePx + closeTimePx) * 0.5;
+  bool inWick =
+      abs(pixelPos.x - wickX) <= 0.5 &&
+      pixelPos.y >= highY &&
+      pixelPos.y <= lowY;
+
+  // 2. Body Rectangle
+  float topY    = min(openY, closeY);
+  float bottomY = max(openY, closeY);
+  float leftX   = openTimePx + uPadding;
+  float rightX  = closeTimePx - uPadding;
+
+  bool inBody =
+      hasWidth &&
+      pixelPos.x >= leftX &&
+      pixelPos.x <= rightX &&
+      pixelPos.y >= topY &&
+      pixelPos.y <= bottomY;
+
+  // 3. Border Lines (around BODY only)
+  float bLeftX  = openTimePx + uPadding - 0.5;
+  float bRightX = closeTimePx - uPadding + 0.5;
+
+  bool inHLine1 =
+      hasWidth &&
+      pixelPos.x >= bLeftX &&
+      pixelPos.x <= bRightX &&
+      abs(pixelPos.y - (topY - 0.5)) <= 0.5;
+
+  bool inHLine2 =
+      hasWidth &&
+      pixelPos.x >= bLeftX &&
+      pixelPos.x <= bRightX &&
+      abs(pixelPos.y - (bottomY + 0.5)) <= 0.5;
+
+  bool inVLine1 =
+      hasWidth &&
+      abs(pixelPos.x - bLeftX) <= 0.5 &&
+      pixelPos.y >= (topY - 1.0) &&
+      pixelPos.y <= (bottomY + 1.0);
+
+  bool inVLine2 =
+      hasWidth &&
+      abs(pixelPos.x - bRightX) <= 0.5 &&
+      pixelPos.y >= (topY - 1.0) &&
+      pixelPos.y <= (bottomY + 1.0);
+
+  bool inBorder = inHLine1 || inHLine2 || inVLine1 || inVLine2;
+
+  
+
+  vec4 color = vec4(0.0);
+
+  // 4. Opening Line (From Close Price / Open Time to Right Edge)
+  float halfThick = max(0.5, uOpeningThickness * 0.5);
+  bool inLineY = abs(pixelPos.y - closeY) <= halfThick;
+  bool inLineX = pixelPos.x >= (openTimePx + uPadding);
+
+  if (inLineX && inLineY) {
+    bool drawSegment = true;
+    if (uOpeningType > 0.5) { // "dash"
+      float cycle = uOpeningDashWidth + uOpeningDashSpace;
+      if (cycle > 0.0) {
+        float distFromStart = pixelPos.x - openTimePx;
+        float posInCycle = mod(distFromStart, cycle);
+        if (posInCycle > uOpeningDashWidth) {
+          drawSegment = false;
+        }
+      }
+    }
+
+    if (drawSegment) {
+      // Alpha composite opening line over candle color if both overlap
+      color = vec4(mix(color.rgb, uOpeningColor.rgb, uOpeningColor.a), max(color.a, uOpeningColor.a));
+    }
+  }  
+
+  if (inBody) {
+    color = vec4(bodyColor, 1.0);
+  }
+
+  if (inWick || inBorder) {
+    color = vec4(outlineColor, 1.0);
+  }
+
+
+
+  if (color.a <= 0.0) {
+    discard;
+  }
+
+  fragColor = color;
+}
+`,
+};
 
 //======================================================================================================
 // CONSTANTS & HELPERS
 //======================================================================================================
-// Unit quad corners (4 vertices using TRIANGLE_STRIP covering [0,0] to [1,1])
 const QUAD_CORNERS = new Float32Array([
   0.0, 0.0,
   1.0, 0.0,
@@ -13,8 +221,16 @@ const QUAD_CORNERS = new Float32Array([
   1.0, 1.0,
 ]);
 
-// Single instance layout: [openTimePx, closeTimePx, openY, highY, lowY, closeY]
 const FLOATS_PER_CANDLE = 6;
+
+function rgbaToVec4(rgba: number[]): [number, number, number, number] {
+  return [
+    Math.max(0, Math.min(255, rgba[0] ?? 255)) / 255,
+    Math.max(0, Math.min(255, rgba[1] ?? 255)) / 255,
+    Math.max(0, Math.min(255, rgba[2] ?? 255)) / 255,
+    Math.max(0, Math.min(255, rgba[3] ?? 255)) / 255,
+  ];
+}
 
 function rgbaToVec3(rgba: number[]): [number, number, number] {
   return [
@@ -59,10 +275,16 @@ export default class OpeningCandleRenderer {
       uProjectionMatrix: null as WebGLUniformLocation | null,
       uTransform: null as WebGLUniformLocation | null,
       uPadding: null as WebGLUniformLocation | null,
+      uCanvasWidth: null as WebGLUniformLocation | null,
       uUpOutlineColor: null as WebGLUniformLocation | null,
       uUpBodyColor: null as WebGLUniformLocation | null,
       uDownOutlineColor: null as WebGLUniformLocation | null,
       uDownBodyColor: null as WebGLUniformLocation | null,
+      uOpeningColor: null as WebGLUniformLocation | null,
+      uOpeningThickness: null as WebGLUniformLocation | null,
+      uOpeningType: null as WebGLUniformLocation | null,
+      uOpeningDashWidth: null as WebGLUniformLocation | null,
+      uOpeningDashSpace: null as WebGLUniformLocation | null,
     },
   };
 
@@ -77,6 +299,13 @@ export default class OpeningCandleRenderer {
     downBodyColor: new Float32Array([1.0, 0.2, 0.2]),
     downOutlineColor: new Float32Array([1.0, 0.2, 0.2]),
     padding: 2.0,
+    opening: {
+      color: new Float32Array([0.39, 1.0, 0.39, 1.0]),
+      thickness: 1.0,
+      type: 1.0, // 0 = solid, 1 = dash
+      dashWidth: 5.0,
+      dashSpace: 10.0,
+    },
   };
 
   private readonly transformListenerId = `OpeningCandleRenderer_${Math.random().toString(36).substring(2, 9)}`;
@@ -128,6 +357,16 @@ export default class OpeningCandleRenderer {
     this.style.downBodyColor = new Float32Array(rgbaToVec3(configStyle.bear?.background || [255, 50, 50, 255]));
     this.style.downOutlineColor = new Float32Array(rgbaToVec3(configStyle.bear?.border || [255, 50, 50, 255]));
     this.style.padding = 2.0;
+
+    // Load line style from state.config.get().candle.opening
+    const openingStyle = configStyle.opening;
+    if (openingStyle) {
+      this.style.opening.color = new Float32Array(rgbaToVec4(openingStyle.color?.background || [100, 255, 100, 255]));
+      this.style.opening.thickness = openingStyle.thickness ?? 1.0;
+      this.style.opening.type = openingStyle.type === "solid" ? 0.0 : 1.0;
+      this.style.opening.dashWidth = openingStyle.dash?.width ?? 5.0;
+      this.style.opening.dashSpace = openingStyle.dash?.space ?? 10.0;
+    }
   }
 
   public updateData(): void {
@@ -137,7 +376,6 @@ export default class OpeningCandleRenderer {
     const view = this.state.config.get()?.viewport;
     const canvas = (this.chart as any)?.event?.getCanvasSize();
 
-    // Edge case check: missing candle data, viewport, or invalid canvas size -> clear buffer flag
     if (
       !openingCandle ||
       openingCandle.t == null ||
@@ -177,7 +415,7 @@ export default class OpeningCandleRenderer {
     const openTimePx = (openTs - view.fromTs) * tToPx;
     const closeTimePx = (closeTs - view.fromTs) * tToPx;
 
-    // Price conversion to pixels (higher price -> smaller Y pixel)
+    // Price conversion to pixels
     const openY = canvas.h - (openingCandle.o - view.fromPrice) * pToPx;
     const highY = canvas.h - (openingCandle.h - view.fromPrice) * pToPx;
     const lowY = canvas.h - (openingCandle.l - view.fromPrice) * pToPx;
@@ -251,10 +489,18 @@ export default class OpeningCandleRenderer {
     gl.uniformMatrix3fv(uLocs.uProjectionMatrix, false, this.projectionMatrix);
     gl.uniform4f(uLocs.uTransform, scaleX, scaleY, offsetX, offsetY);
     gl.uniform1f(uLocs.uPadding, this.style.padding);
+    gl.uniform1f(uLocs.uCanvasWidth, canvas.w);
     gl.uniform3fv(uLocs.uUpBodyColor, this.style.upBodyColor);
     gl.uniform3fv(uLocs.uUpOutlineColor, this.style.upOutlineColor);
     gl.uniform3fv(uLocs.uDownBodyColor, this.style.downBodyColor);
     gl.uniform3fv(uLocs.uDownOutlineColor, this.style.downOutlineColor);
+
+    // Set opening line uniforms
+    gl.uniform4fv(uLocs.uOpeningColor, this.style.opening.color);
+    gl.uniform1f(uLocs.uOpeningThickness, this.style.opening.thickness);
+    gl.uniform1f(uLocs.uOpeningType, this.style.opening.type);
+    gl.uniform1f(uLocs.uOpeningDashWidth, this.style.opening.dashWidth);
+    gl.uniform1f(uLocs.uOpeningDashSpace, this.style.opening.dashSpace);
 
     // Draw 1 candle instance
     gl.drawArraysInstanced(
@@ -275,7 +521,7 @@ export default class OpeningCandleRenderer {
     const gl = this.gl;
     if (!gl) return;
 
-    this.program = this.createProgram(gl, CANDLE_SHADER.vertex, CANDLE_SHADER.fragment);
+    this.program = this.createProgram(gl, OPENING_CANDLE_SHADER.vertex, OPENING_CANDLE_SHADER.fragment);
     if (!this.program) return;
 
     // Attributes
@@ -287,10 +533,17 @@ export default class OpeningCandleRenderer {
     this.locations.uniforms.uProjectionMatrix = gl.getUniformLocation(this.program, "uProjectionMatrix");
     this.locations.uniforms.uTransform = gl.getUniformLocation(this.program, "uTransform");
     this.locations.uniforms.uPadding = gl.getUniformLocation(this.program, "uPadding");
+    this.locations.uniforms.uCanvasWidth = gl.getUniformLocation(this.program, "uCanvasWidth");
     this.locations.uniforms.uUpOutlineColor = gl.getUniformLocation(this.program, "uUpOutlineColor");
     this.locations.uniforms.uUpBodyColor = gl.getUniformLocation(this.program, "uUpBodyColor");
     this.locations.uniforms.uDownOutlineColor = gl.getUniformLocation(this.program, "uDownOutlineColor");
     this.locations.uniforms.uDownBodyColor = gl.getUniformLocation(this.program, "uDownBodyColor");
+
+    this.locations.uniforms.uOpeningColor = gl.getUniformLocation(this.program, "uOpeningColor");
+    this.locations.uniforms.uOpeningThickness = gl.getUniformLocation(this.program, "uOpeningThickness");
+    this.locations.uniforms.uOpeningType = gl.getUniformLocation(this.program, "uOpeningType");
+    this.locations.uniforms.uOpeningDashWidth = gl.getUniformLocation(this.program, "uOpeningDashWidth");
+    this.locations.uniforms.uOpeningDashSpace = gl.getUniformLocation(this.program, "uOpeningDashSpace");
 
     this.vao = gl.createVertexArray();
     this.buffers.quadCorners = gl.createBuffer();
@@ -304,7 +557,7 @@ export default class OpeningCandleRenderer {
     gl.enableVertexAttribArray(this.locations.attributes.aCorner);
     gl.vertexAttribPointer(this.locations.attributes.aCorner, 2, gl.FLOAT, false, 0, 0);
 
-    // Fixed Candle Instance Buffer (1 Candle, Fixed Byte Size)
+    // Fixed Candle Instance Buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.candleInstance);
     gl.bufferData(gl.ARRAY_BUFFER, FLOATS_PER_CANDLE * Float32Array.BYTES_PER_ELEMENT, gl.DYNAMIC_DRAW);
 

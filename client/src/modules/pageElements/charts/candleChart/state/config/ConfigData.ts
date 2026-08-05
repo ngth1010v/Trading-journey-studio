@@ -9,35 +9,81 @@ export interface Config {
   timeframe?: string;
   linkId?: number;
   style?: {
-    crosshair?:{
+    crosshair?: {
       color?: {
-        background?: RGBA
-        font?: RGB
+        background?: RGBA;
+        font?: RGB;
       };
-      thickness?: number
-      type?: "dash" | "solid"
+      thickness?: number;
+      type?: "dash" | "solid";
       dash?: {
-        space: number //px
-        width: number //px
-      }
-    }
+        space: number; //px
+        width: number; //px
+      };
+    };
     candle?: {
-      bull?:{
+      opening?: {
+        color?: {
+          background: RGBA;
+          font?: RGB;
+        };
+        thickness?: number;
+        type?: "dash" | "solid";
+        dash?: {
+          space: number; //px
+          width: number; //px
+        };
+      };
+      bull?: {
         background?: RGBA;
         border?: RGBA;
-      }
-      bear?:{
+      };
+      bear?: {
         background?: RGBA;
         border?: RGBA;
-      }
-    }
-  }
+      };
+    };
+  };
 }
-
 
 interface ConfigListener {
   target: string[];
   cb: () => void;
+}
+
+/**
+ * Recursively performs a deep merge of nested configuration objects.
+ * Arrays (such as RGBA [r, g, b, a]) and primitive values are replaced rather than merged.
+ */
+function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+  const output = { ...target };
+
+  if (!source || typeof source !== "object") {
+    return output;
+  }
+
+  for (const key of Object.keys(source) as Array<keyof T>) {
+    const sourceVal = source[key];
+    const targetVal = target[key];
+
+    if (
+      sourceVal !== undefined &&
+      sourceVal !== null &&
+      typeof sourceVal === "object" &&
+      !Array.isArray(sourceVal)
+    ) {
+      output[key] = deepMerge(
+        targetVal && typeof targetVal === "object" && !Array.isArray(targetVal)
+          ? targetVal
+          : ({} as any),
+        sourceVal
+      );
+    } else if (sourceVal !== undefined) {
+      output[key] = sourceVal as T[keyof T];
+    }
+  }
+
+  return output;
 }
 
 export default class ConfigData {
@@ -51,40 +97,55 @@ export default class ConfigData {
   public init(pageId: number, elementId: number): void {
     this.pageId = pageId;
     this.elementId = elementId;
-    this.cache = {
+
+    const defaultConfig: Config = {
       viewport: {
-        fromTs: Date.now() - (1000*60*60*24*5)*3/4,
-        toTs: Date.now() + (1000*60*60*24)/4,
+        fromTs: Date.now() - ((1000 * 60 * 60 * 24 * 5) * 3) / 4,
+        toTs: Date.now() + (1000 * 60 * 60 * 24) / 4,
         fromPrice: 0,
         toPrice: 1,
       } as Viewport,
       timeframe: "1H",
       style: {
-        crosshair:{
+        crosshair: {
           color: {
-            background: [255,255,255,255] as RGBA,
-            font: [0,0,0] as RGB,
+            background: [255, 255, 255, 255] as RGBA,
+            font: [0, 0, 0] as RGB,
           },
           thickness: 1,
           type: "dash",
           dash: {
             space: 5, //px
             width: 5, //px
-          }
+          },
         },
         candle: {
+          opening: {
+            color: {
+              background: [248, 249, 250, 255] as RGBA,
+              font: [0, 0, 0] as RGB,
+            },
+            thickness: 1,
+            type: "dash",
+            dash: {
+              space: 3, //px
+              width: 5, //px
+            },
+          },
           bull: {
-            background: [50,255,50,255] as RGBA,
-            border    : [50,255,50,255] as RGBA
+            background: [50, 255, 50, 255] as RGBA,
+            border: [50, 255, 50, 255] as RGBA,
           },
           bear: {
-            background: [255,50,50,255] as RGBA,
-            border    : [255,50,50,255] as RGBA
-          }
-        }
+            background: [255, 50, 50, 255] as RGBA,
+            border: [255, 50, 50, 255] as RGBA,
+          },
+        },
       },
-      ...this.cache
-    }
+    };
+
+    // Deeply merge default values with existing cache (if any)
+    this.cache = deepMerge(defaultConfig, this.cache ?? {});
 
     this.pageData.init();
 
@@ -118,14 +179,9 @@ export default class ConfigData {
    */
   public set(partialConfig: Partial<Config>): void {
     const previousCache = this.cache;
-    
-    // Merge partial update with existing cache (fallback to empty object if cache was null)
-    const updatedConfig: Config = {
-      ...(this.cache ?? {}),
-      ...partialConfig,
-    };
-    
-    this.cache = updatedConfig;
+
+    // Deep merge partial update with existing cache
+    this.cache = deepMerge(this.cache ?? {}, partialConfig);
 
     // 1. Immediately notify local listeners (optimistic update)
     this.notifyListeners(previousCache, this.cache);
@@ -180,7 +236,8 @@ export default class ConfigData {
       if (!page || !element) {
         this.cache = null;
       } else {
-        this.cache = {...this.cache, ...element.data};
+        // Deeply merge remote data over existing cached defaults
+        this.cache = deepMerge(this.cache ?? {}, element.data ?? {});
       }
     } catch {
       // PageData.get() throws an error if page isn't found
