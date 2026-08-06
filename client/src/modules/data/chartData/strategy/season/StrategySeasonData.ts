@@ -9,18 +9,20 @@ export interface StrategySeason {
   id?: number;
   name: string;
   desc: string;
-  style: {
+  color: {
+    font: RGB;
     background: RGBA;
+    border: RGBA;
+  };
+  style: {
     border: {
       enable: boolean;
       thickness: number;
-      color: RGBA;
     };
     text: {
       startText: {
         enable: boolean;
         size: number;
-        color: RGB;
         align: {
           x: "left" | "right";
           y: "top" | "center" | "bottom";
@@ -29,7 +31,6 @@ export interface StrategySeason {
       endText: {
         enable: boolean;
         size: number;
-        color: RGB;
         align: {
           x: "left" | "right";
           y: "top" | "center" | "bottom";
@@ -53,6 +54,55 @@ export interface StrategySeason {
     month?: number;
   };
 }
+
+export const STRATEGY_SEASON_INPUT_LAYOUT = {
+  name: "string",
+  color: {
+    font: "rgb",
+    background: "rgba",
+    border: "rgba",
+  },
+  type: "seasonType",
+  fromTime: {
+    second: "number",
+    minute: "number",
+    hour: "number",
+    day: "number",
+    month: "number",
+  },
+  toTime: {
+    second: "number",
+    minute: "number",
+    hour: "number",
+    day: "number",
+    month: "number",
+  },
+  style: {
+    border: {
+      enable: "boolean",
+      thickness: "uNumber",
+    },
+    text: {
+      startText: {
+        enable: "boolean",
+        size: "uNumber",
+        align: {
+          x: "positionXlr",
+          y: "positionY",
+        },
+      },
+      endText: {
+        enable: "boolean",
+        size: "uNumber",
+        align: {
+          x: "positionXlr",
+          y: "positionY",
+        },
+      },
+    },
+  },
+  desc: "text",
+};
 
 export const REFRESH_DURATION = 500; // ms
 
@@ -186,8 +236,79 @@ export default class StrategySeasonData {
     await deleteStrategySeasonApi(id);
   }
 
+  public getDefault(): StrategySeason {
+    const season: StrategySeason = {
+      name: "Default New york season",
+      desc: "",
+      color: {
+        font: [255, 200, 100],
+        background: [120, 90, 150, 0.2],
+        border: [145, 118, 175, 1],
+      },
+      style: {
+        border: {
+          enable: true,
+          thickness: 1,
+        },
+        text: {
+          startText: {
+            enable: true,
+            size: 12,
+            align: {
+              x: "left",
+              y: "bottom",
+            },
+          },
+          endText: {
+            enable: false,
+            size: 12,
+            align: {
+              x: "right",
+              y: "bottom",
+            },
+          },
+        },
+      },
+      type: "daily",
+      fromTime: {
+        second: 0,
+        minute: 30,
+        hour: 13,
+        day:0,
+        month:0,
+      },
+      toTime: {
+        second: 0,
+        minute: 30,
+        hour: 15,
+        day:0,
+        month:0,
+      },
+    };
+
+    const existingNames = new Set(this.getAll().map((s) => s.name));
+
+    const baseName = season.name;
+    let index = 1;
+
+    while (existingNames.has(season.name)) {
+      season.name = `${baseName} ${index++}`;
+    }
+
+    return season;
+  }
+
   public addOnStrategySeasonDataChange(id: string, cb: () => void): void {
     this.callbacks.set(id, cb);
+
+    // If data exists, invoke callback immediately
+    if (strategySeasonCacheMap.size > 0) {
+      try {
+        cb();
+      } catch (err) {
+        console.error("Error executing StrategyData subscriber callback:", err);
+      }
+    }
   }
 
   public removeOnStrategySeasonDataChange(id: string): void {

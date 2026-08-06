@@ -17,6 +17,16 @@ export interface StrategyTag {
   };
 }
 
+export const STRATEGY_TAG_INPUT_LAYOUT = {
+  name: 'string',
+  color: {
+    font: "rgb",
+    background: "rgba",
+    border: "rgba",
+  },
+  desc: "text",
+}
+
 export const REFRESH_DURATION = 500; // ms
 
 // ============================================================================
@@ -149,8 +159,41 @@ export default class StrategyTagData {
     await deleteStrategyTagApi(id);
   }
 
+  public getDefault(): StrategyTag {
+    const tag: StrategyTag = {
+      name: "Default",
+      createdTimestamp: Date.now(),
+      desc: "",
+      color: {
+        font: [255, 255, 255],
+        background: [120, 90, 150, 1],
+        border: [145, 118, 175, 1],
+      },
+    };
+
+    const existingNames = new Set(this.getAll().map((t) => t.name));
+
+    const baseName = tag.name;
+    let index = 1;
+
+    while (existingNames.has(tag.name)) {
+      tag.name = `${baseName} ${index++}`;
+    }
+
+    return tag;
+  }
+
   public addOnStrateryTagDataChange(id: string, cb: () => void): void {
     this.callbacks.set(id, cb);
+
+    // Nếu đã có dữ liệu thì gọi callback ngay lập tức
+    if (strategyTagCacheMap.size > 0) {
+      try {
+        cb();
+      } catch (err) {
+        console.error("Error executing StrategyData subscriber callback:", err);
+      }
+    }
   }
 
   public removeOnStrateryTagDataChange(id: string): void {

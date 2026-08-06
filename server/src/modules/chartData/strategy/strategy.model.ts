@@ -25,18 +25,20 @@ export interface StrategySeason {
   id?:number
   name: string;
   desc: string;
+  color: { // save as JSON
+    font: RGB;
+    background: RGBA;
+    border: RGBA;
+  };
   style: { // save as JSON
-    background: RGBA;  
     border: {
       enable: boolean
       thickness: number
-      color: RGBA
     }
     text: {
       startText: {
         enable: boolean
         size: number
-        color: RGB
         align: {
           x: "left" | "right"
           y: "top" | "center" | "bottom"
@@ -45,7 +47,6 @@ export interface StrategySeason {
       endText: {
         enable: boolean
         size: number
-        color: RGB
         align: {
           x: "left" | "right"
           y: "top" | "center" | "bottom"
@@ -69,6 +70,57 @@ export interface StrategySeason {
     month?: number // use if type = "yearly"
   }
 }
+
+
+// OLD SEASON
+// export interface StrategySeason {
+//   id?:number
+//   name: string;
+//   desc: string;
+//   style: { // save as JSON
+//     background: RGBA;  
+//     border: {
+//       enable: boolean
+//       thickness: number
+//       color: RGBA
+//     }
+//     text: {
+//       startText: {
+//         enable: boolean
+//         size: number
+//         color: RGB
+//         align: {
+//           x: "left" | "right"
+//           y: "top" | "center" | "bottom"
+//         }
+//       }
+//       endText: {
+//         enable: boolean
+//         size: number
+//         color: RGB
+//         align: {
+//           x: "left" | "right"
+//           y: "top" | "center" | "bottom"
+//         }
+//       }
+//     }
+//   }
+//   type: "daily" | "monthly" | "yearly"
+//   fromTime: { // save as JSON
+//     second: number
+//     minute: number
+//     hour  : number
+//     day  ?: number // use if type in ["monthly", "yearly"]
+//     month?: number // use if type = "yearly"
+//   }
+//   toTime: { // save as JSON
+//     second: number
+//     minute: number
+//     hour  : number
+//     day  ?: number // use if type in ["monthly", "yearly"]
+//     month?: number // use if type = "yearly"
+//   }
+// }
 
 export interface StrategyTag {
   id?: number;

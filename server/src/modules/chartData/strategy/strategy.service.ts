@@ -2,11 +2,11 @@ import { RGB, RGBA } from "../../../type.js";
 
 export class StrategyService {
   public static isValidRGB(val: any): val is RGB {
-    return Array.isArray(val) && val.length === 3 && val.every(n => typeof n === "number");
+    return Array.isArray(val) && val.length === 3 && val.every((n) => typeof n === "number");
   }
 
   public static isValidRGBA(val: any): val is RGBA {
-    return Array.isArray(val) && val.length === 4 && val.every(n => typeof n === "number");
+    return Array.isArray(val) && val.length === 4 && val.every((n) => typeof n === "number");
   }
 
   public static validateStrategyPayload(body: any): string | null {
@@ -20,11 +20,11 @@ export class StrategyService {
     }
     if (!["live", "end", "backtest"].includes(body.status)) return "status must be either 'live', 'end', or 'backtest'";
     if (typeof body.createdTimestamp !== "number") return "Invalid or missing fields: createdTimestamp";
-    
+
     if (!body.favorite || !Array.isArray(body.favorite.symbols) || !Array.isArray(body.favorite.timeframes)) {
       return "Missing or structurally incorrect favorite schema.";
     }
-    
+
     if (!body.color || !this.isValidRGB(body.color.font) || !this.isValidRGBA(body.color.background) || !this.isValidRGBA(body.color.border)) {
       return "Missing or invalid Color array assignments (font must be RGB, backgrounds/borders must be RGBA).";
     }
@@ -35,7 +35,7 @@ export class StrategyService {
   public static validateTagPayload(body: any): string | null {
     if (!body.name || typeof body.name !== "string") return "Invalid or missing fields: name";
     if (typeof body.desc !== "string") return "Invalid or missing fields: desc";
-    
+
     if (!body.color || !this.isValidRGB(body.color.font) || !this.isValidRGBA(body.color.background) || !this.isValidRGBA(body.color.border)) {
       return "Missing or invalid Color arrays (font must be RGB, backgrounds/borders must be RGBA).";
     }
@@ -48,12 +48,27 @@ export class StrategyService {
     if (typeof body.desc !== "string") return "Invalid or missing fields: desc";
     if (!["daily", "monthly", "yearly"].includes(body.type)) return "type must be 'daily', 'monthly', or 'yearly'";
 
-    if (!body.style || !this.isValidRGBA(body.style.background)) {
-      return "Missing or invalid style.background (must be RGBA)";
+    if (
+      !body.color ||
+      !this.isValidRGB(body.color.font) ||
+      !this.isValidRGBA(body.color.background) ||
+      !this.isValidRGBA(body.color.border)
+    ) {
+      return "Missing or invalid color options (font must be RGB, background/border must be RGBA)";
     }
-    if (!body.style.border || typeof body.style.border.enable !== "boolean" || typeof body.style.border.thickness !== "number" || !this.isValidRGBA(body.style.border.color)) {
+
+    if (!body.style) {
+      return "Missing style options";
+    }
+
+    if (
+      !body.style.border ||
+      typeof body.style.border.enable !== "boolean" ||
+      typeof body.style.border.thickness !== "number"
+    ) {
       return "Missing or invalid style.border options";
     }
+
     if (!body.style.text || !body.style.text.startText || !body.style.text.endText) {
       return "Missing style.text configurations";
     }
@@ -62,7 +77,6 @@ export class StrategyService {
       return (
         typeof textObj.enable === "boolean" &&
         typeof textObj.size === "number" &&
-        this.isValidRGB(textObj.color) &&
         textObj.align &&
         ["left", "right"].includes(textObj.align.x) &&
         ["top", "center", "bottom"].includes(textObj.align.y)

@@ -33,6 +33,7 @@ export class StrategyRepository {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         desc TEXT NOT NULL,
+        color TEXT NOT NULL,
         style TEXT NOT NULL,
         type TEXT NOT NULL,
         fromTime TEXT NOT NULL,
@@ -78,13 +79,17 @@ export class StrategyRepository {
   }
 
   private parseSeasonRow(row: any): StrategySeason {
+    let color = { font: [0, 0, 0], background: [255, 255, 255, 1], border: [0, 0, 0, 1] };
+    try {
+      if (row.color) color = JSON.parse(row.color);
+    } catch {}
+
     let style = {
-      background: [0, 0, 0, 0],
-      border: { enable: false, thickness: 1, color: [0, 0, 0, 1] },
+      border: { enable: false, thickness: 1 },
       text: {
-        startText: { enable: false, size: 12, color: [0, 0, 0], align: { x: "left", y: "top" } },
-        endText: { enable: false, size: 12, color: [0, 0, 0], align: { x: "right", y: "bottom" } }
-      }
+        startText: { enable: false, size: 12, align: { x: "left", y: "top" } },
+        endText: { enable: false, size: 12, align: { x: "right", y: "bottom" } },
+      },
     };
     try {
       if (row.style) style = JSON.parse(row.style);
@@ -104,6 +109,7 @@ export class StrategyRepository {
       id: row.id,
       name: row.name ?? "",
       desc: row.desc ?? "",
+      color: color as StrategySeason["color"],
       style: style as StrategySeason["style"],
       type: (["daily", "monthly", "yearly"].includes(row.type) ? row.type : "daily") as StrategySeason["type"],
       fromTime: fromTime as StrategySeason["fromTime"],
@@ -227,12 +233,13 @@ export class StrategyRepository {
 
   public createSeason(season: Omit<StrategySeason, "id">): number {
     const stmt = this.db.prepare(`
-      INSERT INTO strategy_seasons (name, desc, style, type, fromTime, toTime)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO strategy_seasons (name, desc, color, style, type, fromTime, toTime)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       season.name,
       season.desc,
+      JSON.stringify(season.color),
       JSON.stringify(season.style),
       season.type,
       JSON.stringify(season.fromTime),
@@ -244,12 +251,13 @@ export class StrategyRepository {
   public updateSeason(season: Required<StrategySeason>): boolean {
     const stmt = this.db.prepare(`
       UPDATE strategy_seasons 
-      SET name = ?, desc = ?, style = ?, type = ?, fromTime = ?, toTime = ?
+      SET name = ?, desc = ?, color = ?, style = ?, type = ?, fromTime = ?, toTime = ?
       WHERE id = ?
     `);
     const result = stmt.run(
       season.name,
       season.desc,
+      JSON.stringify(season.color),
       JSON.stringify(season.style),
       season.type,
       JSON.stringify(season.fromTime),

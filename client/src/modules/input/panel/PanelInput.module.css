@@ -8,6 +8,7 @@
   box-sizing: border-box;
   /* overflow-y: auto; */
   gap: 5px;
+  min-width: 300px;
 }
 
 .headerContainer {

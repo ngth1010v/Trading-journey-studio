@@ -27,24 +27,18 @@ export interface Strategy {
   };
 }
 
-const DEFAULT_STRATEGY = {
-  name: "Default",
-  desc: "",
-  tagIds: [],
-  seasonIds: [],
-  status: "live",
-  createdTimestamp: 0,
-
-  favorite: {
-    symbols: [],
-    timeframes: [],
-  },
+// use for input
+export const STRATEGY_INPUT_LAYOUT = {
+  name: "string",
+  status: "status",
+  createdTimestamp: "timestamp",
   color: {
-    font: [255, 255, 255] as RGB,
-    background: [120, 90, 150, 1] as RGBA,
-    border: [145, 118, 175, 1] as RGBA,
+    font: "rgb",
+    background: "rgba",
+    border: "rgba",
   },
-} as Strategy;
+  desc: "text",
+}
 
 export const REFRESH_DURATION = 500; // ms
 
@@ -173,26 +167,38 @@ export default class StrategyData {
   }
 
   public getDefault(): Strategy {
-    const strategy: Strategy = structuredClone(DEFAULT_STRATEGY);
-    strategy.createdTimestamp = Date.now();
+    const strategy: Strategy = {
+      name: "Default",
+      desc: "",
+      tagIds: [],
+      seasonIds: [],
+      status: "live",
+      createdTimestamp: Date.now(),
+
+      favorite: {
+        symbols: [],
+        timeframes: [],
+      },
+      color: {
+        font: [255, 255, 255],
+        background: [120, 90, 150, 1],
+        border: [145, 118, 175, 1],
+      },
+    };
 
     const existingNames = new Set(
       this.getAll().map((s) => s.name)
     );
 
-    const baseName = DEFAULT_STRATEGY.name;
-    let name = baseName;
+    const baseName = strategy.name;
     let index = 1;
 
-    while (existingNames.has(name)) {
-      name = `${baseName} ${index++}`;
+    while (existingNames.has(strategy.name)) {
+      strategy.name = `${baseName} ${index++}`;
     }
-
-    strategy.name = name;
 
     return strategy;
   }
-
   /**
    * Return all strategies, or [] if empty.
    */
@@ -216,6 +222,15 @@ export default class StrategyData {
 
   public addOnStrateryDataChange(id: string, cb: () => void): void {
     this.callbacks.set(id, cb);
+
+    // Nếu đã có dữ liệu thì gọi callback ngay lập tức
+    if (strategyCacheMap.size > 0) {
+      try {
+        cb();
+      } catch (err) {
+        console.error("Error executing StrategyData subscriber callback:", err);
+      }
+    }
   }
 
   public removeOnStrateryDataChange(id: string): void {

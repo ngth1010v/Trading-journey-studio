@@ -2,10 +2,12 @@
 .Container {
     position: relative;
     /* display: inline-block; */
+    flex: 1;
 }
 
 .ButtonContainer {
     position: relative;
+    display: flex;
     /* display: inline-block; */
     cursor: pointer;
     width: 100%;

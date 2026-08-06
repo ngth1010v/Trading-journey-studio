@@ -33,7 +33,7 @@
 
 /* Home expanded state: expands height to show home + all sub-toggles */
 .expanded {
-  height: 100px;
+  height: 120px;
 }
 
 .homeButton {

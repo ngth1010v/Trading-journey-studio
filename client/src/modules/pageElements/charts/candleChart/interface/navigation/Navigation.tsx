@@ -7,12 +7,14 @@ import type { RGB, RGBA } from '../../../../../shared/type';
 
 import SourceBar from './source/SourceBar';
 import LinkBar from './link/LinkBar';
+import StrategyBar from './strategy/StrategyBar';
 
 import HouseIcon      from '../../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon     from '../../../../../../assets/icons/git-branch.svg?react';
 import SyncIcon       from '../../../../../../assets/icons/arrows-clockwise.svg?react';
 import DrawIcon       from '../../../../../../assets/icons/pencil.svg?react';
 import CalculatorIcon from '../../../../../../assets/icons/calculator.svg?react';
+import StrategyIcon   from '../../../../../../assets/icons/book.svg?react';
 
 const toRGBString = (color: RGB) =>
   `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -35,9 +37,7 @@ export default function Navigation({ state }: { state: StateData }) {
 
   // Home toggle state for expanding/collapsing height of the panel
   const [isHomeExpanded, setIsHomeExpanded] = useState<boolean>(true);
-
-  // Active state for each sub-bar: 0: Source, 1: Link (Sync), 2: Shape, 3: Replay
-  const [openChildren, setOpenChildren] = useState<boolean[]>([false, false, false, false]);
+  const [openChildren, setOpenChildren] = useState<boolean[]>([false, false, false, false, false]);
 
   const toggleChild = (index: number) => {
     setOpenChildren((prev) => {
@@ -126,26 +126,35 @@ export default function Navigation({ state }: { state: StateData }) {
           <button
             type="button"
             className={`${styles.toggleButton} ${openChildren[1] ? styles.toggleButtonActive : ''}`}
-            title="Link / Sync"
+            title="Strategy"
             onClick={() => toggleChild(1)}
+          >
+            <StrategyIcon width="12" height="12" />
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.toggleButton} ${openChildren[2] ? styles.toggleButtonActive : ''}`}
+            title="Link / Sync"
+            onClick={() => toggleChild(2)}
           >
             <SyncIcon width="12" height="12" />
           </button>
 
           <button
             type="button"
-            className={`${styles.toggleButton} ${openChildren[2] ? styles.toggleButtonActive : ''}`}
+            className={`${styles.toggleButton} ${openChildren[3] ? styles.toggleButtonActive : ''}`}
             title="Shape"
-            onClick={() => toggleChild(2)}
+            onClick={() => toggleChild(3)}
           >
             <DrawIcon width="12" height="12" />
           </button>
 
           <button
             type="button"
-            className={`${styles.toggleButton} ${openChildren[3] ? styles.toggleButtonActive : ''}`}
+            className={`${styles.toggleButton} ${openChildren[4] ? styles.toggleButtonActive : ''}`}
             title="Replay"
-            onClick={() => toggleChild(3)}
+            onClick={() => toggleChild(4)}
           >
             <CalculatorIcon width="12" height="12" />
           </button>
@@ -160,22 +169,29 @@ export default function Navigation({ state }: { state: StateData }) {
           </div>
         )}
 
-        {/* 2. LINK BAR */}
+        {/* 1. STRATEGY BAR */}
         {openChildren[1] && (
+          <div className={styles.childWrapper}>
+            <StrategyBar state={state} />
+          </div>
+        )}
+
+        {/* 2. LINK BAR */}
+        {openChildren[2] && (
           <div className={styles.childWrapper}>
             <LinkBar state={state} />
           </div>
         )}
 
         {/* 3. SHAPE BAR PLACEHOLDER */}
-        {openChildren[2] && (
+        {openChildren[3] && (
           <div className={styles.childWrapper}>
             <div className={styles.placeholderBox}>ShapeBar (Coming Soon)</div>
           </div>
         )}
 
         {/* 4. REPLAY BAR PLACEHOLDER */}
-        {openChildren[3] && (
+        {openChildren[4] && (
           <div className={styles.childWrapper}>
             <div className={styles.placeholderBox}>ReplayBar (Coming Soon)</div>
           </div>
