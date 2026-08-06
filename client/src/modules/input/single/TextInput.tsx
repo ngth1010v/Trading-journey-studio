@@ -19,7 +19,7 @@ export default function TextInput({
   onTempDataChange,
   newLine = true,
   oneLine = false,
-  labelWidth = "30%",
+  labelWidth = "20%",
   dataheight = "5rem",
   hideLabel = false,
 }: {

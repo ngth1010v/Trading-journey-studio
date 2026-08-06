@@ -14,7 +14,7 @@ export default function PriceInput({
   setData,
   onTempDataChange,
   newLine = false,
-  labelWidth = "30%",
+  labelWidth = "20%",
   unit = "",
   hideLabel = false,
 }: {

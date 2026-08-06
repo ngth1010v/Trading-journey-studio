@@ -3,6 +3,8 @@
   box-sizing: border-box;
   font-family: inherit;
   width: 100%;
+  font-family: monospace;
+  font-size: 12px;
 }
 
 /* Structural Layouts */
@@ -19,7 +21,7 @@
 }
 
 .label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   /* user-select: none;
   white-space: nowrap;
@@ -43,13 +45,13 @@
   display: flex;
   align-items: center;
   flex: 1;
-  border-radius: 4px;
+  border-radius: 2px;
   overflow: hidden;
   box-sizing: border-box;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   position: relative;
   width: 100%;
-  min-width: 50px;
+  min-width: 30px;
 }
 
 /* Inner Input Field (Text & Number) */
@@ -58,8 +60,8 @@
   border: none;
   background: transparent;
   outline: none;
-  padding: 6px 10px;
-  font-size: 14px;
+  padding: 5px 8px;
+  font-size: 12px;
   box-sizing: border-box;
   font-family: inherit;
   color: inherit;
@@ -114,7 +116,7 @@
 .dropdownItem {
   padding: 8px 12px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--font-color);
   text-align: left;
   transition: background 0.1s;
@@ -142,8 +144,8 @@
   outline: none;
   padding: 6px 4px;
   font-family: inherit;
-  font-size: 14px;
-  width: 50px;
+  font-size: 12px;
+  width: 30px;
 }
 
 .timeSegment.selected {
@@ -155,7 +157,7 @@
   margin: 0 2px;
   user-select: none;
   opacity: 0.6;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .timeDivider {
@@ -260,7 +262,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   background: rgba(0,0,0,0.05);
 }
 

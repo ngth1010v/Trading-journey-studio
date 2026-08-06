@@ -6,7 +6,7 @@ import PriceInput from "../single/PriceInput"
 import RatioInput from "../single/RatioInput"
 import TextInput from "../single/TextInput"
 import TimeInput from "../single/TimeInput"
-
+import BooleanInput from "../single/BooleanInput";
 
 export const INPUT_MAP = {
 
@@ -16,6 +16,12 @@ export const INPUT_MAP = {
     number: {
         format: "number",
         component: NumberInput,
+        props: {}
+    },
+
+    boolean: {
+        format: "boolean",
+        component: BooleanInput,
         props: {}
     },
     
@@ -30,9 +36,8 @@ export const INPUT_MAP = {
     string: {
         format: "string",
         component: TextInput,
-        props: {newLine: false}
+        props: {newLine: false, oneLine: true}
     },
-    
     
     //==============================================================================
     // COMPLEX
@@ -80,5 +85,21 @@ export const INPUT_MAP = {
         props: {options: ["left","center","right"]} //use component default
     },
 
+    positionXlr: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["left","right"]} //use component default
+    },
+    
+    status: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["end","backtest","live"]}
+    },
 
+    seasonType: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["daily", "monthly", "yearly"]}
+    },
 }

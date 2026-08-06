@@ -3,11 +3,11 @@
   flex-direction: column;
   border-style: solid;
   border-width: 1px;
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 4px;
+  padding: 10px;
   box-sizing: border-box;
   /* overflow-y: auto; */
-  gap: 12px;
+  gap: 5px;
 }
 
 .headerContainer {

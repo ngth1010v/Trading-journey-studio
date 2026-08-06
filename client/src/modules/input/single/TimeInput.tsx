@@ -11,7 +11,7 @@ export default function TimeInput({
   data,
   setData,
   newLine = false,
-  labelWidth = "30%",
+  labelWidth = "20%",
   editMode = "time",
   hideLabel = false,
 }: {

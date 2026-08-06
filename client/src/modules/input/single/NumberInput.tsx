@@ -25,7 +25,7 @@ export default function NumberInput({
   onTempDataChange,
   newLine = false,
   unit = "",
-  labelWidth = "30%",
+  labelWidth = "20%",
   hideLabel = false,
 }: NumberInputProps) {
   const themeDataRef = useRef<ThemeData | null>(null);

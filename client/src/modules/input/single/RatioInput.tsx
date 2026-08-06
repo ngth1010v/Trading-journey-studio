@@ -23,7 +23,7 @@ export default function RatioInput({
     setData,
     onTempDataChange,
     newLine = false,
-    labelWidth = "30%",
+    labelWidth = "20%",
     hideLabel = false,
 }: {
     label: string;

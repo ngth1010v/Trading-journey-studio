@@ -132,9 +132,7 @@ export default function PanelInput({
   useEffect(() => {
     let isMounted = true;
 
-    themeData.init().catch((err) => {
-      console.error("Failed to initialize ThemeData in PanelInput:", err);
-    });
+    themeData.init()
 
     themeData.addOnSelectedThemeDataChange(listenerId, () => {
       if (isMounted) {
