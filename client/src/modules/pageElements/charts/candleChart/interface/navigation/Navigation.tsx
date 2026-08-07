@@ -6,7 +6,6 @@ import ThemeData, { type Theme } from '../../../../../data/theme/ThemeData';
 import type { RGB, RGBA } from '../../../../../shared/type';
 
 import SourceBar from './source/SourceBar';
-import LinkBar from './link/LinkBar';
 import StrategyBar from './strategy/StrategyBar';
 
 import HouseIcon      from '../../../../../../assets/icons/house-simple.svg?react';
@@ -179,7 +178,7 @@ export default function Navigation({ state }: { state: StateData }) {
         {/* 2. LINK BAR */}
         {openChildren[2] && (
           <div className={styles.childWrapper}>
-            <LinkBar state={state} />
+            <div className={styles.placeholderBox}>Link Bar (Coming Soon)</div>
           </div>
         )}
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useId, Children } from "react";
-import style from "./ListWithTheme.module.css";
+import style from "./css/FixedVerticalList.module.css";
 
-import ThemeData, { DEFAULT_THEME, type Theme } from "../../data/theme/ThemeData.js";
-import type { RGB, RGBA } from "../type.js";
+import ThemeData, { DEFAULT_THEME, type Theme } from "../../../data/theme/ThemeData.js";
+import type { RGB, RGBA } from "../../type.js";
 
 const toRGBString = (color: RGB) =>
   `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -10,30 +10,17 @@ const toRGBString = (color: RGB) =>
 const toRGBAString = (color: RGBA) =>
   `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
-interface ListWithThemeProps {
-  type?: "vertical" | "horizontal";
+export interface FixedVerticalListProps {
   children: React.ReactNode;
-
   selectedList?: boolean[];
   dividerList?: boolean[];
-
-  maxWidth?: string;
-  maxHeight?: string;
-  overflowX?: React.CSSProperties["overflowX"];
-  overflowY?: React.CSSProperties["overflowY"];
 }
 
-export default function ListWithTheme({
+export default function FixedVerticalList({
   children,
   selectedList = [],
-  type = "vertical",
   dividerList = [],
-
-  maxWidth,
-  maxHeight,
-  overflowX,
-  overflowY,
-}: ListWithThemeProps) {
+}: FixedVerticalListProps) {
   //---------------------------------------
   // Theme Data Setup
   //---------------------------------------
@@ -102,25 +89,10 @@ export default function ListWithTheme({
         "--selected-border": "#3b82f6",
       };
 
-  const combinedContainerStyle: React.CSSProperties = {
-    ...inlineThemeStyle,
-    maxWidth,
-    maxHeight,
-    overflowX,
-    overflowY,
-  };
-
   const childrenArray = Children.toArray(children);
 
-  const containerClasses = [
-    style.ListWithTheme,
-    type === "horizontal" ? style.horizontal : style.vertical,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className={containerClasses} style={combinedContainerStyle}>
+    <div className={style.FixedVerticalList} style={inlineThemeStyle}>
       {childrenArray.map((child, index) => {
         const isSelected = Boolean(selectedList[index]);
         return (

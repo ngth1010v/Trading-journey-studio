@@ -5,8 +5,8 @@ import type StateData from "../../../../state/StateData";
 import SymbolData, { type Symbol } from "../../../../../../../data/chartData/symbol/SymbolData";
 import ThemeData from "../../../../../../../data/theme/ThemeData";
 import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
-import VerticalScrollList from "../../../../../../../shared/components/VerticalScrollList";
-import ListWithTheme from "../../../../../../../shared/components/ListWithTheme";
+import ScrollVerticalList from "../../../../../../../shared/components/list/ScrollVerticalList";
+import FixedVerticalList from "../../../../../../../shared/components/list/FixedVerticalList";
 
 interface SourceSymbolBarProps {
     state: StateData;
@@ -170,7 +170,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
         };
 
         const popoverContent = (
-            <ListWithTheme
+            <FixedVerticalList
                 selectedList={[isWatching, isFavorite]}
             >
                 <div
@@ -189,7 +189,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
                         {favoriteText}
                     </div>
                 )}
-            </ListWithTheme>
+            </FixedVerticalList>
         );
 
         const rowButton = (
@@ -230,11 +230,11 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
                 bufferSize="7px"
                 button={<div className={style.Button}>{currentSymbol ?? "---"}</div>}
                 popup={
-                    <VerticalScrollList
+                    <ScrollVerticalList
                         selectedList={allSymbols.map((v) => v === currentSymbol)}
                     >
                         {allSymbols.map((item) => renderSymbolRow(item))}
-                    </VerticalScrollList>
+                    </ScrollVerticalList>
                 }
             />
         );
@@ -242,11 +242,11 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
 
     // Case 2: Favorite symbols exist -> Render Favorites + Nested Popup for "..."
     const allSymbolsListPopup = (
-        <VerticalScrollList
+        <ScrollVerticalList
             selectedList={allSymbols.map((v) => v === currentSymbol)}
         >
             {allSymbols.map((item) => renderSymbolRow(item))}
-        </VerticalScrollList>
+        </ScrollVerticalList>
     );
 
     return (
@@ -257,7 +257,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
             bufferSize="7px"
             button={<div className={style.Button}>{currentSymbol ?? "---"}</div>}
             popup={
-                <VerticalScrollList
+                <ScrollVerticalList
                     selectedList={[
                         ...favoriteSymbols.map((v) => v === currentSymbol),
                         false, // Extra row for "..."
@@ -282,7 +282,7 @@ export default function SourceSymbolBar({ state }: SourceSymbolBarProps) {
                         }
                         popup={allSymbolsListPopup}
                     />
-                </VerticalScrollList>
+                </ScrollVerticalList>
             }
         />
     );

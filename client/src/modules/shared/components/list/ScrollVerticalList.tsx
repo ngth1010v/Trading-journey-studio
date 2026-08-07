@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useId, Children } from "react";
-import style from "./VerticalScrollList.module.css";
+import style from "./css/ScrollVerticalList.module.css";
 
-import ThemeData, { DEFAULT_THEME, type Theme } from "../../data/theme/ThemeData.js";
-import type { RGB, RGBA } from "../type.js";
+import ThemeData, { DEFAULT_THEME, type Theme } from "../../../data/theme/ThemeData.js";
+import type { RGB, RGBA } from "../../type.js";
 
 const toRGBString = (color: RGB) =>
   `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
@@ -10,7 +10,7 @@ const toRGBString = (color: RGB) =>
 const toRGBAString = (color: RGBA) =>
   `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3]})`;
 
-interface VerticalScrollListProps {
+interface ScrollVerticalList {
   children: React.ReactNode;
   childrenHeight?: string;
   selectedList?: boolean[];
@@ -18,13 +18,13 @@ interface VerticalScrollListProps {
   dividerList?: boolean[];
 }
 
-export default function VerticalScrollList({
+export default function ScrollVerticalList({
   children,
   childrenHeight = "19px",
   selectedList = [],
   maxVisibleChildrenCount = 10,
   dividerList = [],
-}: VerticalScrollListProps) {
+}: ScrollVerticalList) {
   //---------------------------------------
   // Theme Data Setup
   //---------------------------------------
@@ -148,7 +148,7 @@ export default function VerticalScrollList({
 
   return (
     <div
-      className={style.VerticalScrollList}
+      className={style.ScrollVerticalList}
       style={inlineThemeStyle}
       onWheel={handleWheel}
     >

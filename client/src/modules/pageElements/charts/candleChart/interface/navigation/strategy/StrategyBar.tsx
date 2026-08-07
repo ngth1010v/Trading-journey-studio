@@ -1,14 +1,14 @@
 import type StateData from "../../../state/StateData";
-import ListWithTheme from "../../../../../../shared/components/ListWithTheme";
+import FixedHorizontalList from "../../../../../../shared/components/list/FixedHorizontalList";
 import StrategyDataBar from "./data/StrategyDataBar";
 import StrategyTagBar from "./tag/StrategyTagBar";
 import StrategySeasonBar from "./season/StrategySeasonBar";
+import StrategyFloatingBar from "./floatingBar/StrategyFloatingBar";
 
 export default function StrategyBar({ state }: { state: StateData }) {
     return (
-        <ListWithTheme
-            type="horizontal"
-            dividerList={[true, true, false]}
+        <FixedHorizontalList
+            dividerList={[true, true, true, false]}
         >
             {/* STRATEGY DATA BAR */}
             <StrategyDataBar state={state} />
@@ -18,6 +18,9 @@ export default function StrategyBar({ state }: { state: StateData }) {
 
             {/* STRATEGY SEASON BAR */}
             <StrategySeasonBar state={state} />
-        </ListWithTheme>
+
+            {/* STRATEGY FLOATING BAR */}
+            <StrategyFloatingBar state={state} />
+        </FixedHorizontalList>
     );
 }

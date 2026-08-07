@@ -269,6 +269,7 @@ export default class StrategySeasonData {
 
   private currentRange: StrategySeasonRange | null = null;
   private callbacks = new Map<string, () => void>();
+  private selectedSeasonRangeCallbacks = new Map<string, () => void>();
 
   public init(): void {
     if (this.id !== null) {
@@ -287,6 +288,7 @@ export default class StrategySeasonData {
       strategySeasonDataCallbackMap.delete(this.id);
       this.id = null;
     }
+    this.selectedSeasonRangeCallbacks.clear();
     this.callbacks.clear();
   }
 
@@ -385,6 +387,26 @@ export default class StrategySeasonData {
     this.callbacks.delete(id);
   }
 
+  public addOnSelectedSeasonRangeDataChange(id: string, cb: () => void): void {
+    this.selectedSeasonRangeCallbacks.set(id, cb);
+
+    // Notify immediately with current state (including null)
+    try {
+      cb();
+    } catch (err) {
+      console.error("Error executing StrategySeasonRange subscriber callback:", err);
+    }
+  }
+
+  public removeOnSelectedSeasonRangeDataChange(id: string): void {
+    if (!this.selectedSeasonRangeCallbacks.has(id)) {
+      console.warn(`[StrategySeasonData] SelectedSeasonRange listener ID '${id}' not found.`);
+      return;
+    }
+
+    this.selectedSeasonRangeCallbacks.delete(id);
+  }
+
   private notifyDataChange(): void {
     for (const cb of this.callbacks.values()) {
       try {
@@ -394,6 +416,18 @@ export default class StrategySeasonData {
       }
     }
   }
+
+  private notifySelectedSeasonRangeDataChange(): void {
+    for (const cb of this.selectedSeasonRangeCallbacks.values()) {
+      try {
+        cb();
+      } catch (err) {
+        console.error("Error executing StrategySeasonRange subscriber callback:", err);
+      }
+    }
+  }
+
+  
 
   // ============================================================================
   // SEASON RANGE METHODS
@@ -472,7 +506,10 @@ export default class StrategySeasonData {
       }
     }
 
-    this.currentRange = closestRange;
+    if (this.currentRange !== closestRange) {
+      this.currentRange = closestRange;
+      this.notifySelectedSeasonRangeDataChange();
+    }
   }
 
   /**
@@ -535,8 +572,9 @@ export default class StrategySeasonData {
       }
     }
 
-    if (bestCandidate !== null) {
+    if (bestCandidate !== null && this.currentRange !== bestCandidate) {
       this.currentRange = bestCandidate;
+      this.notifySelectedSeasonRangeDataChange();
     }
   }
 
@@ -600,8 +638,9 @@ export default class StrategySeasonData {
       }
     }
 
-    if (bestCandidate !== null) {
+    if (bestCandidate !== null && this.currentRange !== bestCandidate) {
       this.currentRange = bestCandidate;
+      this.notifySelectedSeasonRangeDataChange();
     }
   }
 
@@ -609,6 +648,9 @@ export default class StrategySeasonData {
    * Reset currentRange to null.
    */
   public setSelectedSeasonRangeToNull(): void {
-    this.currentRange = null;
+    if (this.currentRange !== null) {
+      this.currentRange = null;
+      this.notifySelectedSeasonRangeDataChange();
+    }
   }
 }

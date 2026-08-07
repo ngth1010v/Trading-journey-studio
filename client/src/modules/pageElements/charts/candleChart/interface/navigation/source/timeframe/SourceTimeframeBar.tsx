@@ -4,7 +4,7 @@ import style from "./SourceTimeframeBar.module.css";
 import type StateData from "../../../../state/StateData";
 import ThemeData, { type Theme } from "../../../../../../../data/theme/ThemeData";
 import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
-import ListWithTheme from "../../../../../../../shared/components/ListWithTheme";
+import ScrollVerticalList from "../../../../../../../shared/components/list/ScrollVerticalList";
 import NumberInput from "../../../../../../../input/single/NumberInput";
 import RatioInput from "../../../../../../../input/single/RatioInput";
 
@@ -187,12 +187,11 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
             bufferSize="7px"
             button={<div className={style.Button}>{currentTimeframe ?? "---"}</div>}
             popup={
-                <ListWithTheme
+                <ScrollVerticalList
                     selectedList={[
                         ...baseTimeframes.map((v) => v === currentTimeframe),
                         false, // Custom row is not selected as a list item directly
                     ]}
-                    maxHeight="40vh"
                 >
                     {/* List of Timeframes */}
                     {baseTimeframes.map((tf) => (
@@ -220,7 +219,7 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
                         }
                         popup={renderCustomTimeframePopup()}
                     />
-                </ListWithTheme>
+                </ScrollVerticalList>
             }
         />
     );

@@ -1,0 +1,49 @@
+.Button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 2px 5px;
+    gap: 2px;
+    background-color: var(--bg-normal);
+    color: var(--font-normal);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    border-radius: 2px;
+}
+
+.Button svg {
+    fill: var(--font-normal);
+    width: 12px;
+    height: 12px;
+    transition: fill 0.2s ease;
+}
+
+/* Hover state */
+.Button:hover {
+    background-color: var(--bg-hover);
+    color: var(--font-hover);
+}
+
+.Button:hover svg {
+    fill: var(--font-hover);
+}
+
+/* Active / Toggled state */
+.Button.active {
+    background-color: var(--bg-active);
+    color: var(--font-active);
+}
+
+.Button.active svg {
+    fill: var(--font-active);
+}
+
+/* Hover while active */
+.Button.active:hover {
+    background-color: var(--bg-hover);
+    color: var(--font-hover);
+}
+
+.Button.active:hover svg {
+    fill: var(--font-hover);
+}

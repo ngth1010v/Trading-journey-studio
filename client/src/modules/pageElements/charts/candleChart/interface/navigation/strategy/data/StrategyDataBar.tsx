@@ -6,7 +6,7 @@ import StrategyData, { type Strategy, STRATEGY_INPUT_LAYOUT } from "../../../../
 import ThemeData, { type Theme } from "../../../../../../../data/theme/ThemeData";
 import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
 import StrategyIcon from "../../../../../../../../assets/icons/book-fill.svg?react";
-import ListWithTheme from "../../../../../../../shared/components/ListWithTheme";
+import ScrollVerticalList from "../../../../../../../shared/components/list/ScrollVerticalList";
 import PanelInput from "../../../../../../../input/panel/PanelInput";
 
 interface StrategyDataBarProps {
@@ -156,7 +156,7 @@ export default function StrategyDataBar({ state }: StrategyDataBarProps) {
     );
 
     const popoverContent = (
-        <ListWithTheme>
+        <ScrollVerticalList>
             {(strategyList || []).map((strat) => {
                 const isSelected = currentStrategyId === strat.id;
                 const rowBg = isSelected
@@ -216,7 +216,7 @@ export default function StrategyDataBar({ state }: StrategyDataBarProps) {
                     />
                 }
             />
-        </ListWithTheme>
+        </ScrollVerticalList>
     );
 
     return (

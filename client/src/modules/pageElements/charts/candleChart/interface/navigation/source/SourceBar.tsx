@@ -1,12 +1,11 @@
 import type StateData from "../../../state/StateData";
-import ListWithTheme from "../../../../../../shared/components/ListWithTheme";
+import FixedHorizontalList from "../../../../../../shared/components/list/FixedHorizontalList";
 import SourceSymbolBar from "./symbol/SourceSymbolBar";
 import SourceTimeframeBar from "./timeframe/SourceTimeframeBar";
 
 export default function SourceBar({ state }: { state: StateData }) {
     return (
-        <ListWithTheme
-            type="horizontal"
+        <FixedHorizontalList
             dividerList={[true, false]}
         >
             {/* SYMBOL BAR */}
@@ -15,6 +14,6 @@ export default function SourceBar({ state }: { state: StateData }) {
             {/* TIMEFRAME BAR */}
             <SourceTimeframeBar state={state} />
 
-        </ListWithTheme>
+        </FixedHorizontalList>
     );
 }

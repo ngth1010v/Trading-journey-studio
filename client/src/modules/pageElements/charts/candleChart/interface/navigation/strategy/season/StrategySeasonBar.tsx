@@ -6,7 +6,7 @@ import StrategyData, { type Strategy } from "../../../../../../../data/chartData
 import { type StrategySeason, STRATEGY_SEASON_INPUT_LAYOUT } from "../../../../../../../data/chartData/strategy/season/StrategySeasonData";
 import ThemeData, { type Theme } from "../../../../../../../data/theme/ThemeData";
 import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
-import ListWithTheme from "../../../../../../../shared/components/ListWithTheme";
+import ScrollVerticalList from "../../../../../../../shared/components/list/ScrollVerticalList";
 import PanelInput from "../../../../../../../input/panel/PanelInput";
 import SeasonIcon from "../../../../../../../../assets/icons/hourglass-fill.svg?react";
 
@@ -172,7 +172,7 @@ export default function StrategySeasonBar({ state }: StrategySeasonBarProps) {
     );
 
     const popoverContent = (
-        <ListWithTheme>
+        <ScrollVerticalList>
             {(strategySeasonList || []).map((season) => {
                 const hasSeason = season.id !== undefined && assignedSeasonIds.includes(season.id);
                 const rowBg = hasSeason ? `rgba(${season.color.background.join(",")})` : undefined;
@@ -234,7 +234,7 @@ export default function StrategySeasonBar({ state }: StrategySeasonBarProps) {
                     />
                 }
             />
-        </ListWithTheme>
+        </ScrollVerticalList>
     );
 
     if (!currentStrategy) {

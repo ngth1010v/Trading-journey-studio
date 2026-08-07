@@ -44,6 +44,15 @@ export interface Config {
       };
     };
   };
+  floatingBar?:{
+    seasonBar?:{
+      enable?: boolean,
+      position?:{
+        x?: number
+        y?: number
+      }
+    }
+  }
 }
 
 interface ConfigListener {
@@ -142,6 +151,15 @@ export default class ConfigData {
           },
         },
       },
+      floatingBar:{
+        seasonBar:{
+          enable: false,
+          position:{
+            x: 30,
+            y: 30
+          }
+        }
+      }
     };
 
     // Deeply merge default values with existing cache (if any)

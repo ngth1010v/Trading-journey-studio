@@ -6,7 +6,7 @@ import StrategyData, { type Strategy } from "../../../../../../../data/chartData
 import { type StrategyTag, STRATEGY_TAG_INPUT_LAYOUT } from "../../../../../../../data/chartData/strategy/tag/StrategyTagData";
 import ThemeData, { type Theme } from "../../../../../../../data/theme/ThemeData";
 import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
-import ListWithTheme from "../../../../../../../shared/components/ListWithTheme";
+import ScrollVerticalList from "../../../../../../../shared/components/list/ScrollVerticalList";
 import PanelInput from "../../../../../../../input/panel/PanelInput";
 import TagIcon from "../../../../../../../../assets/icons/bookmark-simple-fill.svg?react";
 
@@ -172,7 +172,7 @@ export default function StrategyTagBar({ state }: StrategyTagBarProps) {
     );
 
     const popoverContent = (
-        <ListWithTheme>
+        <ScrollVerticalList>
             {(strategyTagList || []).map((tag) => {
                 const hasTag = tag.id !== undefined && assignedTagIds.includes(tag.id);
                 const rowBg = hasTag ? `rgba(${tag.color.background.join(",")})` : undefined;
@@ -234,7 +234,7 @@ export default function StrategyTagBar({ state }: StrategyTagBarProps) {
                     />
                 }
             />
-        </ListWithTheme>
+        </ScrollVerticalList>
     );
 
     if (!currentStrategy) {

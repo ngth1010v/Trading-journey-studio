@@ -1,44 +1,25 @@
-.ListWithTheme {
+.FixedVerticalList {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: fit-content;
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   color: var(--font-color);
   border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
   user-select: none;
   font-size: 11px;
   padding: 2px;
   gap: 2px;
   font-family: monospace;
-
-  color-scheme: dark light;
-  scrollbar-color: var(--border-color) transparent;
-  scrollbar-width: thin;
-}
-
-/* Direction Variants */
-.vertical {
-  flex-direction: column;
-}
-
-.horizontal {
-  flex-direction: row;
-  align-items: center;
 }
 
 .divider {
   background-color: var(--border-color);
-}
-.vertical .divider {
   align-self: stretch;
   height: 1px;
   margin: 0 5px;
-}
-.horizontal .divider {
-  align-self: stretch;
-  width: 1px;
-  margin: 5px 0;
 }
 
 /* Row Item Wrappers */
@@ -49,7 +30,6 @@
   height: fit-content;
   color: var(--font-color);
   background: transparent;
-  cursor: pointer;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
   white-space: nowrap;
 }

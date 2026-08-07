@@ -1,40 +1,33 @@
-.VerticalScrollList {
+.FixedHorizontalList {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   color: var(--font-color);
   border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
   user-select: none;
   font-size: 11px;
-  font-family: monospace;
   padding: 2px;
   gap: 2px;
-
-  color-scheme: dark light;
-  overflow: visible;
 }
 
-/* Divider styling */
 .divider {
   background-color: var(--border-color);
   align-self: stretch;
-  height: 1px;
-  margin: 0 5px;
+  width: 1px;
+  margin: 5px 0;
 }
 
 /* Row Item Wrappers */
 .rowWrapper {
   display: flex;
   align-items: center;
-  height: var(--children-height, 14px);
-  min-height: var(--children-height, 14px);
   border-radius: 2px;
+  width: fit-content;
   color: var(--font-color);
   background: transparent;
-  cursor: pointer;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
   white-space: nowrap;
 }
@@ -54,24 +47,4 @@
   background: var(--selected-bg);
   color: var(--selected-font);
   opacity: 0.9;
-}
-
-/* Ellipsis Indicator styling */
-.ellipsisRow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border-radius: 2px;
-  color: var(--font-color);
-  background: transparent;
-  cursor: pointer;
-  letter-spacing: 1px;
-  transition: background-color 0.15s, color 0.15s;
-  user-select: none;
-}
-
-.ellipsisRow:hover {
-  background: var(--hover-bg);
-  color: var(--hover-font);
 }

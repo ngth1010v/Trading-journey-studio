@@ -1,0 +1,54 @@
+.FloatingBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.floatingBarWrapper {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  border-radius: 4px;
+  background-color: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  user-select: none;
+  z-index: 20;
+}
+
+.dragZone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragZone:active {
+  cursor: grabbing;
+}
+
+.dragIcon {
+  width: 12px;
+  height: 12px;
+  display: block;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.dragZone:hover .dragIcon {
+  opacity: 1;
+}
+
+.contentZone {
+  display: flex;
+  align-items: center;
+}
