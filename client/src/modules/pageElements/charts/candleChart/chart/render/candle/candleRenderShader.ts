@@ -86,7 +86,8 @@ void main(void) {
   vec3 outlineColor = isUp ? uUpOutlineColor : uDownOutlineColor;
   vec3 bodyColor    = isUp ? uUpBodyColor    : uDownBodyColor;
 
-  bool hasWidth = (closeTimePx - openTimePx) > (uPadding * 2.0);
+  // bool hasWidth = (closeTimePx - openTimePx) > (uPadding * 2.0);
+  bool hasWidth = true;
 
   // 1. Wick Line
   float wickX = (openTimePx + closeTimePx) * 0.5;
