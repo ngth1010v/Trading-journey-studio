@@ -252,10 +252,11 @@ export default function SeasonBar({
           className={style.actionButton}
           onClick={handleClosestRange}
           title="Closest season range"
+          style={{padding: "1px 2px"}}
         >
           <ClosestSeasonRangeIcon
             className={style.icon}
-            style={{ fill: buttonIconFill, width: "13px", height: "13px" }}
+            style={{ fill: buttonIconFill, width: "14px", height: "14px" }}
           />
         </button>
 
