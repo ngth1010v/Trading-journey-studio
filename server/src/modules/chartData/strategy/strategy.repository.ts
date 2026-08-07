@@ -84,13 +84,7 @@ export class StrategyRepository {
       if (row.color) color = JSON.parse(row.color);
     } catch {}
 
-    let style = {
-      border: { enable: false, thickness: 1 },
-      text: {
-        startText: { enable: false, size: 12, align: { x: "left", y: "top" } },
-        endText: { enable: false, size: 12, align: { x: "right", y: "bottom" } },
-      },
-    };
+    let style = { borderThickness: 1 };
     try {
       if (row.style) style = JSON.parse(row.style);
     } catch {}

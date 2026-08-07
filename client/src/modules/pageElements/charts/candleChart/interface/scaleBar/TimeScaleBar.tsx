@@ -354,7 +354,7 @@ export default function TimeScaleBar({
       }
     }
 
-    setStepIndex(currentStepIdx);
+    // setStepIndex(currentStepIdx);
 
     const stepMs = activeStepObj.ms;
     const scaleX = transform.scaleX ?? 1;

@@ -57,34 +57,8 @@ export class StrategyService {
       return "Missing or invalid color options (font must be RGB, background/border must be RGBA)";
     }
 
-    if (!body.style) {
-      return "Missing style options";
-    }
-
-    if (
-      !body.style.border ||
-      typeof body.style.border.enable !== "boolean" ||
-      typeof body.style.border.thickness !== "number"
-    ) {
-      return "Missing or invalid style.border options";
-    }
-
-    if (!body.style.text || !body.style.text.startText || !body.style.text.endText) {
-      return "Missing style.text configurations";
-    }
-
-    const validateTextConfig = (textObj: any) => {
-      return (
-        typeof textObj.enable === "boolean" &&
-        typeof textObj.size === "number" &&
-        textObj.align &&
-        ["left", "right"].includes(textObj.align.x) &&
-        ["top", "center", "bottom"].includes(textObj.align.y)
-      );
-    };
-
-    if (!validateTextConfig(body.style.text.startText) || !validateTextConfig(body.style.text.endText)) {
-      return "Invalid text configuration inside style.text";
+    if (!body.style || typeof body.style.borderThickness !== "number") {
+      return "Missing or invalid style options (borderThickness must be a number)";
     }
 
     const validateTimeConfig = (timeObj: any) => {
