@@ -5,6 +5,7 @@ import type StateData from "../../../../state/StateData";
 import ThemeData, { type Theme } from "../../../../../../../data/theme/ThemeData";
 import ButtonWithPopover from "../../../../../../../shared/components/ButtonWithPopover";
 import ScrollVerticalList from "../../../../../../../shared/components/list/ScrollVerticalList";
+import FixedVerticalList from "../../../../../../../shared/components/list/FixedVerticalList";
 import NumberInput from "../../../../../../../input/single/NumberInput";
 import RatioInput from "../../../../../../../input/single/RatioInput";
 
@@ -58,7 +59,6 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
     const [, forceUpdate] = useState(0);
     const listenerId = useId();
 
-    // Independent ThemeData instance initialized without useState wrapper
     const themeDataRef = useRef<ThemeData | null>(null);
     if (!themeDataRef.current) {
         themeDataRef.current = new ThemeData();
@@ -113,10 +113,15 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
             : null;
 
     const favoriteTimeframes = currentStrategy?.favorite?.timeframes ?? [];
-    const baseTimeframes =
-        favoriteTimeframes.length > 0 ? favoriteTimeframes : DEFAULT_TIMEFRAMES;
+    const allTimeframes = Array.from(
+        new Set([...DEFAULT_TIMEFRAMES, ...favoriteTimeframes])
+    );
 
     const currentTheme: Theme = themeData.getSelected();
+
+    const normalBtnFont = `rgb(${currentTheme.button.normal1.font.join(",")})`;
+    const normalBtnBg = `rgba(${currentTheme.button.normal1.background.join(",")})`;
+    const normalBtnBorder = `rgba(${currentTheme.button.normal1.border.join(",")})`;
 
     const primary1 = currentTheme.button.primary1;
     const primary2 = currentTheme.button.primary2;
@@ -129,11 +134,93 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
         state.config.set({ timeframe: tf });
     };
 
+    const handleToggleFavorite = async (e: React.MouseEvent, tf: string) => {
+        e.stopPropagation();
+        if (!currentStrategy) return;
+
+        const currentFavorites = currentStrategy.favorite?.timeframes ?? [];
+        const isFav = currentFavorites.includes(tf);
+
+        const updatedFavorites = isFav
+            ? currentFavorites.filter((t) => t !== tf)
+            : [...currentFavorites, tf];
+
+        const updatedStrategy = {
+            ...currentStrategy,
+            favorite: {
+                ...currentStrategy.favorite,
+                timeframes: updatedFavorites,
+            },
+        };
+
+        await state.source.strategy.set(updatedStrategy);
+    };
+
     const handleSaveCustomTimeframe = (closePopover?: () => void) => {
         handleSelectTimeframe(reviewText);
         if (closePopover) {
             closePopover();
         }
+    };
+
+    const renderTimeframeRow = (tf: string) => {
+        const isFavorite = favoriteTimeframes.includes(tf);
+        const favoriteText = isFavorite ? "Remove from Favorite" : "Add to Favorite";
+
+        const favoriteStyle = {
+            "--btn-font": normalBtnFont,
+            "--btn-bg": normalBtnBg,
+            "--btn-border": normalBtnBorder,
+            "--btn-hover-font": normalBtnFont,
+            "--btn-hover-bg": normalBtnBg,
+            "--btn-hover-border": normalBtnBorder,
+        };
+
+        const rowButton = (
+            <div
+                className={style.PopupButton}
+                onClick={() => handleSelectTimeframe(tf)}
+            >
+                {tf}
+            </div>
+        );
+
+        if (!currentStrategy) {
+            return (
+                <div
+                    key={tf}
+                    className={style.PopupButton}
+                    onClick={() => handleSelectTimeframe(tf)}
+                >
+                    {tf}
+                </div>
+            );
+        }
+
+        const popoverContent = (
+            <FixedVerticalList selectedList={[isFavorite]}>
+                <div
+                    className={style.Button}
+                    style={favoriteStyle as React.CSSProperties}
+                    onClick={(e) => handleToggleFavorite(e, tf)}
+                >
+                    {favoriteText}
+                </div>
+            </FixedVerticalList>
+        );
+
+        return (
+            <ButtonWithPopover
+                key={tf}
+                type="hover"
+                position="right"
+                align="start"
+                bufferSize="7px"
+                buttonWidth="100%"
+                button={rowButton}
+                popup={popoverContent}
+            />
+        );
     };
 
     const renderCustomTimeframePopup = (closePopover?: () => void) => (
@@ -144,7 +231,6 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
                 border: `1px solid ${toRGBAString(normal2.border)}`,
             }}
         >
-            {/* Top Row: NumberInput and RatioInput */}
             <div className={style.InputTopRow}>
                 <NumberInput
                     label=""
@@ -152,7 +238,6 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
                     setData={setNumValue}
                     labelWidth="0%"
                     hideLabel={true}
-                    
                 />
                 <RatioInput
                     label=""
@@ -179,6 +264,75 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
         </div>
     );
 
+    // Case 1: No Strategy or Favorite Timeframes list is empty -> Fallback to all timeframes list
+    if (!currentStrategy || favoriteTimeframes.length === 0) {
+        return (
+            <ButtonWithPopover
+                type="hover"
+                position="bottom"
+                align="start"
+                bufferSize="7px"
+                button={<div className={style.Button}>{currentTimeframe ?? "---"}</div>}
+                popup={
+                    <ScrollVerticalList
+                        selectedList={[
+                            ...allTimeframes.map((v) => v === currentTimeframe),
+                            false,
+                        ]}
+                    >
+                        {allTimeframes.map((tf) => renderTimeframeRow(tf))}
+
+                        <ButtonWithPopover
+                            type="hover"
+                            position="bottom"
+                            align="start"
+                            bufferSize="7px"
+                            buttonWidth="100%"
+                            button={
+                                <div
+                                    className={style.PopupButton}
+                                    style={{ width: "100%", justifyContent: "center" }}
+                                >
+                                    ...
+                                </div>
+                            }
+                            popup={renderCustomTimeframePopup()}
+                        />
+                    </ScrollVerticalList>
+                }
+            />
+        );
+    }
+
+    // Case 2: Favorite timeframes exist -> Render Favorites + Nested Popup for "..."
+    const allTimeframesListPopup = (
+        <ScrollVerticalList
+            selectedList={[
+                ...allTimeframes.map((v) => v === currentTimeframe),
+                false,
+            ]}
+        >
+            {allTimeframes.map((tf) => renderTimeframeRow(tf))}
+
+            <ButtonWithPopover
+                type="hover"
+                position="right"
+                align="start"
+                bufferSize="7px"
+                buttonWidth="100%"
+                button={
+                    <div
+                        className={style.PopupButton}
+                        style={{ justifyContent: "center", width: "100%" }}
+                    >
+                        ...
+                    </div>
+                }
+                popup={renderCustomTimeframePopup()}
+            />
+        </ScrollVerticalList>
+    );
+
     return (
         <ButtonWithPopover
             type="hover"
@@ -189,35 +343,27 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
             popup={
                 <ScrollVerticalList
                     selectedList={[
-                        ...baseTimeframes.map((v) => v === currentTimeframe),
-                        false, // Custom row is not selected as a list item directly
+                        ...favoriteTimeframes.map((v) => v === currentTimeframe),
+                        false,
                     ]}
                 >
-                    {/* List of Timeframes */}
-                    {baseTimeframes.map((tf) => (
-                        <div
-                            key={tf}
-                            className={style.PopupButton}
-                            style={{ width: "100%" }}
-                            onClick={() => handleSelectTimeframe(tf)}
-                        >
-                            {tf}
-                        </div>
-                    ))}
+                    {favoriteTimeframes.map((tf) => renderTimeframeRow(tf))}
 
-                    {/* Custom Timeframe Row ("...") */}
                     <ButtonWithPopover
                         type="hover"
-                        position="bottom"
+                        position="right"
                         align="start"
                         bufferSize="7px"
                         buttonWidth="100%"
                         button={
-                            <div className={style.PopupButton} style={{ width: "100%" }}>
+                            <div
+                                className={style.PopupButton}
+                                style={{ justifyContent: "center", width: "100%" }}
+                            >
                                 ...
                             </div>
                         }
-                        popup={renderCustomTimeframePopup()}
+                        popup={allTimeframesListPopup}
                     />
                 </ScrollVerticalList>
             }
