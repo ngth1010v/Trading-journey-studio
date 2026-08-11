@@ -16,6 +16,9 @@ const MIN_PRICE_BAR_WIDTH = 40;
 const SCALE_SENSITIVITY = 0.002;
 const WHEEL_DEBOUNCE_MS = 100;
 
+const DEFAULT_ALT_CROSSHAIR_BG: RGBA = [255, 255, 200, 100];
+const DEFAULT_ALT_CROSSHAIR_FONT: RGB = [0, 0, 0];
+
 interface PriceScaleBarProps {
   state: StateData;
   chart: ChartController;
@@ -148,6 +151,13 @@ export default function PriceScaleBar({
     font: "rgb(0, 0, 0)",
   });
 
+  // AltCrosshair state
+  const [altCrosshairPos, setAltCrosshairPos] = useState<{ y: number; price: number } | null>(null);
+  const [altCrosshairStyle, setAltCrosshairStyle] = useState<LableStyle>({
+    background: toRgba(DEFAULT_ALT_CROSSHAIR_BG),
+    font: toRgb(DEFAULT_ALT_CROSSHAIR_FONT),
+  });
+
   // Opening state
   const [openingPrice, setOpeningPrice] = useState<number | null>(null);
   const [openingPos, setOpeningPos] = useState<number | null>(null);
@@ -175,11 +185,25 @@ export default function PriceScaleBar({
     viewport: `price_bar-viewport-${Math.random().toString(36).substring(2, 9)}`,
     transform: `price_bar-transform-${Math.random().toString(36).substring(2, 9)}`,
     crosshairData: `price_bar-crosshair-data-${Math.random().toString(36).substring(2, 9)}`,
+    altCrosshairData: `price_bar-alt-crosshair-data-${Math.random().toString(36).substring(2, 9)}`,
     crosshairConfig: `price_bar-crosshair-config-${Math.random().toString(36).substring(2, 9)}`,
     openingData: `price_bar-opening-data-${Math.random().toString(36).substring(2, 9)}`,
     openingTransform: `price_bar-opening-transform-${Math.random().toString(36).substring(2, 9)}`,
     openingConfig: `price_bar-opening-config-${Math.random().toString(36).substring(2, 9)}`,
   });
+
+  // Helper callback to recalculate AltCrosshair price & position
+  const updateAltCrosshair = useCallback(() => {
+    const altPos = state.crosshair.getAlt();
+    if (altPos && chart?.viewport?.converter) {
+      const price = chart.viewport.converter.pixelToPrice(altPos.y);
+      if (price !== null && !isNaN(price)) {
+        setAltCrosshairPos({ y: altPos.y, price });
+        return;
+      }
+    }
+    setAltCrosshairPos(null);
+  }, [state.crosshair, chart]);
 
   // THEME
   useEffect(() => {
@@ -226,11 +250,11 @@ export default function PriceScaleBar({
     state.viewport.addOnViewportTransformDataChange(listenerId.current.transform, () => {
       const newTransform = state.viewport.getTransform();
       setTransform(newTransform);
+      updateAltCrosshair();
     });
     return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.transform);
-  }, [state.viewport]);
+  }, [state.viewport, updateAltCrosshair]);
 
-  
   //========================================================================================
   // CROSSHAIR DATA
   useEffect(() => {
@@ -248,21 +272,39 @@ export default function PriceScaleBar({
     return () => state.crosshair.removeOnCrosshairDataChange(listenerId.current.crosshairData);
   }, [state.crosshair]);
 
-  // CROSSHAIR CONFIG (STYLE)
+  // ALT CROSSHAIR DATA LISTENER
+  useEffect(() => {
+    state.crosshair.addOnAltCrosshairDataChange(
+      listenerId.current.altCrosshairData,
+      updateAltCrosshair
+    );
+
+    return () =>
+      state.crosshair.removeOnAltCrosshairDataChange(
+        listenerId.current.altCrosshairData
+      );
+  }, [state.crosshair, updateAltCrosshair]);
+
+  // CROSSHAIR & ALT CROSSHAIR CONFIG (STYLE)
   useEffect(() => {
     state.config.addOnConfigDataChange(listenerId.current.crosshairConfig, ["style"], () => {
       const config = state.config.get();
       const color = config?.style?.crosshair?.color;
+      const altColor = config?.style?.altCrosshair?.color;
 
       setCrosshairStyle({
         background: color?.background ? toRgba(color.background) : "rgba(255, 255, 255, 1)",
         font: color?.font ? toRgb(color.font) : "rgb(0, 0, 0)",
       });
+
+      setAltCrosshairStyle({
+        background: altColor?.background ? toRgba(altColor.background) : toRgba(DEFAULT_ALT_CROSSHAIR_BG),
+        font: altColor?.font ? toRgb(altColor.font) : toRgb(DEFAULT_ALT_CROSSHAIR_FONT),
+      });
     });
 
     return () => state.config.removeOnConfigDataChange(listenerId.current.crosshairConfig);
   }, [state.config]);
-
 
   //========================================================================================
   // OPENING DATA
@@ -591,6 +633,18 @@ export default function PriceScaleBar({
           }}
         >
           {formatPrice(crosshairPos.price, point)}
+        </span>
+      )}
+      {altCrosshairPos !== null && (
+        <span
+          className={styles.crosshairLabel}
+          style={{
+            top: `${altCrosshairPos.y - CHART_GAP}px`,
+            backgroundColor: altCrosshairStyle.background,
+            color: altCrosshairStyle.font,
+          }}
+        >
+          {formatPrice(altCrosshairPos.price, point)}
         </span>
       )}
       {openingPos !== null && openingPrice !== null && (

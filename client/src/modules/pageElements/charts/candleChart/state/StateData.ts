@@ -3,6 +3,7 @@ import ViewportData from "./viewport/ViewportData";
 import ConfigData from "./config/ConfigData";
 import ChartController from "../chart/ChartController";
 import CrosshairData from "./crosshair/CrosshairData";
+import SyncData from "./sync/SyncData";
 
 const LOAD_OFFSET_RATIO = 1
 
@@ -11,6 +12,7 @@ export default class StateData {
   public source: SourceData = new SourceData();
   public config: ConfigData = new ConfigData();
   public crosshair: CrosshairData = new CrosshairData();
+  public sync: SyncData = new SyncData();
 
   private needResetViewport: boolean = false
 
@@ -22,6 +24,7 @@ export default class StateData {
     this.crosshair.init();
     this.viewport.init(this, chart);
     await this.source.init();
+    this.sync.init();
 
     //====================================================================================================
     // Refresh logic
@@ -64,9 +67,19 @@ export default class StateData {
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.link]Refresh", ["linkId"], () => {
-      const linkId = this.config.get()?.linkId;
-      this.viewport.link.state.setSource(linkId ? linkId : null);
+    this.config.addOnConfigDataChange("Default[data.link]Refresh", ["sync","linkId"], () => {
+      const linkId = this.config.get()?.sync?.linkId;
+      const linkList = this.sync.link.getAll()
+
+      if (linkList){
+        for (const l of linkList){
+          if (l.id != null && l.id == linkId){
+            this.sync.link.state.registry(linkId)
+            return
+          }
+        }
+      }
+      this.sync.link.state.unregistry()
     });
 
     this.source.candle.addOnClosedCandleDataChange("Symbol refresh", ()=>{
@@ -75,6 +88,7 @@ export default class StateData {
         this.needResetViewport = false
       }
     })
+
   }
 
   /**
@@ -85,5 +99,6 @@ export default class StateData {
     this.source.destroy();
     this.config.destroy();
     this.crosshair.destroy();
+    this.sync.destroy();
   }
 }

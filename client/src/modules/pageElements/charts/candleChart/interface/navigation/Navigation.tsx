@@ -7,10 +7,11 @@ import type { RGB, RGBA } from '../../../../../shared/type';
 
 import SourceBar from './source/SourceBar';
 import StrategyBar from './strategy/StrategyBar';
+import SyncBar from './sync/SyncBar';
 
 import HouseIcon      from '../../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon     from '../../../../../../assets/icons/git-branch.svg?react';
-import SyncIcon       from '../../../../../../assets/icons/arrows-clockwise.svg?react';
+import SyncIcon       from '../../../../../../assets/icons/arrows-left-right.svg?react';
 import DrawIcon       from '../../../../../../assets/icons/pencil.svg?react';
 import CalculatorIcon from '../../../../../../assets/icons/calculator.svg?react';
 import StrategyIcon   from '../../../../../../assets/icons/book.svg?react';
@@ -134,7 +135,7 @@ export default function Navigation({ state }: { state: StateData }) {
           <button
             type="button"
             className={`${styles.toggleButton} ${openChildren[2] ? styles.toggleButtonActive : ''}`}
-            title="Link / Sync"
+            title="Sync"
             onClick={() => toggleChild(2)}
           >
             <SyncIcon width="12" height="12" />
@@ -175,10 +176,10 @@ export default function Navigation({ state }: { state: StateData }) {
           </div>
         )}
 
-        {/* 2. LINK BAR */}
+        {/* 2. SYNC BAR */}
         {openChildren[2] && (
           <div className={styles.childWrapper}>
-            <div className={styles.placeholderBox}>Link Bar (Coming Soon)</div>
+            <SyncBar state={state}/>
           </div>
         )}
 

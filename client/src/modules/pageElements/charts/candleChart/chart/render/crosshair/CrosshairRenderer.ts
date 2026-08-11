@@ -68,6 +68,7 @@ export default class CrosshairRenderer {
   private uDashLoc: WebGLUniformLocation | null = null;
   private uCrosshairPosLoc: WebGLUniformLocation | null = null;
 
+  // Main Crosshair
   private currentX: number = -1000;
   private currentY: number = -1000;
   private color: RGBA = [255, 255, 255, 255];
@@ -75,6 +76,15 @@ export default class CrosshairRenderer {
   private isDash: boolean = true;
   private dashWidth: number = 5;
   private dashSpace: number = 5;
+
+  // Alt Crosshair
+  private altX: number = -1000;
+  private altY: number = -1000;
+  private altColor: RGBA = [255, 255, 200, 100];
+  private altThickness: number = 1;
+  private altIsDash: boolean = true;
+  private altDashWidth: number = 5;
+  private altDashSpace: number = 5;
 
   constructor() {}
 
@@ -118,6 +128,21 @@ export default class CrosshairRenderer {
     }
   }
 
+  public updateAltData(): void {
+    if (!this.state || !this.gl) return;
+
+    const altPixel = this.state.crosshair.getAlt();
+    if (altPixel) {
+      const dpr = window.devicePixelRatio || 1;
+
+      this.altX = altPixel.x * dpr;
+      this.altY = altPixel.y * dpr;
+    } else {
+      this.altX = -1000;
+      this.altY = -1000;
+    }
+  }
+
   public updateStyle(): void {
     if (!this.state) return;
 
@@ -135,10 +160,30 @@ export default class CrosshairRenderer {
     }
   }
 
+  public updateAltStyle(): void {
+    if (!this.state) return;
+
+    const config = this.state.config.get();
+    const style = config?.style?.altCrosshair;
+
+    if (style) {
+      if (style.color?.background) this.altColor = style.color.background;
+      if (style.thickness !== undefined) this.altThickness = style.thickness;
+      this.altIsDash = style.type !== "solid";
+      if (style.dash) {
+        this.altDashWidth = style.dash.width;
+        this.altDashSpace = style.dash.space;
+      }
+    }
+  }
+
   public render(): void {
     if (!this.gl || !this.program || !this.vao || !this.chart) return;
 
     this.updateData();
+    this.updateAltData();
+    this.updateStyle();
+    this.updateAltStyle();
 
     const canvas = this.gl.canvas as HTMLCanvasElement;
     const w = canvas.width;
@@ -161,18 +206,38 @@ export default class CrosshairRenderer {
     gl.bindVertexArray(this.vao);
 
     gl.uniform2f(this.uResolutionLoc, w, h);
-    gl.uniform4f(
-      this.uColorLoc,
-      this.color[0] / 255,
-      this.color[1] / 255,
-      this.color[2] / 255,
-      this.color[3] / 255
-    );
-    gl.uniform1i(this.uTypeLoc, this.isDash ? 1 : 0);
-    gl.uniform2f(this.uDashLoc, this.dashWidth, this.dashSpace);
-    gl.uniform2f(this.uCrosshairPosLoc, this.currentX, this.currentY);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 12);
+    // Render Main Crosshair
+    if (this.currentX > -1000 && this.currentY > -1000) {
+      gl.uniform4f(
+        this.uColorLoc,
+        this.color[0] / 255,
+        this.color[1] / 255,
+        this.color[2] / 255,
+        this.color[3] / 255
+      );
+      gl.uniform1i(this.uTypeLoc, this.isDash ? 1 : 0);
+      gl.uniform2f(this.uDashLoc, this.dashWidth, this.dashSpace);
+      gl.uniform2f(this.uCrosshairPosLoc, this.currentX, this.currentY);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 12);
+    }
+
+    // Render Alt Crosshair
+    if (this.altX > -1000 && this.altY > -1000) {
+      gl.uniform4f(
+        this.uColorLoc,
+        this.altColor[0] / 255,
+        this.altColor[1] / 255,
+        this.altColor[2] / 255,
+        this.altColor[3] / 255
+      );
+      gl.uniform1i(this.uTypeLoc, this.altIsDash ? 1 : 0);
+      gl.uniform2f(this.uDashLoc, this.altDashWidth, this.altDashSpace);
+      gl.uniform2f(this.uCrosshairPosLoc, this.altX, this.altY);
+
+      gl.drawArrays(gl.TRIANGLES, 12, 12);
+    }
 
     gl.bindVertexArray(null);
   }
@@ -182,13 +247,20 @@ export default class CrosshairRenderer {
 
     const dpr = window.devicePixelRatio || 1;
 
+    // Main Crosshair Quad Calculations
     const thicknessPx = Math.max(1, Math.round(this.thickness * dpr));
     const halfThick = thicknessPx * 0.5;
-
     const x = this.currentX;
     const y = this.currentY;
 
+    // Alt Crosshair Quad Calculations
+    const altThicknessPx = Math.max(1, Math.round(this.altThickness * dpr));
+    const altHalfThick = altThicknessPx * 0.5;
+    const ax = this.altX;
+    const ay = this.altY;
+
     const vertices = new Float32Array([
+      // ===== Main Crosshair Vertices (0..11) =====
       // Horizontal Line Quad
       0, y - halfThick,
       w, y - halfThick,
@@ -204,6 +276,23 @@ export default class CrosshairRenderer {
       x - halfThick, h,
       x + halfThick, 0,
       x + halfThick, h,
+
+      // ===== Alt Crosshair Vertices (12..23) =====
+      // Horizontal Line Quad
+      0, ay - altHalfThick,
+      w, ay - altHalfThick,
+      0, ay + altHalfThick,
+      0, ay + altHalfThick,
+      w, ay - altHalfThick,
+      w, ay + altHalfThick,
+
+      // Vertical Line Quad
+      ax - altHalfThick, 0,
+      ax + altHalfThick, 0,
+      ax - altHalfThick, h,
+      ax - altHalfThick, h,
+      ax + altHalfThick, 0,
+      ax + altHalfThick, h,
     ]);
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);

@@ -6,6 +6,7 @@ import ViewportAligner from "./ViewportAligner";
 export default class ViewportController {
   public converter: ViewportConverter = new ViewportConverter();
   public aligner: ViewportAligner = new ViewportAligner();
+  
 
   /**
    * Initializes the viewport controller and its sub-controllers.

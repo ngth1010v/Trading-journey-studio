@@ -4,12 +4,26 @@ import type { RGBA, RGB } from "../../../../../shared/type";
 
 export interface Config {
   viewport?: Viewport;
-  strategyId?: number;
   symbol?: string;
   timeframe?: string;
-  linkId?: number;
+  strategyId?: number | null;
+  sync?:{
+    linkId?: number | null
+  }
   style?: {
     crosshair?: {
+      color?: {
+        background?: RGBA;
+        font?: RGB;
+      };
+      thickness?: number;
+      type?: "dash" | "solid";
+      dash?: {
+        space: number; //px
+        width: number; //px
+      };
+    };
+    altCrosshair?: {
       color?: {
         background?: RGBA;
         font?: RGB;
@@ -52,7 +66,7 @@ export interface Config {
         y?: number
       }
     }
-  }
+  };
 }
 
 interface ConfigListener {
@@ -64,7 +78,10 @@ interface ConfigListener {
  * Recursively performs a deep merge of nested configuration objects.
  * Arrays (such as RGBA [r, g, b, a]) and primitive values are replaced rather than merged.
  */
-function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+function deepMerge<T extends Record<string, any>>(
+  target: T,
+  source: Partial<T>
+): T {
   const output = { ...target };
 
   if (!source || typeof source !== "object") {
@@ -75,21 +92,36 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
     const sourceVal = source[key];
     const targetVal = target[key];
 
+    // undefined => skip, giữ nguyên target
+    if (sourceVal === undefined) {
+      continue;
+    }
+
+    // null => set trực tiếp thành null
+    if (sourceVal === null) {
+      output[key] = null as T[keyof T];
+      continue;
+    }
+
+    // Object => deep merge
     if (
-      sourceVal !== undefined &&
-      sourceVal !== null &&
       typeof sourceVal === "object" &&
       !Array.isArray(sourceVal)
     ) {
       output[key] = deepMerge(
-        targetVal && typeof targetVal === "object" && !Array.isArray(targetVal)
+        targetVal &&
+        typeof targetVal === "object" &&
+        !Array.isArray(targetVal)
           ? targetVal
-          : ({} as any),
-        sourceVal
-      );
-    } else if (sourceVal !== undefined) {
-      output[key] = sourceVal as T[keyof T];
+          : ({} as T[typeof key]),
+        sourceVal as Partial<T[typeof key]>
+      ) as T[keyof T];
+
+      continue;
     }
+
+    // Primitive / Array => replace
+    output[key] = sourceVal as T[keyof T];
   }
 
   return output;
@@ -119,6 +151,18 @@ export default class ConfigData {
         crosshair: {
           color: {
             background: [255, 255, 255, 255] as RGBA,
+            font: [0, 0, 0] as RGB,
+          },
+          thickness: 1,
+          type: "dash",
+          dash: {
+            space: 5, //px
+            width: 5, //px
+          },
+        },
+        altCrosshair: {
+          color: {
+            background: [255, 255, 200, 100] as RGBA,
             font: [0, 0, 0] as RGB,
           },
           thickness: 1,

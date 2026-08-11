@@ -1,4 +1,3 @@
-import LinkData from "./link/LinkData";
 import type StateData from "../StateData";
 import ChartController from "../../chart/ChartController";
 
@@ -31,7 +30,6 @@ const DEFAULT_TRANSFORM: ViewportTransform = {
 };
 
 export default class ViewportData {
-  public link: LinkData;
 
   private stateData: StateData | null = null;
   private chart: ChartController | null = null
@@ -39,24 +37,21 @@ export default class ViewportData {
   private transformListeners: Map<string, () => void> = new Map();
 
   constructor() {
-    this.link = new LinkData();
   }
 
   /**
-   * Initializes the transform state, stores StateData reference, and initializes LinkData.
+   * Initializes the transform state, stores StateData reference, and initializes ViewportSyncData.
    */
   public init(stateData: StateData, chart: ChartController): void {
     this.chart = chart
     this.stateData = stateData;
     this.transformCache = { ...DEFAULT_TRANSFORM };
-    this.link.init();
   }
 
   /**
    * Cleans up listeners, references, and LinkData instance.
    */
   public destroy(): void {
-    this.link.destroy();
     this.transformListeners.clear();
     this.stateData = null;
   }

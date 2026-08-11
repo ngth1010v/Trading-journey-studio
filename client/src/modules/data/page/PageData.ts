@@ -53,6 +53,12 @@ let previousPagesJson = "";
 
 const pageDataCallbackMap = new Map<string, MainTrigger>();
 
+function notifyGlobalChange(): void {
+  for (const { triggerPageDataChange } of pageDataCallbackMap.values()) {
+    triggerPageDataChange();
+  }
+}
+
 async function executeGlobalRefresh(): Promise<void> {
   try {
     const freshPages = await fetchAllPages();
@@ -60,15 +66,13 @@ async function executeGlobalRefresh(): Promise<void> {
 
     const hasDataChanged = freshJson !== previousPagesJson;
 
-    // Update shared global cache
-    pagesCache = freshPages;
-    previousPagesJson = freshJson;
-
-    // Notify registered PageData main triggers
     if (hasDataChanged) {
-      for (const { triggerPageDataChange } of pageDataCallbackMap.values()) {
-        triggerPageDataChange();
-      }
+      // Immediately set to cache
+      pagesCache = freshPages;
+      previousPagesJson = freshJson;
+
+      // Trigger on change
+      notifyGlobalChange();
     }
   } catch (err) {
     console.error("Global page refresh failed:", err);
@@ -139,7 +143,35 @@ export default class PageData {
   }
 
   public async set(page: Page): Promise<void> {
-    // Send directly to server; global refresh loop handles cache & notification updates
+    // Check if given page has an id
+    if (page.id === undefined || page.id === null) {
+      // No id: just save directly to server
+      await savePageApi(page);
+      return;
+    }
+
+    // Has id: check if page has changed against cache
+    const cachedPage = pagesCache.find((p) => p.id === page.id);
+    const isChanged = !cachedPage || JSON.stringify(cachedPage) !== JSON.stringify(page);
+
+    if (!isChanged) {
+      // Page hasn't changed: do nothing
+      return;
+    }
+
+    // Immediately update local cache
+    const existingIndex = pagesCache.findIndex((p) => p.id === page.id);
+    if (existingIndex !== -1) {
+      pagesCache[existingIndex] = page;
+    } else {
+      pagesCache.push(page);
+    }
+    previousPagesJson = JSON.stringify(pagesCache);
+
+    // Trigger change callback on all instances
+    notifyGlobalChange();
+
+    // Send updated page to server
     await savePageApi(page);
   }
 

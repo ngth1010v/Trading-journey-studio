@@ -11,7 +11,10 @@ export default class CrosshairData {
   private world: { timestamp: number; price: number } | null = null;
   private isInside: boolean = false;
 
+  private altPixel: { x: number; y: number } | null = null;
+
   private listeners: Map<string, Callback> = new Map();
+  private altListeners: Map<string, Callback> = new Map();
 
   public init(): void {
     this.reset();
@@ -20,6 +23,7 @@ export default class CrosshairData {
   public destroy(): void {
     this.reset();
     this.listeners.clear();
+    this.altListeners.clear();
   }
 
   /**
@@ -47,6 +51,12 @@ export default class CrosshairData {
     this.notifyDataChange();
   }
 
+  public setAlt(pos: {x: number, y:number} | null) {
+    this.altPixel = pos
+
+    this.notifyAltDataChange()
+  }
+
   // =========================================================================
   // GETTERS
   // =========================================================================
@@ -63,6 +73,11 @@ export default class CrosshairData {
 
   public getIsInside(): boolean {
     return this.isInside;
+  }
+
+  
+  public getAlt() : {x: number, y:number} | null{
+    return this.altPixel
   }
 
   // =========================================================================
@@ -86,6 +101,31 @@ export default class CrosshairData {
 
   private notifyDataChange(): void {
     for (const cb of this.listeners.values()) {
+      try {
+        cb();
+      } catch (err) {
+        console.error("[CrosshairData] Error executing listener callback:", err);
+      }
+    }
+  }
+
+  /**
+   * Registers a callback for crosshair changes. Overwrites if duplicate ID.
+   */
+  public addOnAltCrosshairDataChange(id: string, cb: Callback): void {
+    this.altListeners.set(id, cb);
+    cb()
+  }
+
+  /**
+   * Removes a callback listener by ID safely without throwing an error if absent.
+   */
+  public removeOnAltCrosshairDataChange(id: string): void {
+    this.altListeners.delete(id);
+  }
+
+  private notifyAltDataChange(): void {
+    for (const cb of this.altListeners.values()) {
       try {
         cb();
       } catch (err) {

@@ -10,6 +10,7 @@ import { initTheme, destroyTheme } from './modules/data/theme/ThemeData.ts';
 import { initPage, destroyPage } from './modules/data/page/PageData.ts';
 import { initSymbol, destroySymbol } from './modules/data/chartData/symbol/SymbolData.ts';
 import { initStrategy, destroyStrategy } from './modules/data/chartData/strategy/StrategyData.ts';
+import { initLinkData, destroyLinkData } from './modules/pageElements/charts/candleChart/state/sync/link/LinkData.ts';
 
 let initialized = false;
 
@@ -20,13 +21,15 @@ function init() {
   initTheme()
   initPage()
   initSymbol()
+  initLinkData()
   initStrategy()
 }
 function destroy() {
   destroyTheme()
   destroyPage()
   destroySymbol()
-  destroyStrategy
+  destroyLinkData()
+  destroyStrategy()
 }
 
 init()

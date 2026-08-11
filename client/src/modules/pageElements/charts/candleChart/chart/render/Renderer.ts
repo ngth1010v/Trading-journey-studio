@@ -129,10 +129,25 @@ export default class Renderer {
 
       state.config.addOnConfigDataChange(
         "[chart][render][Renderer.ts] Crosshair style change",
-        ["style"],
+        ["style","crosshair"],
         () => {
           this.crosshair.updateStyle();
           this.crosshair.updateData();
+          this.render();
+        }
+      );    
+
+      state.crosshair.addOnAltCrosshairDataChange("Alt crosshair render", () => {
+        this.crosshair.updateAltData();
+        this.render();
+      });
+
+      state.config.addOnConfigDataChange(
+        "[chart][render][Renderer.ts] Alt crosshair style change",
+        ["style","altCrosshair"],
+        () => {
+          this.crosshair.updateAltStyle();
+          this.crosshair.updateAltData();
           this.render();
         }
       );      

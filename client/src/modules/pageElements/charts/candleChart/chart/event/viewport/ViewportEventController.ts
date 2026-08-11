@@ -32,12 +32,14 @@ export default class ViewportEventController {
     this.chart.event.addOnEvent("mouseMove", `${this.PAN_EVENT_ID}_move`, this.handleMouseMove);
     this.chart.event.addOnEvent("wheel", this.WHEEL_EVENT_ID, this.handleWheel);
     this.chart.event.addOnEvent("keyDown", this.RESET_VIEWPORT_EVENT_ID, this.handleResetViewport);
+
   }
 
   /**
    * Cleans up event listeners and references.
    */
   public destroy(): void {
+    
     // Clear active wheel timer on cleanup to prevent memory leaks or calling flush on destroyed state
     if (this.wheelFlushTimer) {
       clearTimeout(this.wheelFlushTimer);

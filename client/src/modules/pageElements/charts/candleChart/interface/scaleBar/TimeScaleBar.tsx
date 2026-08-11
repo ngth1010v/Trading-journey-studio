@@ -80,6 +80,9 @@ interface CrosshairStyle {
 const DEFAULT_CROSSHAIR_BG: RGBA = [255, 255, 255, 255];
 const DEFAULT_CROSSHAIR_FONT: RGB = [0, 0, 0];
 
+const DEFAULT_ALT_CROSSHAIR_BG: RGBA = [255, 255, 200, 100];
+const DEFAULT_ALT_CROSSHAIR_FONT: RGB = [0, 0, 0];
+
 const toRgba = (c: RGBA | undefined | null) => {
   return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] ?? 1})` : "transparent";
 };
@@ -161,6 +164,14 @@ export default function TimeScaleBar({
     font: toRgb(DEFAULT_CROSSHAIR_FONT),
   });
 
+  // AltCrosshair state
+  const [altCrosshairX, setAltCrosshairX] = useState<number | null>(null);
+  const [altCrosshairTimeText, setAltCrosshairTimeText] = useState<string | null>(null);
+  const [altCrosshairStyle, setAltCrosshairStyle] = useState<CrosshairStyle>({
+    background: toRgba(DEFAULT_ALT_CROSSHAIR_BG),
+    font: toRgb(DEFAULT_ALT_CROSSHAIR_FONT),
+  });
+
   // Step index state & ref
   const [stepIndex, setStepIndex] = useState<number | null>(null);
   const stepIndexRef = useRef<number | null>(stepIndex);
@@ -182,8 +193,24 @@ export default function TimeScaleBar({
     viewport: `time_bar-viewport-${Math.random().toString(36).substring(2, 9)}`,
     transform: `time_bar-transform-${Math.random().toString(36).substring(2, 9)}`,
     crosshair: `time_bar-crosshair-${Math.random().toString(36).substring(2, 9)}`,
+    altCrosshair: `time_bar-alt-crosshair-${Math.random().toString(36).substring(2, 9)}`,
     configStyle: `time_bar-config-style-${Math.random().toString(36).substring(2, 9)}`,
   });
+
+  // Helper callback to recalculate AltCrosshair timestamp & position
+  const updateAltCrosshair = useCallback(() => {
+    const altPos = state.crosshair.getAlt();
+    if (altPos && chart?.viewport?.converter) {
+      const timestamp = chart.viewport.converter.pixelToTimestamp(altPos.x);
+      if (timestamp !== null && !isNaN(timestamp)) {
+        setAltCrosshairX(altPos.x - CHART_GAP);
+        setAltCrosshairTimeText(formatCrosshairTimestamp(timestamp));
+        return;
+      }
+    }
+    setAltCrosshairX(null);
+    setAltCrosshairTimeText(null);
+  }, [state.crosshair, chart]);
 
   // THEME
   useEffect(() => {
@@ -218,9 +245,10 @@ export default function TimeScaleBar({
     state.viewport.addOnViewportTransformDataChange(listenerId.current.transform, () => {
       const newTransform = state.viewport.getTransform();
       setTransform(newTransform);
+      updateAltCrosshair();
     });
     return () => state.viewport.removeOnViewportTransformDataChange(listenerId.current.transform);
-  }, [state.viewport]);
+  }, [state.viewport, updateAltCrosshair]);
 
   // CROSSHAIR DATA LISTENER
   useEffect(() => {
@@ -241,11 +269,25 @@ export default function TimeScaleBar({
     return () => state.crosshair.removeOnCrosshairDataChange(listenerId.current.crosshair);
   }, [state.crosshair]);
 
-  // CONFIG STYLE LISTENER (CROSSHAIR COLOR)
+  // ALT CROSSHAIR DATA LISTENER
+  useEffect(() => {
+    state.crosshair.addOnAltCrosshairDataChange(
+      listenerId.current.altCrosshair,
+      updateAltCrosshair
+    );
+
+    return () =>
+      state.crosshair.removeOnAltCrosshairDataChange(
+        listenerId.current.altCrosshair
+      );
+  }, [state.crosshair, updateAltCrosshair]);
+
+  // CONFIG STYLE LISTENER (CROSSHAIR & ALT CROSSHAIR COLOR)
   useEffect(() => {
     state.config.addOnConfigDataChange(listenerId.current.configStyle, ["style"], () => {
       const config = state.config.get();
       const crosshairColor = config?.style?.crosshair?.color;
+      const altCrosshairColor = config?.style?.altCrosshair?.color;
 
       const bg = crosshairColor?.background ?? DEFAULT_CROSSHAIR_BG;
       const font = crosshairColor?.font ?? DEFAULT_CROSSHAIR_FONT;
@@ -253,6 +295,14 @@ export default function TimeScaleBar({
       setCrosshairStyle({
         background: toRgba(bg),
         font: toRgb(font),
+      });
+
+      const altBg = altCrosshairColor?.background ?? DEFAULT_ALT_CROSSHAIR_BG;
+      const altFont = altCrosshairColor?.font ?? DEFAULT_ALT_CROSSHAIR_FONT;
+
+      setAltCrosshairStyle({
+        background: toRgba(altBg),
+        font: toRgb(altFont),
       });
     });
 
@@ -353,8 +403,6 @@ export default function TimeScaleBar({
         }
       }
     }
-
-    // setStepIndex(currentStepIdx);
 
     const stepMs = activeStepObj.ms;
     const scaleX = transform.scaleX ?? 1;
@@ -541,6 +589,7 @@ export default function TimeScaleBar({
   };
 
   const isCrosshairVisible = crosshairX !== null && crosshairTimeText !== null;
+  const isAltCrosshairVisible = altCrosshairX !== null && altCrosshairTimeText !== null;
 
   return (
     <div
@@ -567,6 +616,18 @@ export default function TimeScaleBar({
           }}
         >
           {crosshairTimeText}
+        </span>
+      )}
+      {isAltCrosshairVisible && (
+        <span
+          className={`${styles.crosshairLabel} ${styles.labelVisible}`}
+          style={{
+            left: `${altCrosshairX}px`,
+            backgroundColor: altCrosshairStyle.background,
+            color: altCrosshairStyle.font,
+          }}
+        >
+          {altCrosshairTimeText}
         </span>
       )}
     </div>
