@@ -102,7 +102,7 @@ export default class LinkStateController {
 
     private onCandleDataChange = (): void => {
         this.isCandleDirty = true;
-        this.isViewportDirty = true; // Viewport depends on candles for calc bounds
+        // this.isViewportDirty = true; // Viewport depends on candles for calc bounds
         // this.scheduleSyncUp();
     };
 
@@ -160,9 +160,11 @@ export default class LinkStateController {
     }
 
     private syncUp = (): void => {
+        
         if (this.state?.sync.link.state.getRegistriedLinkId() == null) return
         const mode = this.state?.sync.link.getMode();
         if (!mode || mode === "down") return;
+
 
         this.calcCandleMinMax();
 
@@ -260,8 +262,8 @@ export default class LinkStateController {
                 calculatedTransform = {
                     scaleX: transform.scaleX,
                     scaleY: transform.scaleY,
-                    offsetX: transform.offsetX,
-                    offsetY: transform.offsetY
+                    offsetXRatio: transform.offsetX / canvasSize.w,
+                    offsetYRatio: transform.offsetY / canvasSize.h
                 }
                 break;
             }
@@ -270,6 +272,7 @@ export default class LinkStateController {
             this.isTransformDirty = false;
         }
 
+        
         const newState: LinkState = {
             modifyTimestamp: newTimestamp,
             symbol: currentSymbol,
@@ -306,47 +309,6 @@ export default class LinkStateController {
             this.lastSyncDownTimestamp.global = linkState.modifyTimestamp.global;
         }
 
-        // Crosshair
-        if (crosshairChanged) {
-            const crosshairTimestamp = linkState.crosshair?.timestamp;
-
-            if (linkState.symbol === currentSymbol) {
-                const crosshairPrice = linkState.crosshair?.price;
-                if (crosshairTimestamp != null && crosshairPrice != null) {
-                    const crosshairPixelX = this.chart?.viewport.converter.timestampToPixel(crosshairTimestamp);
-                    const crosshairPixelY = this.chart?.viewport.converter.priceToPixel(crosshairPrice);
-                    if (crosshairPixelX != null && crosshairPixelY != null) {
-                        this.state?.crosshair.setAlt({ x: crosshairPixelX, y: crosshairPixelY });
-                    } else {
-                        this.state?.crosshair.setAlt(null);
-                    }
-                } else {
-                    this.state?.crosshair.setAlt(null);
-                }
-            } else {
-                const crosshairPriceOffsetRatio = linkState.crosshair?.alt.priceOffsetRatio;
-                if (crosshairPriceOffsetRatio != null && crosshairTimestamp) {
-                    const crosshairPricePixel = currentCanvasSize.h * crosshairPriceOffsetRatio;
-                    const crosshairTimePixel = this.chart?.viewport.converter.timestampToPixel(crosshairTimestamp);
-                    if (crosshairPricePixel != null && crosshairTimePixel != null) {
-                        this.state?.crosshair.setAlt({ x: crosshairTimePixel, y: crosshairPricePixel });
-                    } else {
-                        this.state?.crosshair.setAlt(null);
-                    }
-                } else {
-                    this.state?.crosshair.setAlt(null);
-                }
-            }
-            this.lastSyncDownTimestamp.crosshair = linkState.modifyTimestamp.crosshair;
-        }
-
-        // Transform
-        if (transformChanged) {
-            if (linkState.transform){
-                this.state?.viewport.setTransform(linkState.transform)
-            }
-            this.lastSyncDownTimestamp.transform = linkState.modifyTimestamp.transform;
-        }
 
         // Viewport
         if (viewportChanged) {
@@ -404,5 +366,53 @@ export default class LinkStateController {
             }
             this.lastSyncDownTimestamp.viewport = linkState.modifyTimestamp.viewport;
         }
+
+        // Transform
+        if (transformChanged) {
+            if (linkState.transform){
+                this.state?.viewport.setTransform({
+                    scaleX: linkState.transform.scaleX,
+                    scaleY: linkState.transform.scaleY,
+                    offsetX: linkState.transform.offsetXRatio * currentCanvasSize.w,
+                    offsetY: linkState.transform.offsetYRatio * currentCanvasSize.h,
+                })
+            }
+            this.lastSyncDownTimestamp.transform = linkState.modifyTimestamp.transform;
+        }
+
+
+        // Crosshair
+        if (crosshairChanged) {
+            const crosshairTimestamp = linkState.crosshair?.timestamp;
+
+            if (linkState.symbol === currentSymbol) {
+                const crosshairPrice = linkState.crosshair?.price;
+                if (crosshairTimestamp != null && crosshairPrice != null) {
+                    const crosshairPixelX = this.chart?.viewport.converter.timestampToPixel(crosshairTimestamp);
+                    const crosshairPixelY = this.chart?.viewport.converter.priceToPixel(crosshairPrice);
+                    if (crosshairPixelX != null && crosshairPixelY != null) {
+                        this.state?.crosshair.setAlt({ x: crosshairPixelX, y: crosshairPixelY });
+                    } else {
+                        this.state?.crosshair.setAlt(null);
+                    }
+                } else {
+                    this.state?.crosshair.setAlt(null);
+                }
+            } else {
+                const crosshairPriceOffsetRatio = linkState.crosshair?.alt.priceOffsetRatio;
+                if (crosshairPriceOffsetRatio != null && crosshairTimestamp) {
+                    const crosshairPricePixel = currentCanvasSize.h * crosshairPriceOffsetRatio;
+                    const crosshairTimePixel = this.chart?.viewport.converter.timestampToPixel(crosshairTimestamp);
+                    if (crosshairPricePixel != null && crosshairTimePixel != null) {
+                        this.state?.crosshair.setAlt({ x: crosshairTimePixel, y: crosshairPricePixel });
+                    } else {
+                        this.state?.crosshair.setAlt(null);
+                    }
+                } else {
+                    this.state?.crosshair.setAlt(null);
+                }
+            }
+            this.lastSyncDownTimestamp.crosshair = linkState.modifyTimestamp.crosshair;
+        }        
     };
 }

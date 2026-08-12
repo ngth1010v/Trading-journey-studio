@@ -128,7 +128,6 @@ export default class LinkData {
     }
 
     this.linkMode = "down"
-
     this.state.destroy();
   }
 

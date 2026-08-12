@@ -20,8 +20,8 @@ export interface LinkState {
   transform: {
     scaleX: number;
     scaleY: number;
-    offsetX: number;
-    offsetY: number;
+    offsetXRatio: number;
+    offsetYRatio: number;
   } | null;
   crosshair: {
     price: number;

@@ -97,7 +97,6 @@ export default class StateData {
     this.config.addOnConfigDataChange(this.listenerIds.configLink, ["sync", "linkId"], () => {
       const linkId = this.config.get()?.sync?.linkId;
       const linkList = this.sync.link.getAll();
-
       if (linkList) {
         for (const l of linkList) {
           if (l.id != null && l.id == linkId) {
