@@ -83,7 +83,6 @@ export function destroySymbol(): void {
         globalRefreshIntervalId = null;
     }
 
-    symbolDataCallbackMap.clear();
     symbolsCacheMap.clear();
     previousSymbolsJson = "";
     isSymbolInitialized = false;
@@ -170,6 +169,5 @@ export default class SymbolData {
             symbolDataCallbackMap.delete(this.id);
             this.id = null;
         }
-        this.onSymbolDataChangeListeners.clear();
     }
 }

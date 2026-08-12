@@ -52,7 +52,6 @@ export default class ViewportData {
    * Cleans up listeners, references, and LinkData instance.
    */
   public destroy(): void {
-    this.transformListeners.clear();
     this.stateData = null;
   }
 

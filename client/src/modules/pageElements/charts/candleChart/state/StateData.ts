@@ -5,7 +5,8 @@ import ChartController from "../chart/ChartController";
 import CrosshairData from "./crosshair/CrosshairData";
 import SyncData from "./sync/SyncData";
 
-const LOAD_OFFSET_RATIO = 1
+const LOAD_OFFSET_RATIO = 1;
+const BASE_ID = "[CandleChart][state][StateData.ts]";
 
 export default class StateData {
   public viewport: ViewportData = new ViewportData();
@@ -14,35 +15,61 @@ export default class StateData {
   public crosshair: CrosshairData = new CrosshairData();
   public sync: SyncData = new SyncData();
 
-  private needResetViewport: boolean = false
+  private needResetViewport: boolean = false;
+
+  // Lưu trữ các ID dùng để unregister listener khi destroy
+  private listenerIds = {
+    configViewport: "",
+    configStrategyId: "",
+    configSymbol: "",
+    configTimeframe: "",
+    configLink: "",
+    candleClosed: "",
+  };
+
+  /**
+   * Tạo ID ngẫu nhiên có chứa BASE_ID
+   */
+  private generateListenerId(tag: string): string {
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    return `${BASE_ID}[${tag}][${randomStr}]`;
+  }
 
   /**
    * Initializes config, viewport, and source data instances.
    */
-  public async init(pageId: number, elementId: number, chart: ChartController): Promise<void> {
+  public init(pageId: number, elementId: number, chart: ChartController): void {
     this.config.init(pageId, elementId);
     this.crosshair.init();
     this.viewport.init(this, chart);
-    await this.source.init();
+    this.source.init();
     this.sync.init();
+
+    // Khởi tạo các listener IDs
+    this.listenerIds.configViewport = this.generateListenerId("viewport");
+    this.listenerIds.configStrategyId = this.generateListenerId("strategyId");
+    this.listenerIds.configSymbol = this.generateListenerId("symbol");
+    this.listenerIds.configTimeframe = this.generateListenerId("timeframe");
+    this.listenerIds.configLink = this.generateListenerId("link");
+    this.listenerIds.candleClosed = this.generateListenerId("closedCandle");
 
     //====================================================================================================
     // Refresh logic
     //====================================================================================================
-    this.config.addOnConfigDataChange("Default[data.viewport]Refresh", ["viewport"], () => {
+    this.config.addOnConfigDataChange(this.listenerIds.configViewport, ["viewport"], () => {
       const view = this.config.get()?.viewport;
       if (view) {
-        const delta = view.toTs - view.fromTs
-        const offset = delta * LOAD_OFFSET_RATIO
-        const fromTs = view.fromTs - offset
-        const toTs    = view.toTs + offset
+        const delta = view.toTs - view.fromTs;
+        const offset = delta * LOAD_OFFSET_RATIO;
+        const fromTs = view.fromTs - offset;
+        const toTs = view.toTs + offset;
         this.source.candle.setView(fromTs, toTs);
-        this.source.trade .setView(fromTs, toTs);
-        this.source.shape .setView(fromTs, toTs);
+        this.source.trade.setView(fromTs, toTs);
+        this.source.shape.setView(fromTs, toTs);
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.strategyId]Refresh", ["strategyId"], () => {
+    this.config.addOnConfigDataChange(this.listenerIds.configStrategyId, ["strategyId"], () => {
       const strategyId = this.config.get()?.strategyId;
       if (strategyId !== undefined) {
         this.source.trade.setSource(null, strategyId);
@@ -50,51 +77,59 @@ export default class StateData {
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.symbol]Refresh", ["symbol"], () => {
+    this.config.addOnConfigDataChange(this.listenerIds.configSymbol, ["symbol"], () => {
       const symbol = this.config.get()?.symbol;
       if (symbol !== undefined) {
         this.source.candle.setSource(symbol, null);
         this.source.trade.setSource(symbol, null);
         this.source.shape.setSource(symbol, null);
-        this.needResetViewport = true
+        this.needResetViewport = true;
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.timeframe]Refresh", ["timeframe"], () => {
+    this.config.addOnConfigDataChange(this.listenerIds.configTimeframe, ["timeframe"], () => {
       const timeframe = this.config.get()?.timeframe;
       if (timeframe !== undefined) {
         this.source.candle.setSource(null, timeframe);
       }
     });
 
-    this.config.addOnConfigDataChange("Default[data.link]Refresh", ["sync","linkId"], () => {
+    this.config.addOnConfigDataChange(this.listenerIds.configLink, ["sync", "linkId"], () => {
       const linkId = this.config.get()?.sync?.linkId;
-      const linkList = this.sync.link.getAll()
+      const linkList = this.sync.link.getAll();
 
-      if (linkList){
-        for (const l of linkList){
-          if (l.id != null && l.id == linkId){
-            this.sync.link.state.registry(linkId)
-            return
+      if (linkList) {
+        for (const l of linkList) {
+          if (l.id != null && l.id == linkId) {
+            this.sync.link.state.registry(linkId);
+            return;
           }
         }
       }
-      this.sync.link.state.unregistry()
+      this.sync.link.state.unregistry();
     });
 
-    this.source.candle.addOnClosedCandleDataChange("Symbol refresh", ()=>{
-      if (this.needResetViewport){
-        chart.viewport.aligner.autoViewport()
-        this.needResetViewport = false
+    this.source.candle.addOnClosedCandleDataChange(this.listenerIds.candleClosed, () => {
+      if (this.needResetViewport) {
+        chart.viewport.aligner.autoViewport();
+        this.needResetViewport = false;
       }
-    })
-
+    });
   }
 
   /**
    * Cleans up viewport, source, and config data instances.
    */
   public destroy(): void {
+    // Clean up all registered listeners before destroying instances
+    if (this.listenerIds.configViewport) this.config.removeOnConfigDataChange(this.listenerIds.configViewport);
+    if (this.listenerIds.configStrategyId) this.config.removeOnConfigDataChange(this.listenerIds.configStrategyId);
+    if (this.listenerIds.configSymbol) this.config.removeOnConfigDataChange(this.listenerIds.configSymbol);
+    if (this.listenerIds.configTimeframe) this.config.removeOnConfigDataChange(this.listenerIds.configTimeframe);
+    if (this.listenerIds.configLink) this.config.removeOnConfigDataChange(this.listenerIds.configLink);
+
+    if (this.listenerIds.candleClosed) this.source.candle.removeOnClosedCandleDataChange(this.listenerIds.candleClosed);
+
     this.viewport.destroy();
     this.source.destroy();
     this.config.destroy();

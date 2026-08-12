@@ -89,7 +89,6 @@ export function destroyLinkData(): void {
     globalRefreshIntervalId = null;
   }
 
-  linkDataCallbackMap.clear();
   linksCacheMap.clear();
   previousLinksJson = "";
   isLinkInitialized = false;
@@ -130,8 +129,6 @@ export default class LinkData {
 
     this.linkMode = "down"
 
-    this.onLinkDataChangeListeners.clear();
-    this.onLinkModeDataChangeListeners.clear();
     this.state.destroy();
   }
 

@@ -14,12 +14,10 @@ export default class SourceData {
   /**
    * Initializes all underlying child state data classes.
    */
-  public async init(): Promise<void> {
+  public init(): void {
     // Initialize children that return Promises
-    await Promise.all([
-      this.strategy.init(),
-      this.symbol.init(),
-    ]);
+    this.strategy.init(),
+    this.symbol.init(),
 
     // Initialize synchronous child instances
     this.trade.init();

@@ -91,7 +91,6 @@ export function destroyStrategyTag(): void {
     globalStrategyTagIntervalId = null;
   }
 
-  strategyTagDataCallbackMap.clear();
   strategyTagCacheMap.clear();
   previousStrategyTagJson = "";
   isStrategyTagInitialized = false;
@@ -123,7 +122,6 @@ export default class StrategyTagData {
       strategyTagDataCallbackMap.delete(this.id);
       this.id = null;
     }
-    this.callbacks.clear();
   }
 
   /**

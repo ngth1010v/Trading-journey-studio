@@ -32,7 +32,6 @@ export default class ShapeTagData {
       this.timer = null;
     }
     this.cache = [];
-    this.listeners.clear();
   }
 
   public setSource(strategyId: number): void {

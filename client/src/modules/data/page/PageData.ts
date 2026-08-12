@@ -102,7 +102,6 @@ export function destroyPage(): void {
     globalRefreshIntervalId = null;
   }
 
-  pageDataCallbackMap.clear();
   pagesCache = [];
   previousPagesJson = "";
   isPageInitialized = false;
@@ -207,6 +206,5 @@ export default class PageData {
       pageDataCallbackMap.delete(this.id);
       this.id = null;
     }
-    this.onPageDataChangeListeners.clear();
   }
 }

@@ -140,17 +140,18 @@ const formatCrosshairTimestamp = (ts: number): string => {
   return `${dayOfWeek} ${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
 };
 
+const BASE_ID = "[CandleChart][interface][scaleBar][TimeScaleBar.tsx]"
+
 export default function TimeScaleBar({
   state,
   chart,
   visible,
-  themeData: themeDataProp,
   onHeightChange,
 }: TimeScaleBarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const themeData = useRef<ThemeData>(themeDataProp ?? new ThemeData());
+  const themeData = useRef<ThemeData>(new ThemeData());
   const [theme, setTheme] = useState<Theme | null>(null);
   const [view, setView] = useState<Viewport | null>(null);
   const [transform, setTransform] = useState<ViewportTransform | null>(null);
@@ -173,7 +174,7 @@ export default function TimeScaleBar({
   });
 
   // Step index state & ref
-  const [stepIndex, setStepIndex] = useState<number | null>(null);
+  const [stepIndex, _] = useState<number | null>(null);
   const stepIndexRef = useRef<number | null>(stepIndex);
   stepIndexRef.current = stepIndex;
 
@@ -189,12 +190,12 @@ export default function TimeScaleBar({
 
   // Stable listener IDs stored in refs
   const listenerId = useRef({
-    theme: `time_bar-theme-${Math.random().toString(36).substring(2, 9)}`,
-    viewport: `time_bar-viewport-${Math.random().toString(36).substring(2, 9)}`,
-    transform: `time_bar-transform-${Math.random().toString(36).substring(2, 9)}`,
-    crosshair: `time_bar-crosshair-${Math.random().toString(36).substring(2, 9)}`,
-    altCrosshair: `time_bar-alt-crosshair-${Math.random().toString(36).substring(2, 9)}`,
-    configStyle: `time_bar-config-style-${Math.random().toString(36).substring(2, 9)}`,
+    theme       : `${BASE_ID} theme-${Math.random().toString(36).substring(2, 9)}`,
+    viewport    : `${BASE_ID} viewport-${Math.random().toString(36).substring(2, 9)}`,
+    transform   : `${BASE_ID} transform-${Math.random().toString(36).substring(2, 9)}`,
+    crosshair   : `${BASE_ID} crosshair-${Math.random().toString(36).substring(2, 9)}`,
+    altCrosshair: `${BASE_ID} alt-crosshair-${Math.random().toString(36).substring(2, 9)}`,
+    configStyle : `${BASE_ID} config-style-${Math.random().toString(36).substring(2, 9)}`,
   });
 
   // Helper callback to recalculate AltCrosshair timestamp & position
@@ -214,9 +215,7 @@ export default function TimeScaleBar({
 
   // THEME
   useEffect(() => {
-    if (!themeDataProp) {
-      themeData.current.init();
-    }
+    themeData.current.init();
     setTheme(themeData.current.getSelected());
 
     themeData.current.addOnSelectedThemeDataChange(listenerId.current.theme, () =>
@@ -224,12 +223,9 @@ export default function TimeScaleBar({
     );
 
     return () => {
-      themeData.current.removeOnThemeDataChange(listenerId.current.theme);
-      if (!themeDataProp) {
-        themeData.current.destroy();
-      }
+      themeData.current.destroy();
     };
-  }, [themeDataProp]);
+  }, []);
 
   // VIEWPORT
   useEffect(() => {

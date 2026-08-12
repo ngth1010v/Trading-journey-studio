@@ -29,7 +29,6 @@ export default class ShapeTemplateData {
       this.timer = null;
     }
     this.cache = [];
-    this.listeners.clear();
   }
 
   public setSource(strategyId: number): void {

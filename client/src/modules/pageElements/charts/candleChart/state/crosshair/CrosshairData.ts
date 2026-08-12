@@ -22,8 +22,6 @@ export default class CrosshairData {
 
   public destroy(): void {
     this.reset();
-    this.listeners.clear();
-    this.altListeners.clear();
   }
 
   /**

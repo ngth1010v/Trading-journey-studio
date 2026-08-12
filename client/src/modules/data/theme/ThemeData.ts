@@ -152,7 +152,6 @@ export function destroyTheme(): void {
         globalRefreshIntervalId = null;
     }
 
-    themeDataCallbackMap.clear();
     themesCache = [];
     previousThemesJson = "";
     previousSelectedId = undefined;
@@ -249,7 +248,5 @@ export default class ThemeData {
             themeDataCallbackMap.delete(this.id);
             this.id = null;
         }
-        this.onThemeDataChangeListeners.clear();
-        this.onSelectedThemeDataChangeListeners.clear();
     }
 }

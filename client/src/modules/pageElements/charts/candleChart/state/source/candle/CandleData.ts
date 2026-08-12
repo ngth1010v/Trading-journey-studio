@@ -115,8 +115,6 @@ export default class CandleData {
       this.timerId = null;
     }
     this.isLoopRunning = false;
-    this.onClosedCallbacks.clear();
-    this.onOpeningCallbacks.clear();
   }
 
   /**

@@ -59,7 +59,6 @@ export default class ShapeData {
     this.template.destroy();
 
     this.cache = [];
-    this.listeners.clear();
     this.lastRefreshTimestamp = 0;
   }
 

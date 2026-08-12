@@ -223,7 +223,6 @@ export default class ConfigData {
 
   public destroy(): void {
     this.pageData.destroy();
-    this.listeners.clear();
     this.cache = null;
     this.pageId = null;
     this.elementId = null;

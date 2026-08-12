@@ -4,17 +4,48 @@ import type StateData from "../../state/StateData";
 import type ChartController from "../ChartController";
 import SeasonRenderer from "./season/SeasonRenderer";
 
+const BASE_ID = "[CandleChart][chart][render][Renderer.ts]";
+
 export default class Renderer {
   private gl: WebGL2RenderingContext | null = null;
-  private chart: ChartController | null = null;
   private state: StateData | null = null;
 
   public readonly candle = new CandleRenderer();
   public readonly crosshair = new CrosshairRenderer();
   public readonly season = new SeasonRenderer();
 
+  // Quản lý các listener IDs rút gọn
+  private listenerIds = {
+    // Season
+    seasonViewport: "",
+    seasonStrategy: "",
+    seasonData: "",
+    seasonTransform: "",
+    seasonStyle: "",
+
+    // Candle
+    candleClosed: "",
+    candleOpening: "",
+    candleViewport: "",
+    candleTransform: "",
+    candleStyle: "",
+
+    // Crosshair
+    crosshairData: "",
+    crosshairStyle: "",
+    altCrosshairData: "",
+    altCrosshairStyle: "",
+  };
+
+  /**
+   * Sinh ID ngẫu nhiên có chứa BASE_ID
+   */
+  private generateListenerId(tag: string): string {
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    return `${BASE_ID}[${tag}][${randomStr}]`;
+  }
+
   public init(state: StateData, chart: ChartController): void {
-    this.chart = chart;
     this.state = state;
 
     this.season.init(state, chart);
@@ -23,136 +54,145 @@ export default class Renderer {
 
     this.render();
 
+    // Khởi tạo tất cả listener IDs
+    this.listenerIds.seasonViewport = this.generateListenerId("season_viewport");
+    this.listenerIds.seasonStrategy = this.generateListenerId("season_strategy");
+    this.listenerIds.seasonData = this.generateListenerId("season_data");
+    this.listenerIds.seasonTransform = this.generateListenerId("season_transform");
+    this.listenerIds.seasonStyle = this.generateListenerId("season_style");
+
+    this.listenerIds.candleClosed = this.generateListenerId("candle_closed");
+    this.listenerIds.candleOpening = this.generateListenerId("candle_opening");
+    this.listenerIds.candleViewport = this.generateListenerId("candle_viewport");
+    this.listenerIds.candleTransform = this.generateListenerId("candle_transform");
+    this.listenerIds.candleStyle = this.generateListenerId("candle_style");
+
+    this.listenerIds.crosshairData = this.generateListenerId("crosshair_data");
+    this.listenerIds.crosshairStyle = this.generateListenerId("crosshair_style");
+    this.listenerIds.altCrosshairData = this.generateListenerId("alt_crosshair_data");
+    this.listenerIds.altCrosshairStyle = this.generateListenerId("alt_crosshair_style");
+
     //===============================================================
     // Season
     //===============================================================
-    {
-      state.config.addOnConfigDataChange(
-        "[chart][render][Renderer.ts] Update viewport data for season",
-        ["viewport"],
-        () => {
-          this.season.updateData();
-        }
-      );
+    state.config.addOnConfigDataChange(
+      this.listenerIds.seasonViewport,
+      ["viewport"],
+      () => {
+        this.season.updateData();
+      }
+    );
 
-      state.config.addOnConfigDataChange(
-        "[chart][render][Renderer.ts] Update current strategy data for season",
-        ["strategyId"],
-        () => {
-          this.season.updateData();
-          this.render()
-        }
-      );
+    state.config.addOnConfigDataChange(
+      this.listenerIds.seasonStrategy,
+      ["strategyId"],
+      () => {
+        this.season.updateData();
+        this.render();
+      }
+    );
 
-      state.source.strategy.addOnStrateryDataChange(
-        "[chart][render][Renderer.ts] Update strategy data for season",
-        () => {
-          this.season.updateData();
-          this.render()
-        }
-      );
+    state.source.strategy.addOnStrateryDataChange(
+      this.listenerIds.seasonData,
+      () => {
+        this.season.updateData();
+        this.render();
+      }
+    );
 
-      state.viewport.addOnViewportTransformDataChange(
-        "[chart][render][Renderer.ts] Update transform for season",
-        () => {
-          this.season.updateTransform();
-          this.render();
-        }
-      );
+    state.viewport.addOnViewportTransformDataChange(
+      this.listenerIds.seasonTransform,
+      () => {
+        this.season.updateTransform();
+        this.render();
+      }
+    );
 
-      state.source.strategy.season.addOnStrategySeasonDataChange(
-        "[chart][render][Renderer.ts] Season style/data update",
-        () => {
-          this.season.updateStyle();
-          this.season.updateData();
-          this.render()
-        }
-      );      
-    }
-
+    state.source.strategy.season.addOnStrategySeasonDataChange(
+      this.listenerIds.seasonStyle,
+      () => {
+        this.season.updateStyle();
+        this.season.updateData();
+        this.render();
+      }
+    );
 
     //===============================================================
     // Candle
     //===============================================================
-    {
-      state.source.candle.addOnClosedCandleDataChange(
-        "[chart][render][Renderer.ts] Closed candle render",
-        () => {
-          this.candle.closed.updateData();
-          this.render();
-        }
-      );
+    state.source.candle.addOnClosedCandleDataChange(
+      this.listenerIds.candleClosed,
+      () => {
+        this.candle.closed.updateData();
+        this.render();
+      }
+    );
 
-      state.source.candle.addOnOpeningCandleDataChange(
-        "[chart][render][Renderer.ts] Opening candle render",
-        () => {
-          this.candle.opening.updateData();
-          this.render();
-        }
-      );
+    state.source.candle.addOnOpeningCandleDataChange(
+      this.listenerIds.candleOpening,
+      () => {
+        this.candle.opening.updateData();
+        this.render();
+      }
+    );
 
-      state.config.addOnConfigDataChange(
-        "[chart][render][Renderer.ts] Viewport render",
-        ["viewport"],
-        () => {
-          this.candle.updateData();
-        }
-      );
+    state.config.addOnConfigDataChange(
+      this.listenerIds.candleViewport,
+      ["viewport"],
+      () => {
+        this.candle.updateData();
+      }
+    );
 
-      state.viewport.addOnViewportTransformDataChange(
-        "[chart][render][Renderer.ts] Viewport render",
-        () => {
-          this.candle.updateTransform();
-          this.render();
-        }
-      );
+    state.viewport.addOnViewportTransformDataChange(
+      this.listenerIds.candleTransform,
+      () => {
+        this.candle.updateTransform();
+        this.render();
+      }
+    );
 
-      state.config.addOnConfigDataChange(
-        "[chart][render][Renderer.ts] Candle style update",
-        ["style","candle"],
-        () => {
-          this.candle.updateStyle();
-          this.render()
-        }
-      );      
-    }
-
+    state.config.addOnConfigDataChange(
+      this.listenerIds.candleStyle,
+      ["style", "candle"],
+      () => {
+        this.candle.updateStyle();
+        this.render();
+      }
+    );
 
     //===============================================================
     // Crosshair State & Style Subscriptions
     //===============================================================
-    {
-      state.crosshair.addOnCrosshairDataChange("Crosshair render", () => {
+    state.crosshair.addOnCrosshairDataChange(this.listenerIds.crosshairData, () => {
+      this.crosshair.updateData();
+      this.render();
+    });
+
+    state.config.addOnConfigDataChange(
+      this.listenerIds.crosshairStyle,
+      ["style", "crosshair"],
+      () => {
+        this.crosshair.updateStyle();
         this.crosshair.updateData();
         this.render();
-      });
+      }
+    );
 
-      state.config.addOnConfigDataChange(
-        "[chart][render][Renderer.ts] Crosshair style change",
-        ["style","crosshair"],
-        () => {
-          this.crosshair.updateStyle();
-          this.crosshair.updateData();
-          this.render();
-        }
-      );    
+    state.crosshair.addOnAltCrosshairDataChange(this.listenerIds.altCrosshairData, () => {
+      this.crosshair.updateAltData();
+      this.render();
+    });
 
-      state.crosshair.addOnAltCrosshairDataChange("Alt crosshair render", () => {
+    state.config.addOnConfigDataChange(
+      this.listenerIds.altCrosshairStyle,
+      ["style", "altCrosshair"],
+      () => {
+        this.crosshair.updateAltStyle();
         this.crosshair.updateAltData();
         this.render();
-      });
-
-      state.config.addOnConfigDataChange(
-        "[chart][render][Renderer.ts] Alt crosshair style change",
-        ["style","altCrosshair"],
-        () => {
-          this.crosshair.updateAltStyle();
-          this.crosshair.updateAltData();
-          this.render();
-        }
-      );      
-    }
-
+      }
+    );
   }
 
   public setCanvas(canvas: HTMLCanvasElement): void {
@@ -180,59 +220,56 @@ export default class Renderer {
       //===============================================================
       // Season
       //===============================================================
-      this.state.config.removeOnConfigDataChange(
-        "[chart][render][Renderer.ts] Update viewport data for season"
-      );
-
-      this.state.config.removeOnConfigDataChange(
-        "[chart][render][Renderer.ts] Update current strategy data for season"
-      )
-
-      this.state.source.strategy.removeOnStrateryDataChange(
-        "[chart][render][Renderer.ts] Update strategy data for season"
-      );
-
-      this.state.viewport.removeOnViewportTransformDataChange(
-        "[chart][render][Renderer.ts] Update transform for season"
-      );
-
-      this.state.source.strategy.season.removeOnStrategySeasonDataChange(
-        "[chart][render][Renderer.ts] Season style/data update"
-      );
+      if (this.listenerIds.seasonViewport) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.seasonViewport);
+      }
+      if (this.listenerIds.seasonStrategy) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.seasonStrategy);
+      }
+      if (this.listenerIds.seasonData) {
+        this.state.source.strategy.removeOnStrateryDataChange(this.listenerIds.seasonData);
+      }
+      if (this.listenerIds.seasonTransform) {
+        this.state.viewport.removeOnViewportTransformDataChange(this.listenerIds.seasonTransform);
+      }
+      if (this.listenerIds.seasonStyle) {
+        this.state.source.strategy.season.removeOnStrategySeasonDataChange(this.listenerIds.seasonStyle);
+      }
 
       //===============================================================
       // Candle
       //===============================================================
-      this.state.source.candle.removeOnClosedCandleDataChange(
-        "[chart][render][Renderer.ts] Closed candle render"
-      );
-
-      this.state.source.candle.removeOnOpeningCandleDataChange(
-        "[chart][render][Renderer.ts] Opening candle render"
-      );
-
-      this.state.config.removeOnConfigDataChange(
-        "[chart][render][Renderer.ts] Viewport render"
-      );
-
-      this.state.viewport.removeOnViewportTransformDataChange(
-        "[chart][render][Renderer.ts] Viewport render"
-      );
-
-      this.state.config.removeOnConfigDataChange(
-        "[chart][render][Renderer.ts] Candle style update"
-      );
+      if (this.listenerIds.candleClosed) {
+        this.state.source.candle.removeOnClosedCandleDataChange(this.listenerIds.candleClosed);
+      }
+      if (this.listenerIds.candleOpening) {
+        this.state.source.candle.removeOnOpeningCandleDataChange(this.listenerIds.candleOpening);
+      }
+      if (this.listenerIds.candleViewport) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.candleViewport);
+      }
+      if (this.listenerIds.candleTransform) {
+        this.state.viewport.removeOnViewportTransformDataChange(this.listenerIds.candleTransform);
+      }
+      if (this.listenerIds.candleStyle) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.candleStyle);
+      }
 
       //===============================================================
       // Crosshair
       //===============================================================
-      this.state.crosshair.removeOnCrosshairDataChange(
-        "Crosshair render"
-      );
-
-      this.state.config.removeOnConfigDataChange(
-        "[chart][render][Renderer.ts] Crosshair style change"
-      );
+      if (this.listenerIds.crosshairData) {
+        this.state.crosshair.removeOnCrosshairDataChange(this.listenerIds.crosshairData);
+      }
+      if (this.listenerIds.crosshairStyle) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.crosshairStyle);
+      }
+      if (this.listenerIds.altCrosshairData) {
+        this.state.crosshair.removeOnAltCrosshairDataChange(this.listenerIds.altCrosshairData);
+      }
+      if (this.listenerIds.altCrosshairStyle) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.altCrosshairStyle);
+      }
     }
 
     this.season.destroy();
@@ -240,7 +277,6 @@ export default class Renderer {
     this.crosshair.destroy();
 
     this.gl = null;
-    this.chart = null;
     this.state = null;
   }
 

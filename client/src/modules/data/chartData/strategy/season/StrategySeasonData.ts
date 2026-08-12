@@ -132,7 +132,6 @@ export function destroyStrategySeason(): void {
     globalStrategySeasonIntervalId = null;
   }
 
-  strategySeasonDataCallbackMap.clear();
   strategySeasonCacheMap.clear();
   previousStrategySeasonJson = "";
   isStrategySeasonInitialized = false;
@@ -288,8 +287,6 @@ export default class StrategySeasonData {
       strategySeasonDataCallbackMap.delete(this.id);
       this.id = null;
     }
-    this.selectedSeasonRangeCallbacks.clear();
-    this.callbacks.clear();
   }
 
   /**

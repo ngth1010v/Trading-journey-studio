@@ -8,7 +8,18 @@ export default class LinkStateController {
     private state: StateData | null = null;
     private chart: ChartController | null = null;
 
-    private lastSyncDownTimestamp: number = 0;
+    private lastSyncDownTimestamp = {
+        global: 0,
+        viewport: 0,
+        transform: 0,
+        crosshair: 0
+    };
+
+    // Granular Dirty Flags
+    private isSymbolDirty: boolean = true;
+    private isViewportDirty: boolean = true;
+    private isTransformDirty: boolean = true;
+    private isCrosshairDirty: boolean = true;
 
     // Cache Min/Max candle prices & dirty flag
     private isCandleDirty: boolean = true;
@@ -23,21 +34,19 @@ export default class LinkStateController {
         this.chart = chart;
         
         // Global
-        this.state.config.addOnConfigDataChange( BASE_ID + "viewportSyncId sync up", ["viewportSyncId"], this.scheduleSyncUp );
-        this.state.config.addOnConfigDataChange( BASE_ID + "symbol sync up", ["symbol"], this.onCandleDataChange );
+        this.state.config.addOnConfigDataChange( BASE_ID + "viewportSyncId sync up", ["viewportSyncId"], this.onViewportDataChange );
+        this.state.config.addOnConfigDataChange( BASE_ID + "symbol sync up", ["symbol"], this.onSymbolDataChange );
        
         // Viewport
-        this.state.config.addOnConfigDataChange( BASE_ID + "viewport sync up", ["viewport"], this.scheduleSyncUp );
+        this.state.config.addOnConfigDataChange( BASE_ID + "viewport sync up", ["viewport"], this.onViewportDataChange );
         this.state.source.candle.addOnClosedCandleDataChange( BASE_ID + "closedCandle sync up", this.onCandleDataChange );
         this.state.source.candle.addOnOpeningCandleDataChange( BASE_ID + "openingCandle sync up", this.onCandleDataChange );
         
         // Transform
-        this.state.viewport.addOnViewportTransformDataChange(BASE_ID + "transform sync up",this.scheduleSyncUp);
+        this.state.viewport.addOnViewportTransformDataChange(BASE_ID + "transform sync up", this.onTransformDataChange);
 
         // Crosshair
-        this.state.crosshair.addOnCrosshairDataChange( BASE_ID + "crosshair sync up", this.scheduleSyncUp );
-
-
+        this.state.crosshair.addOnCrosshairDataChange( BASE_ID + "crosshair sync up", this.onCrosshairDataChange );
         
         // Mouse leave
         this.chart.event.addOnEvent( "mouseLeave", BASE_ID + "on mouse leave", this.onMouseLeave );
@@ -71,9 +80,30 @@ export default class LinkStateController {
         this.chart = null;
     }
 
+    private onSymbolDataChange = (): void => {
+        this.isSymbolDirty = true;
+        this.scheduleSyncUp();
+    }
+
+    private onViewportDataChange = (): void => {
+        this.isViewportDirty = true;
+        this.scheduleSyncUp();
+    }
+
+    private onTransformDataChange = (): void => {
+        this.isTransformDirty = true;
+        this.scheduleSyncUp();
+    }
+
+    private onCrosshairDataChange = (): void => {
+        this.isCrosshairDirty = true;
+        this.scheduleSyncUp();
+    }
+
     private onCandleDataChange = (): void => {
         this.isCandleDirty = true;
-        this.scheduleSyncUp();
+        this.isViewportDirty = true; // Viewport depends on candles for calc bounds
+        // this.scheduleSyncUp();
     };
 
     private scheduleSyncUp = (): void => {
@@ -88,7 +118,7 @@ export default class LinkStateController {
         this.state?.crosshair.setAlt(null);
         const state = this.state?.sync.link.state.get();
         if (!state) return;
-        state.modifyTimestamp = Date.now();
+        state.modifyTimestamp.crosshair = Date.now();
         state.crosshair = null;
         this.state?.sync.link.state.set(state);
     };
@@ -107,13 +137,14 @@ export default class LinkStateController {
             let lowestPrice = Infinity;
 
             for (let i = 0; i < len; i++) {
+                if (h[i] == l[i] && h[i] == 0) continue
                 if (t[i] < view.fromTs || view.toTs < t[i]) continue
                 if (h[i] > highestPrice) highestPrice = h[i];
                 if (l[i] < lowestPrice) lowestPrice = l[i];
             }
 
             const openingCandle = this.state?.source.candle.getOpening();
-            if (openingCandle) {
+            if (openingCandle && (openingCandle.h != 0 && openingCandle.l != 0)) {
                 if (openingCandle.h > highestPrice) highestPrice = openingCandle.h;
                 if (openingCandle.l < lowestPrice) lowestPrice = openingCandle.l;
             }
@@ -133,86 +164,121 @@ export default class LinkStateController {
         const mode = this.state?.sync.link.getMode();
         if (!mode || mode === "down") return;
 
-        this.calcCandleMinMax()
-        
-        const symbol = this.state?.config.get()?.symbol;
-        if (!symbol) return
+        this.calcCandleMinMax();
+
         const canvasSize = this.chart?.event.getCanvasSize();
         if (!canvasSize || canvasSize.h === 0) return
 
+        const oldState = this.state?.sync.link.state.get();
+        const now = Date.now();
+
+        const newTimestamp = oldState?.modifyTimestamp 
+            ? { ...oldState.modifyTimestamp } 
+            : { global: 0, viewport: 0, transform: 0, crosshair: 0 };
+
+        let currentSymbol = oldState?.symbol ?? "";
+        let newViewportState = oldState?.viewport ?? null;
+        let newTransformState = oldState?.transform ?? null;
+        let newCrosshairState = oldState?.crosshair ?? null;
+
+        // Global / Symbol
+        if (this.isSymbolDirty) {
+            const configSymbol = this.state?.config.get()?.symbol;
+            if (configSymbol) {
+                currentSymbol = configSymbol;
+                newTimestamp.global = now;
+            }
+            this.isSymbolDirty = false;
+        }
 
         // Crosshair
-        let newCrosshairState = null
-        while(true){
-            const crosshairPixel = this.state?.crosshair.getPixel();
-            if (!crosshairPixel) break
+        if (this.isCrosshairDirty) {
+            let calculatedCrosshair = null;
+            while(true) {
+                const crosshairPixel = this.state?.crosshair.getPixel();
+                if (!crosshairPixel) break
 
-            const crosshairTime = this.chart?.viewport.converter.pixelToTimestamp(crosshairPixel.x);
-            const crosshairPrice = this.chart?.viewport.converter.pixelToPrice(crosshairPixel.y);
-            const priceOffsetRatio = crosshairPixel.y / canvasSize.h
-            if (crosshairTime == null || crosshairPrice == null) break;
+                const crosshairTime = this.chart?.viewport.converter.pixelToTimestamp(crosshairPixel.x);
+                const crosshairPrice = this.chart?.viewport.converter.pixelToPrice(crosshairPixel.y);
+                const priceOffsetRatio = crosshairPixel.y / canvasSize.h
+                if (crosshairTime == null || crosshairPrice == null) break;
 
-            newCrosshairState = {
-                price: crosshairPrice,
-                timestamp: crosshairTime,
-                alt: {
-                    priceOffsetRatio: priceOffsetRatio    
+                calculatedCrosshair = {
+                    price: crosshairPrice,
+                    timestamp: crosshairTime,
+                    alt: {
+                        priceOffsetRatio: priceOffsetRatio    
+                    }
                 }
+                break;
             }
-        break}
-
+            newCrosshairState = calculatedCrosshair;
+            newTimestamp.crosshair = now;
+            this.isCrosshairDirty = false;
+        }
 
         // Viewport
-        let newViewportState = null
-        while(true){
-            const viewport = this.state?.config.get()?.viewport;
-            if (!viewport) break
+        if (this.isViewportDirty) {
+            let calculatedViewport = null;
+            while(true) {
+                const viewport = this.state?.config.get()?.viewport;
+                if (!viewport) break
+                
+                if (!this.cachedHighestPrice || !this.cachedLowestPrice) break
+                const highestPricePixel = this.chart?.viewport.converter.priceToPixel(this.cachedHighestPrice);
+                const lowestPricePixel = this.chart?.viewport.converter.priceToPixel(this.cachedLowestPrice);
+                if (highestPricePixel == null || lowestPricePixel == null) break
+                
+              
+                const priceDeltaRatio = Math.abs(lowestPricePixel - highestPricePixel) / canvasSize.h
+                const priceOffsetRatio = highestPricePixel / canvasSize.h
 
-            if (!this.cachedHighestPrice || !this.cachedLowestPrice) break
-            const highestPricePixel = this.chart?.viewport.converter.priceToPixel(this.cachedHighestPrice);
-            const lowestPricePixel = this.chart?.viewport.converter.priceToPixel(this.cachedLowestPrice);
-            if (highestPricePixel == null || lowestPricePixel == null) break
-          
-            const priceDeltaRatio = Math.abs(lowestPricePixel - highestPricePixel) / canvasSize.h
-            const priceOffsetRatio = highestPricePixel / canvasSize.h
-
-            newViewportState = {
-                fromTs: viewport.fromTs,
-                toTs: viewport.toTs,
-                fromPrice: viewport.fromPrice,
-                toPrice: viewport.toPrice,
-                alt: {  
-                    priceDeltaRatio: priceDeltaRatio,
-                    priceOffsetRatio: priceOffsetRatio,      
+                calculatedViewport = {
+                    fromTs: viewport.fromTs,
+                    toTs: viewport.toTs,
+                    fromPrice: viewport.fromPrice,
+                    toPrice: viewport.toPrice,
+                    alt: {  
+                        priceDeltaRatio: priceDeltaRatio,
+                        priceOffsetRatio: priceOffsetRatio,      
+                    }
                 }
+                break;
             }
-        break}
+            newViewportState = calculatedViewport;
+            newTimestamp.viewport = now;
+            this.isViewportDirty = false;
+        }
 
         // Transform
-        let newTransformState = null
-        while(true){
-            const transform = this.state?.viewport.getTransform()
-            if (!transform) break
+        if (this.isTransformDirty) {
+            let calculatedTransform = null;
+            while(true) {
+                const transform = this.state?.viewport.getTransform()
+                if (!transform) break
 
-
-            newTransformState = {
-                scaleX: transform.scaleX,
-                scaleY: transform.scaleY,
-                offsetX: transform.offsetX,
-                offsetY: transform.offsetY
+                calculatedTransform = {
+                    scaleX: transform.scaleX,
+                    scaleY: transform.scaleY,
+                    offsetX: transform.offsetX,
+                    offsetY: transform.offsetY
+                }
+                break;
             }
-        break}
+            newTransformState = calculatedTransform;
+            newTimestamp.transform = now;
+            this.isTransformDirty = false;
+        }
 
         const newState: LinkState = {
-            modifyTimestamp: Date.now(),
-            symbol,
+            modifyTimestamp: newTimestamp,
+            symbol: currentSymbol,
             viewport: newViewportState,
             crosshair: newCrosshairState,
             transform: newTransformState
         };
         this.state?.sync.link.state.set(newState);
     };
-
 
     private syncDown = (): void => {
         if (this.state?.sync.link.state.getRegistriedLinkId() == null) return
@@ -222,16 +288,26 @@ export default class LinkStateController {
         this.calcCandleMinMax()
 
         const linkState = this.state?.sync.link.state.get();
-        if (!linkState) return;
-        if (linkState.modifyTimestamp != null && linkState.modifyTimestamp <= this.lastSyncDownTimestamp) return;
+        if (!linkState || !linkState.modifyTimestamp) return;
 
         const currentSymbol = this.state?.config.get()?.symbol;
         if (!currentSymbol) return;
         const currentCanvasSize = this.chart?.event.getCanvasSize();
         if (!currentCanvasSize || currentCanvasSize.h == 0) return;
 
+        const crosshairChanged = linkState.modifyTimestamp.crosshair > this.lastSyncDownTimestamp.crosshair
+        const transformChanged = linkState.modifyTimestamp.transform > this.lastSyncDownTimestamp.transform
+        const viewportChanged = linkState.modifyTimestamp.viewport > this.lastSyncDownTimestamp.viewport
+
+
+        // Global / Symbol
+        if (linkState.modifyTimestamp.global > this.lastSyncDownTimestamp.global) {
+            // Note: Keeping just the timestamp updated if you don't directly override local symbol yet
+            this.lastSyncDownTimestamp.global = linkState.modifyTimestamp.global;
+        }
+
         // Crosshair
-        {
+        if (crosshairChanged) {
             const crosshairTimestamp = linkState.crosshair?.timestamp;
 
             if (linkState.symbol === currentSymbol) {
@@ -261,70 +337,72 @@ export default class LinkStateController {
                     this.state?.crosshair.setAlt(null);
                 }
             }
+            this.lastSyncDownTimestamp.crosshair = linkState.modifyTimestamp.crosshair;
         }
 
         // Transform
-        if (linkState.transform){
-            this.state?.viewport.setTransform(linkState.transform)
+        if (transformChanged) {
+            if (linkState.transform){
+                this.state?.viewport.setTransform(linkState.transform)
+            }
+            this.lastSyncDownTimestamp.transform = linkState.modifyTimestamp.transform;
         }
 
         // Viewport
-        if (linkState.viewport) {
-            const newViewport = {
-                fromTs: linkState.viewport.fromTs,
-                toTs: linkState.viewport.toTs,
-                fromPrice: linkState.viewport.fromPrice,
-                toPrice: linkState.viewport.toPrice
-            }
+        if (viewportChanged) {
+            if (linkState.viewport) {
+                const newViewport = {
+                    fromTs: linkState.viewport.fromTs,
+                    toTs: linkState.viewport.toTs,
+                    fromPrice: linkState.viewport.fromPrice,
+                    toPrice: linkState.viewport.toPrice
+                }
 
-            if (currentSymbol != linkState.symbol) {
-                while (true) {
-                    if (
-                        this.cachedHighestPrice == null ||
-                        this.cachedLowestPrice == null
-                    ) break
+                if (currentSymbol != linkState.symbol) {
+                    while (true) {
+                        if (
+                            this.cachedHighestPrice == null ||
+                            this.cachedLowestPrice == null
+                        ) break
 
-                    const priceDelta = Math.abs(
-                        this.cachedHighestPrice - this.cachedLowestPrice
-                    )
+                        const priceDelta = Math.abs(
+                            this.cachedHighestPrice - this.cachedLowestPrice
+                        )
 
-                    const pixelDelta =
-                        currentCanvasSize.h *
-                        linkState.viewport.alt.priceDeltaRatio
+                        const pixelDelta =
+                            currentCanvasSize.h *
+                            linkState.viewport.alt.priceDeltaRatio
 
-                    const multi = pixelDelta / priceDelta
+                        const multi = pixelDelta / priceDelta
 
-                    const pixelOffset =
-                        currentCanvasSize.h *
-                        linkState.viewport.alt.priceOffsetRatio
+                        const pixelOffset =
+                            currentCanvasSize.h *
+                            linkState.viewport.alt.priceOffsetRatio
 
-                    const altFromPrice =
-                        this.cachedHighestPrice -
-                        (currentCanvasSize.h - pixelOffset) / multi
+                        const altFromPrice =
+                            this.cachedHighestPrice -
+                            (currentCanvasSize.h - pixelOffset) / multi
 
-                    const altToPrice =
-                        this.cachedHighestPrice +
-                        pixelOffset / multi
+                        const altToPrice =
+                            this.cachedHighestPrice +
+                            pixelOffset / multi
 
-                    newViewport.fromPrice = altFromPrice
-                    newViewport.toPrice = altToPrice
+                        newViewport.fromPrice = altFromPrice
+                        newViewport.toPrice = altToPrice
 
+                        this.state?.config.set({
+                            viewport: newViewport
+                        })
+
+                        break
+                    }
+                } else {
                     this.state?.config.set({
                         viewport: newViewport
                     })
-
-                    break
                 }
-            } else {
-                this.state?.config.set({
-                    viewport: newViewport
-                })
             }
-        }
-
-
-        if (linkState.modifyTimestamp != null) {
-            this.lastSyncDownTimestamp = linkState.modifyTimestamp;
+            this.lastSyncDownTimestamp.viewport = linkState.modifyTimestamp.viewport;
         }
     };
 }

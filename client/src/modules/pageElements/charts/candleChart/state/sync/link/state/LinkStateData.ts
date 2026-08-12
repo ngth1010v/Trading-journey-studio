@@ -1,6 +1,10 @@
-
 export interface LinkState {
-  modifyTimestamp: number;
+  modifyTimestamp: {
+    global: number;
+    viewport: number;
+    transform: number;
+    crosshair: number;
+  };
   symbol: string;
 
   viewport: {
@@ -11,20 +15,20 @@ export interface LinkState {
     alt: {
       priceDeltaRatio: number;
       priceOffsetRatio: number;      
-    }
+    };
   } | null;
   transform: {
-    scaleX: number
-    scaleY: number
-    offsetX: number
-    offsetY: number
-  } | null
+    scaleX: number;
+    scaleY: number;
+    offsetX: number;
+    offsetY: number;
+  } | null;
   crosshair: {
     price: number;
     timestamp: number;
     alt: {
       priceOffsetRatio: number;      
-    }
+    };
   } | null;
 }
 
@@ -43,7 +47,6 @@ export default class LinkStateData {
   public destroy(): void {
     if (!this.isInitialized) return;
     this.unregistry();
-    this.onLinkStateDataChangeListeners.clear();
     this.isInitialized = false;
   }
 
@@ -112,8 +115,8 @@ export default class LinkStateData {
     this.notifyStateChange();
   }
 
-  public getRegistriedLinkId() : number | null{
-    return this.currentLinkId
+  public getRegistriedLinkId(): number | null {
+    return this.currentLinkId;
   }
 
   public set(state: LinkState): void {

@@ -212,7 +212,6 @@ export default function PriceScaleBar({
       setTheme(themeData.current.getSelected())
     );
     return () => {
-      themeData.current.removeOnThemeDataChange(listenerId.current.theme);
       themeData.current.destroy();
     };
   }, []);

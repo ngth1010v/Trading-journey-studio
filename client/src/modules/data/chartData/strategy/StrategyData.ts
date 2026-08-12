@@ -111,7 +111,6 @@ export function destroyStrategy(): void {
   destroyStrategyTag();
   destroyStrategySeason();
 
-  strategyDataCallbackMap.clear();
   strategyCacheMap.clear();
   previousStrategyJson = "";
   isStrategyInitialized = false;
@@ -156,7 +155,6 @@ export default class StrategyData {
     }
     this.tag.destroy();
     this.season.destroy();
-    this.callbacks.clear();
   }
 
   /**
