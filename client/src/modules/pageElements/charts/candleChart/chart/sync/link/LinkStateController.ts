@@ -178,7 +178,9 @@ export default class LinkStateController {
             ? { ...oldState.modifyTimestamp } 
             : { global: 0, viewport: 0, transform: 0, crosshair: 0 };
 
-        let currentSymbol = oldState?.symbol ?? "";
+        const currentSymbol = this.state?.config.get()?.symbol;
+        if (!currentSymbol) return
+
         let newViewportState = oldState?.viewport ?? null;
         let newTransformState = oldState?.transform ?? null;
         let newCrosshairState = oldState?.crosshair ?? null;
@@ -187,7 +189,6 @@ export default class LinkStateController {
         if (this.isSymbolDirty) {
             const configSymbol = this.state?.config.get()?.symbol;
             if (configSymbol) {
-                currentSymbol = configSymbol;
                 newTimestamp.global = now;
             }
             this.isSymbolDirty = false;
@@ -271,7 +272,6 @@ export default class LinkStateController {
             newTimestamp.transform = now;
             this.isTransformDirty = false;
         }
-
         
         const newState: LinkState = {
             modifyTimestamp: newTimestamp,
@@ -327,27 +327,17 @@ export default class LinkStateController {
                             this.cachedLowestPrice == null
                         ) break
 
-                        const priceDelta = Math.abs(
-                            this.cachedHighestPrice - this.cachedLowestPrice
-                        )
-
-                        const pixelDelta =
-                            currentCanvasSize.h *
-                            linkState.viewport.alt.priceDeltaRatio
-
+                        const priceDelta = Math.abs(this.cachedLowestPrice - this.cachedLowestPrice)
+                        const pixelDelta = currentCanvasSize.h * linkState.viewport.alt.priceDeltaRatio
                         const multi = pixelDelta / priceDelta
 
-                        const pixelOffset =
-                            currentCanvasSize.h *
-                            linkState.viewport.alt.priceOffsetRatio
+                        const pixelOffset = currentCanvasSize.h * linkState.viewport.alt.priceOffsetRatio
 
-                        const altFromPrice =
-                            this.cachedHighestPrice -
-                            (currentCanvasSize.h - pixelOffset) / multi
+                        
+                        const offset = pixelOffset - this.cachedLowestPrice * multi
 
-                        const altToPrice =
-                            this.cachedHighestPrice +
-                            pixelOffset / multi
+                        const altToPrice = (0 - offset) / multi
+                        const altFromPrice = (currentCanvasSize.h - offset) / multi
 
                         newViewport.fromPrice = altFromPrice
                         newViewport.toPrice = altToPrice

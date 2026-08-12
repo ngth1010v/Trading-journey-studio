@@ -1,59 +1,26 @@
 import type { SyntheticEvent, MouseEvent, KeyboardEvent } from "react";
-import ViewportEventController from "./viewport/ViewportEventController";
-import CrosshairEventController from "./crosshair/CrosshairEventController";
-import SyncEventController from "./sync/SyncEventController";
-import type StateData from "../../state/StateData";
-import type ChartController from "../ChartController";
-import GlobalEventController from "./GlobalEventController";
 
-export type EventType =
-  | "mouseUp"
-  | "mouseDown"
-  | "mouseMove"
-  | "mouseEnter"
-  | "mouseLeave"
-  | "wheel"
-  | "keyDown"
-  | "keyUp"
-  | "resize";
 
-export type EventCallback = (e: SyntheticEvent | UIEvent | Event | ResizeObserverEntry[] | any) => void;
+import type { EventType, EventCallback } from "./EventController";
+
 
 interface ListenerEntry {
   type: EventType;
   cb: EventCallback;
 }
 
-export default class EventController {
-  private canvas: HTMLCanvasElement | null = null;
+export default class GlobalEventController {
+  private canvas: HTMLDivElement  | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private canvasSize: { w: number; h: number } = { w: 0, h: 0 };
 
   // Store listeners mapped by global ID for O(1) lookups and globally unique IDs
   private listeners: Map<string, ListenerEntry> = new Map();
 
-  public global     : GlobalEventController = new GlobalEventController()
-
-  public viewport   : ViewportEventController = new ViewportEventController()
-  public crosshair  : CrosshairEventController = new CrosshairEventController()
-  public sync       : SyncEventController = new SyncEventController()
-
-  public init(state: StateData, chart: ChartController): void {
-    this.viewport.init(state, chart)
-    this.crosshair.init(state, chart)
-    this.sync.init(state, chart)
-  }
-
-  public destroy() {
-    this.viewport.destroy()
-    this.crosshair.destroy()
-    this.sync.destroy()
-  }
-
   /**
    * Sets the React RefObject reference for the canvas element and sets up a ResizeObserver.
    */
-  public setCanvas(canvas: HTMLCanvasElement): void {
+  public setWrapper(canvas: HTMLDivElement ): void {
     // Clean up previous observer if canvas instance changes or ref unmounts
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
@@ -124,23 +91,23 @@ export default class EventController {
 
   // --- React Synthetic Event Handlers ---
 
-  public onMouseDown = (e: MouseEvent<HTMLCanvasElement>): void => {
+  public onMouseDown = (e: MouseEvent<HTMLDivElement >): void => {
     this.dispatch("mouseDown", e);
   };
 
-  public onMouseUp = (e: MouseEvent<HTMLCanvasElement>): void => {
+  public onMouseUp = (e: MouseEvent<HTMLDivElement >): void => {
     this.dispatch("mouseUp", e);
   };
 
-  public onMouseMove = (e: MouseEvent<HTMLCanvasElement>): void => {
+  public onMouseMove = (e: MouseEvent<HTMLDivElement >): void => {
     this.dispatch("mouseMove", e);
   };
 
-  public onMouseEnter = (e: MouseEvent<HTMLCanvasElement>): void => {
+  public onMouseEnter = (e: MouseEvent<HTMLDivElement >): void => {
     this.dispatch("mouseEnter", e);
   };
 
-  public onMouseLeave = (e: MouseEvent<HTMLCanvasElement>): void => {
+  public onMouseLeave = (e: MouseEvent<HTMLDivElement >): void => {
     this.dispatch("mouseLeave", e);
   };
 
@@ -148,11 +115,11 @@ export default class EventController {
     this.dispatch("wheel", e);
   };
 
-  public onKeyDown = (e: KeyboardEvent<HTMLCanvasElement>): void => {
+  public onKeyDown = (e: KeyboardEvent<HTMLDivElement >): void => {
     this.dispatch("keyDown", e);
   };
 
-  public onKeyUp = (e: KeyboardEvent<HTMLCanvasElement>): void => {
+  public onKeyUp = (e: KeyboardEvent<HTMLDivElement >): void => {
     this.dispatch("keyUp", e);
   };
 

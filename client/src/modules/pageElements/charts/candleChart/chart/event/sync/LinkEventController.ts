@@ -12,10 +12,10 @@ export default class LinkEventController {
         this.state = state
         this.chart = chart
 
-        chart.event.addOnEvent("mouseEnter", ID_BASE + "Trigger sync up", ()=>{
+        chart.event.global.addOnEvent("mouseEnter", ID_BASE + "Trigger sync up", ()=>{
             state.sync.link.setMode("up")
         })
-        chart.event.addOnEvent("mouseLeave", ID_BASE + "Trigger sync down", ()=>{
+        chart.event.global.addOnEvent("mouseLeave", ID_BASE + "Trigger sync down", ()=>{
             state.sync.link.setMode("down")
         })
     }
@@ -23,8 +23,8 @@ export default class LinkEventController {
     destroy(): void {
         
         if (this.chart){
-            this.chart.event.removeOnEvent(ID_BASE + "Trigger sync up")
-            this.chart.event.removeOnEvent(ID_BASE + "Trigger sync down")
+            this.chart.event.global.removeOnEvent(ID_BASE + "Trigger sync up")
+            this.chart.event.global.removeOnEvent(ID_BASE + "Trigger sync down")
         }
         this.chart = null
         this.state = null

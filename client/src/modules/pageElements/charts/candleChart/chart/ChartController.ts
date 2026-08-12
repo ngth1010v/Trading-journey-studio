@@ -16,11 +16,6 @@ export default class ChartController {
         this.sync.init(state, this)
         this.render.init(state, this)
     }
-
-    public setCanvas(canvas: HTMLCanvasElement) {
-        this.event.setCanvas(canvas)
-        this.render.setCanvas(canvas)
-    }
     
     public destroy(): void {
         this.viewport.destroy();

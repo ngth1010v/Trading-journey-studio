@@ -12,7 +12,8 @@ export default function ChartLayer({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    chart.setCanvas(canvas);
+    chart.event.setCanvas(canvas);
+    chart.render.setCanvas(canvas);
 
     const handleWheel = (e: WheelEvent) => {
       // Ngăn browser scroll / Ctrl + Wheel zoom

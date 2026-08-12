@@ -207,6 +207,10 @@ export default class ConfigData {
     };
 
     // Deeply merge default values with existing cache (if any)
+    if (this.cache && this.cache.viewport && (this.cache.viewport.fromPrice == null || this.cache.viewport.toPrice == null)){
+      this.cache.viewport.fromPrice = 0
+      this.cache.viewport.toPrice = 1
+    }
     this.cache = deepMerge(defaultConfig, this.cache ?? {});
 
     this.pageData.init();
@@ -240,6 +244,10 @@ export default class ConfigData {
    */
   public set(partialConfig: Partial<Config>): void {
     const previousCache = this.cache;
+    if (partialConfig.viewport && (partialConfig.viewport.fromPrice === null || partialConfig.viewport.toPrice === null)){
+      partialConfig.viewport.fromPrice = 0
+      partialConfig.viewport.toPrice = 1
+    }
 
     // Deep merge partial update with existing cache
     this.cache = deepMerge(this.cache ?? {}, partialConfig);
@@ -297,6 +305,10 @@ export default class ConfigData {
       if (!page || !element) {
         this.cache = null;
       } else {
+        if (element.data.viewport && (element.data.viewport.fromPrice === null || element.data.viewport.toPrice === null)){
+          element.data.viewport.fromPrice = 0
+          element.data.viewport.toPrice = 1
+        }
         // Deeply merge remote data over existing cached defaults
         this.cache = deepMerge(this.cache ?? {}, element.data ?? {});
       }

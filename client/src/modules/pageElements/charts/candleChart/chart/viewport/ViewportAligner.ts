@@ -73,8 +73,8 @@ export default class ViewportAligner {
       opening.t >= transformedView.fromTs &&
       opening.t <= transformedView.toTs
     ) {
-      if (opening.l < minPrice) minPrice = opening.l;
-      if (opening.h > maxPrice) maxPrice = opening.h;
+      if (opening.l < minPrice && opening.l != 0) minPrice = opening.l;
+      if (opening.h > maxPrice && opening.h != 0) maxPrice = opening.h;
     }
     
     if (!isFinite(minPrice) || !isFinite(maxPrice)) {
@@ -104,9 +104,6 @@ export default class ViewportAligner {
     //----------------------------------------------------------------------
     // Update config.viewport & reset transform
     //----------------------------------------------------------------------
-
-    const currentViewport = state.config.get()?.viewport;
-    if (!currentViewport) return;
 
     state.config.set({
       viewport: {

@@ -15,7 +15,11 @@ export default class StateData {
   public crosshair: CrosshairData = new CrosshairData();
   public sync: SyncData = new SyncData();
 
-  private needResetViewport: boolean = false;
+  private needResetViewport = false;
+  private loadedCandleAfterSymbolChange = {
+    opening: false,
+    closed: false,
+  };
 
   // Lưu trữ các ID dùng để unregister listener khi destroy
   private listenerIds = {
@@ -25,6 +29,7 @@ export default class StateData {
     configTimeframe: "",
     configLink: "",
     candleClosed: "",
+    candleOpening: "",
   };
 
   /**
@@ -52,6 +57,7 @@ export default class StateData {
     this.listenerIds.configTimeframe = this.generateListenerId("timeframe");
     this.listenerIds.configLink = this.generateListenerId("link");
     this.listenerIds.candleClosed = this.generateListenerId("closedCandle");
+    this.listenerIds.candleOpening = this.generateListenerId("openingCandle");
 
     //====================================================================================================
     // Refresh logic
@@ -84,6 +90,10 @@ export default class StateData {
         this.source.trade.setSource(symbol, null);
         this.source.shape.setSource(symbol, null);
         this.needResetViewport = true;
+        this.loadedCandleAfterSymbolChange = {
+          opening: false,
+          closed: false,
+        };
       }
     });
 
@@ -108,12 +118,35 @@ export default class StateData {
       this.sync.link.state.unregistry();
     });
 
-    this.source.candle.addOnClosedCandleDataChange(this.listenerIds.candleClosed, () => {
-      if (this.needResetViewport) {
-        chart.viewport.aligner.autoViewport();
-        this.needResetViewport = false;
+    const tryAutoViewport = () => {
+      if (
+        !this.needResetViewport ||
+        !this.loadedCandleAfterSymbolChange.opening ||
+        !this.loadedCandleAfterSymbolChange.closed
+      ) {
+        return;
       }
-    });
+
+      chart.viewport.aligner.autoViewport();
+
+      this.needResetViewport = false;
+    };
+
+    this.source.candle.addOnClosedCandleDataChange(
+      this.listenerIds.candleClosed,
+      () => {
+        this.loadedCandleAfterSymbolChange.closed = true;
+        tryAutoViewport();
+      }
+    );
+
+    this.source.candle.addOnOpeningCandleDataChange(
+      this.listenerIds.candleOpening,
+      () => {
+        this.loadedCandleAfterSymbolChange.opening = true;
+        tryAutoViewport();
+      }
+    );
   }
 
   /**
@@ -128,6 +161,7 @@ export default class StateData {
     if (this.listenerIds.configLink) this.config.removeOnConfigDataChange(this.listenerIds.configLink);
 
     if (this.listenerIds.candleClosed) this.source.candle.removeOnClosedCandleDataChange(this.listenerIds.candleClosed);
+    if (this.listenerIds.candleOpening) this.source.candle.removeOnClosedCandleDataChange(this.listenerIds.candleOpening);
 
     this.viewport.destroy();
     this.source.destroy();
