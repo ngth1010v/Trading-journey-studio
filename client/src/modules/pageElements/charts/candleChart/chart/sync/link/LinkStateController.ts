@@ -327,18 +327,19 @@ export default class LinkStateController {
                             this.cachedLowestPrice == null
                         ) break
 
-                        const priceDelta = Math.abs(this.cachedLowestPrice - this.cachedLowestPrice)
+                        
+                        const priceDelta = Math.abs(this.cachedLowestPrice - this.cachedHighestPrice)
                         const pixelDelta = currentCanvasSize.h * linkState.viewport.alt.priceDeltaRatio
                         const multi = pixelDelta / priceDelta
-
+                        
                         const pixelOffset = currentCanvasSize.h * linkState.viewport.alt.priceOffsetRatio
-
+                        
                         
                         const offset = pixelOffset - this.cachedLowestPrice * multi
-
+                        
                         const altToPrice = (0 - offset) / multi
                         const altFromPrice = (currentCanvasSize.h - offset) / multi
-
+                        
                         newViewport.fromPrice = altFromPrice
                         newViewport.toPrice = altToPrice
 
