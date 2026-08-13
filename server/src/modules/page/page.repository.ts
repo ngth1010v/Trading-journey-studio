@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Page, PageSummary } from "./page.model.js";
+import { Page } from "./page.model.js";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,88 +26,42 @@ export class PageRepository {
   }
 
   public findAll(): Page[] {
-    const stmt = this.db.prepare(
-      "SELECT id, name, data FROM pages"
-    );
+    const stmt = this.db.prepare("SELECT id, name, data FROM pages");
+    const rows = stmt.all() as { id: number; name: string; data: string }[];
 
-    const rows = stmt.all() as {
-      id: number;
-      name: string;
-      data: string;
-    }[];
-
-    return rows.map(row => ({
+    return rows.map((row) => ({
       id: row.id,
       name: row.name,
       data: JSON.parse(row.data),
     }));
   }
 
-  public findById(id: number): Page | null {
-    const stmt = this.db.prepare(
-      "SELECT id, name, data FROM pages WHERE id = ?"
-    );
+  public flushToDatabase(pages: Page[], deletedIds: Set<number>): void {
+    const deleteStmt = this.db.prepare("DELETE FROM pages WHERE id = ?");
+    const updateStmt = this.db.prepare("UPDATE pages SET name = ?, data = ? WHERE id = ?");
+    const insertStmt = this.db.prepare("INSERT INTO pages (name, data) VALUES (?, ?)");
 
-    const row = stmt.get(id) as
-      | { id: number; name: string; data: string }
-      | undefined;
+    const transaction = this.db.transaction(() => {
+      // 1. Purge deleted records
+      for (const id of deletedIds) {
+        deleteStmt.run(id);
+      }
 
-    if (!row) return null;
+      // 2. Insert or update in-memory pages
+      for (const page of pages) {
+        if (page.id !== undefined) {
+          const res = updateStmt.run(page.name, JSON.stringify(page.data), page.id);
+          if (res.changes === 0) {
+            insertStmt.run(page.name, JSON.stringify(page.data));
+          }
+        } else {
+          const res = insertStmt.run(page.name, JSON.stringify(page.data));
+          page.id = Number(res.lastInsertRowid);
+        }
+      }
+    });
 
-    return {
-      id: row.id,
-      name: row.name,
-      data: JSON.parse(row.data),
-    };
-  }
-
-  public isElementExist(pageId: number, elementId: number): boolean {
-    const stmt = this.db.prepare(`
-      SELECT 1 
-      FROM pages, json_each(pages.data) 
-      WHERE pages.id = ? AND json_extract(json_each.value, '$.id') = ?
-      LIMIT 1
-    `);
-
-    const row = stmt.get(pageId, elementId);
-    return !!row;
-  }
-
-  public create(page: Omit<Page, "id">): number {
-    const stmt = this.db.prepare(
-      "INSERT INTO pages (name, data) VALUES (?, ?)"
-    );
-
-    const result = stmt.run(
-      page.name,
-      JSON.stringify(page.data)
-    );
-
-    return Number(result.lastInsertRowid);
-  }
-
-  public update(page: Required<Page>): boolean {
-    const stmt = this.db.prepare(
-      "UPDATE pages SET name = ?, data = ? WHERE id = ?"
-    );
-
-    const result = stmt.run(
-      page.name,
-      JSON.stringify(page.data),
-      page.id
-    );
-
-    return result.changes > 0;
-  }
-
-  public delete(id: number): boolean {
-    const stmt = this.db.prepare(
-      "DELETE FROM pages WHERE id = ?"
-    );
-
-    const result = stmt.run(id);
-
-    return result.changes > 0;
+    transaction();
   }
 
   public close(): void {

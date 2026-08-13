@@ -13,7 +13,10 @@ export interface Page {
   data: PageElement[];
 }
 
-export interface PageSummary {
-  id: number;
-  name: string;
-}
+export type WsClientMessage =
+  | { type: "SET_PAGE"; payload: Page }
+  | { type: "REMOVE_PAGE"; payload: { id: number } };
+
+export type WsServerMessage =
+  | { type: "INIT"; payload: Page[] }
+  | { type: "PAGES_UPDATED"; payload: Page[] };

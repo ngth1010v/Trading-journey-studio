@@ -9,21 +9,39 @@ const router = Router();
 router.use(linkDataRouter);
 router.use(linkStateRouter);
 
+let wss: WebSocketServer | null = null;
+
 function init(): void {
   linkService.init();
 }
 
 function shutdown(): void {
+  if (wss) {
+    wss.close();
+    wss = null;
+  }
   linkService.shutdown();
 }
 
 function attachWs(server: Server): void {
-    const wss = new WebSocketServer({
-        server,
-        path: '/ws/chartData/candleChart/sync/link/state',
-    });
+  if (wss) return;
 
-    linkService.attachWs(wss);
+  wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (request, socket, head) => {
+    const url = new URL(request.url || "", `http://${request.headers?.host || "localhost"}`);
+
+    // Ignore upgrade requests meant for other WS routes
+    if (url.pathname !== "/ws/chartData/candleChart/sync/link/state") {
+      return;
+    }
+
+    wss!.handleUpgrade(request, socket, head, (ws) => {
+      wss!.emit("connection", ws, request);
+    });
+  });
+
+  linkService.attachWs(wss);
 }
 
 export const link = {

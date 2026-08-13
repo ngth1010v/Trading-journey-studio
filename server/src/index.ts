@@ -50,6 +50,7 @@ function useRouter(): void {
 }
 
 function attachWs(server : Server) {
+    modules.page.attachWs(server);
     modules.chartData.candleChart.sync.link.attachWs(server);
 }
 

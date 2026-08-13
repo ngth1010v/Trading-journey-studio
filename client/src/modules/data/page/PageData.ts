@@ -1,4 +1,4 @@
-import { fetchAllPages, savePageApi, deletePageApi } from "./pageApi";
+import { registerPageApi, unregisterPageApi, flushServerApi } from "./pageApi";
 
 export interface PageElement {
   id: number;
@@ -34,10 +34,8 @@ export const DEFAULT_PAGE: Page = {
   ],
 };
 
-const REFRESH_DURATION = 500; // ms
-
 // ============================================================================
-// GLOBAL STATE & LOOP
+// GLOBAL WEBSOCKET & STATE MANAGEMENT
 // ============================================================================
 
 interface MainTrigger {
@@ -45,11 +43,9 @@ interface MainTrigger {
 }
 
 let isPageInitialized = false;
-let globalRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
+let activeRegistryKey: string | null = null;
+let socket: WebSocket | null = null;
 let pagesCache: Page[] = [];
-
-// Cache tracking variables for change detection
-let previousPagesJson = "";
 
 const pageDataCallbackMap = new Map<string, MainTrigger>();
 
@@ -59,51 +55,63 @@ function notifyGlobalChange(): void {
   }
 }
 
-async function executeGlobalRefresh(): Promise<void> {
+export async function initPage(): Promise<void> {
+  if (isPageInitialized) return;
+
   try {
-    const freshPages = await fetchAllPages();
-    const freshJson = JSON.stringify(freshPages);
+    const { key } = await registerPageApi();
+    activeRegistryKey = key;
 
-    const hasDataChanged = freshJson !== previousPagesJson;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/ws/pages?key=${encodeURIComponent(key)}`;
 
-    if (hasDataChanged) {
-      // Immediately set to cache
-      pagesCache = freshPages;
-      previousPagesJson = freshJson;
+    socket = new WebSocket(wsUrl);
 
-      // Trigger on change
-      notifyGlobalChange();
-    }
+    socket.onopen = () => {
+      isPageInitialized = true;
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === "INIT" || message.type === "PAGES_UPDATED") {
+          pagesCache = message.payload;
+          notifyGlobalChange();
+        }
+      } catch (err) {
+        console.error("[PageData] Failed to parse WebSocket message:", err);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error("[PageData] WebSocket error:", err);
+    };
+
+    socket.onclose = () => {
+      isPageInitialized = false;
+    };
   } catch (err) {
-    console.error("Global page refresh failed:", err);
+    console.error("[PageData] Failed to initialize page module:", err);
   }
 }
 
-export function initPage(): void {
-  if (isPageInitialized) {
-    return;
-  }
-  isPageInitialized = true;
-
-  // Run initial fetch tick
-  executeGlobalRefresh();
-
-  // Start background refresh loop
-  globalRefreshIntervalId = setInterval(executeGlobalRefresh, REFRESH_DURATION);
-}
-
-export function destroyPage(): void {
-  if (!isPageInitialized) {
-    return;
+export async function destroyPage(): Promise<void> {
+  if (socket) {
+    socket.close();
+    socket = null;
   }
 
-  if (globalRefreshIntervalId !== null) {
-    clearInterval(globalRefreshIntervalId);
-    globalRefreshIntervalId = null;
+  if (activeRegistryKey) {
+    try {
+      await unregisterPageApi(activeRegistryKey);
+    } catch (err) {
+      console.error("[PageData] Error during page unregistration:", err);
+    }
+    activeRegistryKey = null;
   }
 
   pagesCache = [];
-  previousPagesJson = "";
   isPageInitialized = false;
 }
 
@@ -113,17 +121,13 @@ export function destroyPage(): void {
 
 export default class PageData {
   public id: string | null = null;
-
   private onPageDataChangeListeners = new Map<string, () => void>();
 
   public init(): void {
-    if (this.id !== null) {
-      return; // Prevent duplicate initialization
-    }
+    if (this.id !== null) return;
 
     this.id = `page_data_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
 
-    // Register main trigger into global map
     pageDataCallbackMap.set(this.id, {
       triggerPageDataChange: () => this.notifyDataChange(),
     });
@@ -141,51 +145,40 @@ export default class PageData {
     return page;
   }
 
-  public async set(page: Page): Promise<void> {
-    // Check if given page has an id
-    if (page.id === undefined || page.id === null) {
-      // No id: just save directly to server
-      await savePageApi(page);
+  public set(page: Page): void {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error("[PageData] Cannot set page: WebSocket is not connected.");
       return;
     }
-
-    // Has id: check if page has changed against cache
-    const cachedPage = pagesCache.find((p) => p.id === page.id);
-    const isChanged = !cachedPage || JSON.stringify(cachedPage) !== JSON.stringify(page);
-
-    if (!isChanged) {
-      // Page hasn't changed: do nothing
-      return;
-    }
-
-    // Immediately update local cache
-    const existingIndex = pagesCache.findIndex((p) => p.id === page.id);
-    if (existingIndex !== -1) {
-      pagesCache[existingIndex] = page;
-    } else {
-      pagesCache.push(page);
-    }
-    previousPagesJson = JSON.stringify(pagesCache);
-
-    // Trigger change callback on all instances
-    notifyGlobalChange();
-
-    // Send updated page to server
-    await savePageApi(page);
+    socket.send(JSON.stringify({ type: "SET_PAGE", payload: page }));
   }
 
-  public async remove(id: number): Promise<void> {
-    // Send directly to server; global refresh loop handles cache & notification updates
-    await deletePageApi(id);
+  public remove(id: number): void {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error("[PageData] Cannot remove page: WebSocket is not connected.");
+      return;
+    }
+    socket.send(JSON.stringify({ type: "REMOVE_PAGE", payload: { id } }));
+  }
+
+  public async flushServer(): Promise<void> {
+    await flushServerApi();
   }
 
   public addOnPageDataChange(id: string, cb: () => void): void {
     this.onPageDataChangeListeners.set(id, cb);
+    if (pagesCache.length > 0) {
+      try {
+        cb();
+      } catch (err) {
+        console.error("[PageData] Error executing immediate callback:", err);
+      }
+    }
   }
 
   public removeOnPageDataChange(id: string): void {
     if (!this.onPageDataChangeListeners.has(id)) {
-      console.warn(`[PageData] Listener ID '${id}' not found in onPageDataChange listeners.`);
+      console.warn(`[PageData] Listener ID '${id}' not found.`);
       return;
     }
     this.onPageDataChangeListeners.delete(id);
@@ -206,5 +199,6 @@ export default class PageData {
       pageDataCallbackMap.delete(this.id);
       this.id = null;
     }
+    this.onPageDataChangeListeners.clear();
   }
 }

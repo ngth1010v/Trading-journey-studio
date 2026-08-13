@@ -1,15 +1,48 @@
-import { PageRepository } from './page.repository.js';
-import { Page, PageSummary } from './page.model.js';
+import { PageRepository } from "./page.repository.js";
+import { Page } from "./page.model.js";
+import crypto from "crypto";
 
 export class PageService {
+  private pagesInMemory = new Map<number, Page>();
+  private deletedPageIds = new Set<number>();
+  private registeredKeys = new Set<string>();
+  private nextTempId = 1;
+
   constructor(private repository: PageRepository) {}
 
+  public init(): void {
+    const pagesFromDb = this.repository.findAll();
+    let maxId = 0;
+
+    for (const page of pagesFromDb) {
+      if (page.id !== undefined) {
+        this.pagesInMemory.set(page.id, page);
+        if (page.id > maxId) maxId = page.id;
+      }
+    }
+    this.nextTempId = maxId + 1;
+  }
+
+  public registerKey(): string {
+    const key = crypto.randomUUID();
+    this.registeredKeys.add(key);
+    return key;
+  }
+
+  public unregisterKey(key: string): boolean {
+    return this.registeredKeys.delete(key);
+  }
+
+  public isValidKey(key: string): boolean {
+    return this.registeredKeys.has(key);
+  }
+
   public getAllPages(): Page[] {
-    return this.repository.findAll();
+    return Array.from(this.pagesInMemory.values());
   }
 
   public getPageById(id: number): Page {
-    const page = this.repository.findById(id);
+    const page = this.pagesInMemory.get(id);
     if (!page) {
       throw new Error(`Page with ID ${id} not found`);
     }
@@ -17,29 +50,34 @@ export class PageService {
   }
 
   public isElementExist(pageId: number, elementId: number): boolean {
-    return this.repository.isElementExist(pageId, elementId);
+    const page = this.pagesInMemory.get(pageId);
+    if (!page) return false;
+    return page.data.some((element) => element.id === elementId);
   }
 
-  public savePage(pageData: Page): { id: number } {
-    // Strict Update/Create Split logic
-    if (pageData.id !== undefined) {
-      const exists = this.repository.findById(pageData.id);
-      if (!exists) {
-        throw new Error(`Cannot update: Page with ID ${pageData.id} does not exist`);
-      }
-      
-      this.repository.update(pageData as Required<Page>);
-      return { id: pageData.id };
-    } else {
-      const newId = this.repository.create(pageData);
-      return { id: newId };
+  public setPage(page: Page): Page {
+    let targetId = page.id;
+
+    if (targetId === undefined) {
+      targetId = this.nextTempId++;
+      page.id = targetId;
+    }
+
+    this.deletedPageIds.delete(targetId);
+    this.pagesInMemory.set(targetId, page);
+    return page;
+  }
+
+  public removePage(id: number): void {
+    if (this.pagesInMemory.has(id)) {
+      this.pagesInMemory.delete(id);
+      this.deletedPageIds.add(id);
     }
   }
 
-  public deletePage(id: number): void {
-    const deleted = this.repository.delete(id);
-    if (!deleted) {
-      throw new Error(`Cannot delete: Page with ID ${id} does not exist`);
-    }
+  public flush(): void {
+    const activePages = Array.from(this.pagesInMemory.values());
+    this.repository.flushToDatabase(activePages, this.deletedPageIds);
+    this.deletedPageIds.clear();
   }
 }
