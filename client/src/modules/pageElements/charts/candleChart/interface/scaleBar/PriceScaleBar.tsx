@@ -112,7 +112,7 @@ const formatRemainTime = (closeTimeMs: number | null, timeframe: string | undefi
 };
 
 const toRgba = (c: RGBA | undefined | null) => {
-  return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] ?? 255)})` : "transparent";
+  return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] ?? 255) / 255})` : "transparent";
 };
 const toRgb = (c: RGB | undefined | null) => (c ? `rgb(${c[0]}, ${c[1]}, ${c[2]})` : "#ffffff");
 

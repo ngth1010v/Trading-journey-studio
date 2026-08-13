@@ -43,7 +43,7 @@ export default function ScaleBar({
   }, []);
 
   const helperColors = useMemo(() => {
-    const toRgba = (c: number[]) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] ?? 1})`;
+    const toRgba = (c: number[]) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] ?? 255)/255})`;
     const toRgb = (c: number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
     return {
       bg: toRgba(theme.button.disable.background),

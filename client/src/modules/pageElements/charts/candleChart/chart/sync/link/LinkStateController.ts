@@ -40,7 +40,6 @@ export default class LinkStateController {
         // Viewport
         this.state.config.addOnConfigDataChange( BASE_ID + "viewport sync up", ["viewport"], this.onViewportDataChange );
         this.state.source.candle.addOnClosedCandleDataChange( BASE_ID + "closedCandle sync up", this.onCandleDataChange );
-        this.state.source.candle.addOnOpeningCandleDataChange( BASE_ID + "openingCandle sync up", this.onCandleDataChange );
         
         // Transform
         this.state.viewport.addOnViewportTransformDataChange(BASE_ID + "transform sync up", this.onTransformDataChange);
@@ -141,12 +140,6 @@ export default class LinkStateController {
                 if (t[i] < view.fromTs || view.toTs < t[i]) continue
                 if (h[i] > highestPrice) highestPrice = h[i];
                 if (l[i] < lowestPrice) lowestPrice = l[i];
-            }
-
-            const openingCandle = this.state?.source.candle.getOpening();
-            if (openingCandle && (openingCandle.h != 0 && openingCandle.l != 0)) {
-                if (openingCandle.h > highestPrice) highestPrice = openingCandle.h;
-                if (openingCandle.l < lowestPrice) lowestPrice = openingCandle.l;
             }
 
             if (highestPrice === -Infinity || lowestPrice === Infinity) {
