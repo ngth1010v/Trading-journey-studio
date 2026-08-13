@@ -325,31 +325,32 @@ export default class LinkStateController {
                         if (
                             this.cachedHighestPrice == null ||
                             this.cachedLowestPrice == null
-                        ) break
+                        ) break;
 
+                        const priceDelta = Math.abs(this.cachedHighestPrice - this.cachedLowestPrice);
+                        if (priceDelta === 0) break;
+
+                        const pixelDelta = currentCanvasSize.h * linkState.viewport.alt.priceDeltaRatio;
+                        const multi = pixelDelta / priceDelta; // Pixels trên 1 đơn vị giá
                         
-                        const priceDelta = Math.abs(this.cachedLowestPrice - this.cachedHighestPrice)
-                        const pixelDelta = currentCanvasSize.h * linkState.viewport.alt.priceDeltaRatio
-                        const multi = pixelDelta / priceDelta
+                        // pixelOffset chính là vị trí Y (pixel) của cachedHighestPrice trên Chart này
+                        const pixelOffset = currentCanvasSize.h * linkState.viewport.alt.priceOffsetRatio;
                         
-                        const pixelOffset = currentCanvasSize.h * linkState.viewport.alt.priceOffsetRatio
+                        // Tính toPrice (Top - Y = 0) và fromPrice (Bottom - Y = Height)
+                        const altToPrice = this.cachedHighestPrice + (pixelOffset / multi);
+                        const altFromPrice = this.cachedHighestPrice - ((currentCanvasSize.h - pixelOffset) / multi);
                         
-                        
-                        const offset = pixelOffset - this.cachedLowestPrice * multi
-                        
-                        const altToPrice = (0 - offset) / multi
-                        const altFromPrice = (currentCanvasSize.h - offset) / multi
-                        
-                        newViewport.fromPrice = altFromPrice
-                        newViewport.toPrice = altToPrice
+                        newViewport.fromPrice = altFromPrice;
+                        newViewport.toPrice = altToPrice;
 
                         this.state?.config.set({
                             viewport: newViewport
-                        })
+                        });
 
-                        break
+                        break;
                     }
-                } else {
+                }
+                else {
                     this.state?.config.set({
                         viewport: newViewport
                     })
