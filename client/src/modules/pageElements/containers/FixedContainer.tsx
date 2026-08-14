@@ -1,78 +1,57 @@
-import { useEffect, useRef, useReducer, useId } from "react";
-import ThemeData, { type Theme, DEFAULT_THEME } from "../../data/theme/ThemeData";
-import PageData, { type Page } from "../../data/page/PageData";
+import { useEffect, useRef, useId, useState } from "react";
+import ThemeData, { type Theme } from "../../data/theme/ThemeData";
 import { ELEMENT_MAP } from "../elementMap";
+import PageElementData, {type PageElement} from "../../data/pageElement/PageElementData";
+import type { RGBA } from "../../shared/type";
 
-export default function FixedContainer({
-    pageId,
-    elementId
-}: {
-    pageId: number;
-    elementId: number;
-}) {
-    const themeRef = useRef<Theme>(DEFAULT_THEME);
-    const pageRef = useRef<Page | null>(null);
+const FIXED_CONTAINER_DEFAULT_CONFIG = {
+    rows: 1,
+    columns: 1,
+    padding: "0px",
+    gap: "0px"
+}
 
-    const themeDataRef = useRef<ThemeData | null>(null);
-    const pageDataRef = useRef<PageData | null>(null);
 
-    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-    const listenerId = useId();
+const toRgba = (rgba: RGBA | null) => rgba ? `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3] / 255})` : "transparent";
 
-    useEffect(() => {
-        let isMounted = true;
+export default function FixedContainer({elementPageId}: {elementPageId: number;}) {
+    
+    const listenerIdRef = useRef<string>("[FixedContainer.tsx]" + String(useId()));
+    
+    const themeDataRef = useRef<ThemeData>(new ThemeData())
+    const pageElementDataRef = useRef<PageElementData>(new PageElementData())
 
-        // Initialize ThemeData
-        const themeData = new ThemeData();
-        themeDataRef.current = themeData;
-        themeData.init();
+    const [theme,setTheme]                  = useState<Theme>(themeDataRef.current.getSelected())
+    const [pageElements, setPageElements]   = useState<PageElement[]|null>(null)
+    const [pageElement, setPageElement]     = useState<PageElement|null>(null)
+    const [config, setConfig]               = useState<any | null>(null)
 
-        themeData.addOnSelectedThemeDataChange(listenerId, () => {
-            if (isMounted) {
-                themeRef.current = themeData.getSelected();
-                forceUpdate();
-            }
-        });
+    useEffect(()=>{
+        themeDataRef.current.init()
+        pageElementDataRef.current.init()
+        pageElementDataRef.current.config.init(elementPageId, FIXED_CONTAINER_DEFAULT_CONFIG)
 
-        // Initialize PageData
-        const pageData = new PageData();
-        pageDataRef.current = pageData;
-        pageData.init();
+        themeDataRef.current.addOnSelectedThemeDataChange(listenerIdRef.current, ()=>{setTheme(themeDataRef.current.getSelected())})
+        pageElementDataRef.current.addOnPageElementDataChange(listenerIdRef.current, ()=>{
+            setPageElements(pageElementDataRef.current.getAll())
+            setPageElement(pageElementDataRef.current.get(elementPageId))
+        })
+        pageElementDataRef.current.config.addOnPageElementConfigDataChange(listenerIdRef.current, ()=>{setConfig(pageElementDataRef.current.config.get())})
+        
+        return ()=>{
+            pageElementDataRef.current.config.removeOnPageElementConfigDataChange(listenerIdRef.current)
+            pageElementDataRef.current.removeOnPageElementDataChange(listenerIdRef.current)
+            themeDataRef.current.removeOnSelectedThemeDataChange(listenerIdRef.current)
 
-        const updatePage = () => {
-            if (!isMounted) return;
-            try {
-                const updatedPage = pageData.get(pageId);
-                pageRef.current = updatedPage;
-            } catch (err) {
-                pageRef.current = null;
-            }
-            forceUpdate();
-        };
+            pageElementDataRef.current.config.destroy()
+            pageElementDataRef.current.destroy()
+            themeDataRef.current.destroy()
+        }
+    },[elementPageId])
 
-        updatePage();
-        pageData.addOnPageDataChange(listenerId, updatePage);
 
-        return () => {
-            isMounted = false;
-            themeData.removeOnSelectedThemeDataChange(listenerId);
-            themeData.destroy();
 
-            pageData.removeOnPageDataChange(listenerId);
-            pageData.destroy();
-
-            themeDataRef.current = null;
-            pageDataRef.current = null;
-        };
-    }, [pageId, listenerId]);
-
-    const toRgba = (rgba: [number, number, number, number]) =>
-        `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3]})`;
-
-    const theme = themeRef.current;
-    const page = pageRef.current;
-
-    if (!page) {
+    if (!pageElement || !config) {
         return (
             <div
                 style={{
@@ -81,28 +60,8 @@ export default function FixedContainer({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: toRgba(theme.panel.normal1.background),
-                    color: toRgba(theme.panel.normal1.border),
-                    boxSizing: "border-box"
-                }}
-            >
-                Loading...
-            </div>
-        );
-    }
-
-    const element = page.data.find((el) => el.id === elementId);
-    if (!element) {
-        return (
-            <div
-                style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: toRgba(theme.panel.normal1.background),
-                    color: toRgba(theme.panel.normal1.border),
+                    background: toRgba(theme?.panel.normal1.background ? theme?.panel.normal1.background : null),
+                    color: toRgba(theme?.panel.normal1.border ? theme?.panel.normal1.border : null),
                     boxSizing: "border-box"
                 }}
             >
@@ -112,10 +71,7 @@ export default function FixedContainer({
     }
 
     // Resolve configuration by falling back to ELEMENT_MAP defaults, then overriding with element specific data
-    const compConfig = ELEMENT_MAP[element.type as keyof typeof ELEMENT_MAP];
-    const configData = { ...compConfig?.data, ...element.data };
-
-    const children = page.data.filter((el) => el.parentId === elementId);
+    const children = pageElements?.filter((element) => element.parentId === elementPageId);
 
     return (
         <div
@@ -125,17 +81,17 @@ export default function FixedContainer({
                 background: toRgba(theme.panel.normal1.background),
                 border: `1px solid ${toRgba(theme.panel.normal1.border)}`,
                 display: "grid",
-                gridTemplateColumns: `repeat(${configData.columns || 1}, 1fr)`,
-                gridTemplateRows: `repeat(${configData.rows || 1}, 1fr)`,
-                gap: configData.gap || "0px",
-                padding: configData.padding || "0px",
+                gridTemplateColumns: `repeat(${config.columns || 1}, 1fr)`,
+                gridTemplateRows: `repeat(${config.rows || 1}, 1fr)`,
+                gap: config.gap || "0px",
+                padding: config.padding || "0px",
                 overflow: "hidden", // Fixed container has no scroll
                 boxSizing: "border-box"
             }}
         >
-            {children.map((child) => {
+            {children?.map((child) => {
                 const childCompEntry = ELEMENT_MAP[child.type as keyof typeof ELEMENT_MAP];
-                if (!childCompEntry) return null;
+                if (!childCompEntry || child.id == null) return null;
 
                 const ChildComponent = childCompEntry.component;
 
@@ -147,7 +103,7 @@ export default function FixedContainer({
                             gridRow: `${child.position.y + 1} / span ${child.size.h}`,
                         }}
                     >
-                        <ChildComponent pageId={pageId} elementId={child.id} />
+                        <ChildComponent elementPageId={child.id} />
                     </div>
                 );
             })}

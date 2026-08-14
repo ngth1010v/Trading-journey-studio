@@ -30,6 +30,7 @@ app.get('/', (_req: Request, res: Response) => {
 function startup(): void {
     modules.color.init();
     modules.theme.init();
+    modules.pageElement.init();
     modules.page.init();
     modules.chartData.strategy.init();
     modules.chartData.trade.init();
@@ -42,6 +43,7 @@ function startup(): void {
 function useRouter(): void {
     app.use(modules.color.router);
     app.use(modules.theme.router);
+    app.use(modules.pageElement.router);
     app.use(modules.page.router);
     app.use(modules.chartData.strategy.router);
     app.use(modules.chartData.trade.router);
@@ -62,6 +64,7 @@ async function shutdown(): Promise<void> {
 
     modules.color.shutdown();
     modules.theme.shutdown();
+    modules.pageElement.shutdown();
     modules.page.shutdown();
     modules.chartData.strategy.shutdown();
     modules.chartData.trade.shutdown();

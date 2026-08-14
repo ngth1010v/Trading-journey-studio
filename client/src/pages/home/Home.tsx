@@ -57,6 +57,10 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
     const themeData = themeDataRef.current!;
     const pageData = pageDataRef.current!;
 
+    // Initialize instances
+    themeData.init();
+    pageData.init();
+
     // Register listeners
     themeData.addOnSelectedThemeDataChange(listenerId, () => {
       setTheme(themeData.getSelected());
@@ -67,10 +71,6 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
       // Clean up placeholders once real data synchronizes
       setPlaceholders([]);
     });
-
-    // Initialize instances
-    themeData.init();
-    pageData.init();
 
     // Initial sync in case data updated right at init
     setTheme(themeData.getSelected());
@@ -112,7 +112,7 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
     setTimeout(async () => {
       if (pageDataRef.current) {
         try {
-          await pageDataRef.current.remove(id);
+          pageDataRef.current.remove(id);
         } catch (error) {
           console.error("Failed to remove page:", error);
           // Restore row on failure
