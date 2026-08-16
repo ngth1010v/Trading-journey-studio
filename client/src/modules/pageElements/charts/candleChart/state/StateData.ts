@@ -43,8 +43,8 @@ export default class StateData {
   /**
    * Initializes config, viewport, and source data instances.
    */
-  public init(pageId: number, elementId: number, chart: ChartController): void {
-    this.config.init(pageId, elementId);
+  public init(pageElementId: number, chart: ChartController): void {
+    this.config.init(pageElementId);
     this.crosshair.init();
     this.viewport.init(this, chart);
     this.source.init();

@@ -8,13 +8,7 @@ import styles from "./CandleChart.module.css";
 import ScaleBar from "./interface/scaleBar/ScaleBar";
 import FloatingBar from "./interface/floatingBar/FloatingBar";
 
-export default function CandleChart({
-  elementId,
-  pageId
-}: {
-  elementId: number;
-  pageId: number;
-}) {
+export default function CandleChart({ pageElementId }: { pageElementId: number; }) {
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
   
   // Keep persistent instances across renders using refs
@@ -28,7 +22,7 @@ export default function CandleChart({
   const themeData = themeDataRef.current;
 
   useEffect(() => {
-    const listenerId = `[CandleChart_${pageId}_${elementId}_] ${Math.random().toString(36).substring(2, 9)}`;
+    const listenerId = `[CandleChart_${pageElementId}_] ${Math.random().toString(36).substring(2, 9)}`;
     
     themeData.init();
     setTheme(themeData.getSelected());
@@ -36,7 +30,7 @@ export default function CandleChart({
         setTheme(themeData.getSelected());
     });
     
-    state.init(pageId, elementId, chart);
+    state.init(pageElementId, chart);
     chart.init(state);
     const eventWrapper = eventWrapperRef.current;
     if (eventWrapper) {
@@ -50,7 +44,7 @@ export default function CandleChart({
       chart.destroy();
       state.destroy();
     };
-  }, [pageId, elementId]);
+  }, [pageElementId]);
 
   const toRgba = (rgba: [number, number, number, number]) =>
     `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3]})`;

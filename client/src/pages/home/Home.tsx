@@ -1,16 +1,14 @@
 import { useEffect, useState, useId, useRef } from "react";
 import styles from "./Home.module.css";
 import ThemeData, { DEFAULT_THEME, type Theme } from "../../modules/data/theme/ThemeData";
-import PageData, { type Page, DEFAULT_PAGE } from "../../modules/data/page/PageData";
+import PageElementData, { type PageElement } from "../../modules/data/pageElement/PageElementData";
 
-import OpenIcon     from "../../assets/icons/export.svg?react";
-import TjsIcon      from "../../assets/icons/tjs.svg?react";
-import SettingIcon  from "../../assets/icons/wrench.svg?react";
-import RemoveIcon   from "../../assets/icons/x.svg?react";
+import OpenIcon from "../../assets/icons/export.svg?react";
+import TjsIcon from "../../assets/icons/tjs.svg?react";
+import RemoveIcon from "../../assets/icons/x.svg?react";
 
 interface HomeProps {
-  onSelectPage: (id: number) => void;
-  onSelectEditPage: (id: number) => void;
+  onSelectPageElement: (id: number) => void;
 }
 
 interface RowItem {
@@ -20,7 +18,7 @@ interface RowItem {
   isPlaceholder?: boolean;
   isExiting?: boolean;
   isNew?: boolean;
-  pageDataRef?: Page;
+  pageElementDataRef?: PageElement;
 }
 
 const formatRgba = (color: [number, number, number, number]) =>
@@ -29,7 +27,7 @@ const formatRgba = (color: [number, number, number, number]) =>
 const formatRgb = (color: [number, number, number]) =>
   `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
 
-export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
+export default function Home({ onSelectPageElement }: HomeProps) {
   const listenerId = useId();
 
   // 1. Initialize useRef instances (lazy instantiation on first render)
@@ -38,91 +36,87 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
     themeDataRef.current = new ThemeData();
   }
 
-  const pageDataRef = useRef<PageData | null>(null);
-  if (!pageDataRef.current) {
-    pageDataRef.current = new PageData();
+  const pageElementDataRef = useRef<PageElementData | null>(null);
+  if (!pageElementDataRef.current) {
+    pageElementDataRef.current = new PageElementData();
   }
 
-  // 3. Initialize state directly from ref methods on first render
+  // 2. Initialize state directly from ref methods on first render
   const [theme, setTheme] = useState<Theme>(() => themeDataRef.current!.getSelected());
-  const [pages, setPages] = useState<Page[]>(() => pageDataRef.current!.getAll());
+  const [pageElements, setPageElements] = useState<PageElement[]>(() =>
+    pageElementDataRef.current!.getAll()
+  );
 
   const [exitingIds, setExitingIds] = useState<Set<number>>(new Set());
   const [placeholders, setPlaceholders] = useState<{ tempId: string; name: string }[]>([]);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
   const [isAddHovered, setIsAddHovered] = useState(false);
 
-  // 2. Lifecycle management for instances and change listeners
+  // 3. Lifecycle management for instances and change listeners
   useEffect(() => {
     const themeData = themeDataRef.current!;
-    const pageData = pageDataRef.current!;
+    const pageElementData = pageElementDataRef.current!;
 
     // Initialize instances
     themeData.init();
-    pageData.init();
+    pageElementData.init();
 
     // Register listeners
     themeData.addOnSelectedThemeDataChange(listenerId, () => {
       setTheme(themeData.getSelected());
     });
 
-    pageData.addOnPageDataChange(listenerId, () => {
-      setPages(pageData.getAll());
+    pageElementData.addOnPageElementDataChange(listenerId, () => {
+      setPageElements(pageElementData.getAll());
       // Clean up placeholders once real data synchronizes
       setPlaceholders([]);
     });
 
     // Initial sync in case data updated right at init
     setTheme(themeData.getSelected());
-    setPages(pageData.getAll());
+    setPageElements(pageElementData.getAll());
 
     return () => {
       themeData.removeOnSelectedThemeDataChange(listenerId);
       themeData.destroy();
 
-      pageData.removeOnPageDataChange(listenerId);
-      pageData.destroy();
+      pageElementData.removeOnPageElementDataChange(listenerId);
+      pageElementData.destroy();
     };
   }, [listenerId]);
 
   const activeTheme = theme || DEFAULT_THEME;
 
-  const handleAddPage = async () => {
+  const handleAddPageElement = async () => {
     const tempId = `temp-${Date.now()}`;
-    // Add placeholder with slide-in state
-    setPlaceholders((prev) => [...prev, { tempId, name: DEFAULT_PAGE.name }]);
+    if (pageElementDataRef.current) {
+      const defaultElement = pageElementDataRef.current.getDefault();
+      const defaultName = defaultElement.entryName || "Unnamed Element";
 
-    if (pageDataRef.current) {
+      // Add placeholder with slide-in state
+      setPlaceholders((prev) => [...prev, { tempId, name: defaultName }]);
+
       try {
-        await pageDataRef.current.set(DEFAULT_PAGE);
+        await pageElementDataRef.current.set(defaultElement);
       } catch (error) {
-        console.error("Failed to add new page:", error);
+        console.error("Failed to add new page element:", error);
         setPlaceholders((prev) => prev.filter((p) => p.tempId !== tempId));
       }
     }
   };
 
-  const handleRemovePage = async (e: React.MouseEvent, id: number) => {
+  const handleRemovePageElement = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
 
-    // Mark page as exiting to trigger slide-out animation
+    // Mark page element as exiting to trigger slide-out animation (placeholder action)
     setExitingIds((prev) => new Set(prev).add(id));
 
-    // Wait for animation duration (300ms) before sending remove API call
-    setTimeout(async () => {
-      if (pageDataRef.current) {
-        try {
-          pageDataRef.current.remove(id);
-        } catch (error) {
-          console.error("Failed to remove page:", error);
-          // Restore row on failure
-          setExitingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        }
-      }
+    setTimeout(() => {
+      setExitingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }, 300);
   };
 
@@ -130,14 +124,17 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
     ? activeTheme.button.primary2
     : activeTheme.button.normal1;
 
-  // Render combined list of real pages & optimistic placeholders
+  // Filter page elements to only display entries (entry === true)
+  const entryElements = pageElements.filter((el) => el.entry === true);
+
+  // Render combined list of real page elements & optimistic placeholders
   const displayRows: RowItem[] = [
-    ...pages.map((p) => ({
-      key: `page-${p.id}`,
+    ...entryElements.map((p) => ({
+      key: `page-element-${p.id}`,
       id: p.id,
-      name: p.name,
+      name: p.entryName || "Unnamed Element",
       isExiting: p.id !== undefined && exitingIds.has(p.id),
-      pageDataRef: p,
+      pageElementDataRef: p,
     })),
     ...placeholders.map((ph) => ({
       key: ph.tempId,
@@ -198,7 +195,7 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
                   onMouseLeave={() => setHoveredRowKey(null)}
                   onClick={() => {
                     if (!row.isPlaceholder && row.id !== undefined && !row.isExiting) {
-                      onSelectPage(row.id);
+                      onSelectPageElement(row.id);
                     }
                   }}
                 >
@@ -206,34 +203,18 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
 
                   <div className={styles.actionContainer}>
                     {isHovered && !row.isPlaceholder && !row.isExiting && (
-                      <>
-                        <button
-                          type="button"
-                          className={styles.settingButton}
-                          title="Remove Page"
-                          onClick={(e) => {
-                            if (row.id !== undefined) {
-                              handleRemovePage(e, row.id);
-                            }
-                          }}
-                        >
-                          <RemoveIcon />
-                        </button>
-
-                        <button
-                          type="button"
-                          className={styles.settingButton}
-                          title="Edit Page"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (row.id !== undefined) {
-                              onSelectEditPage(row.id);
-                            }
-                          }}
-                        >
-                          <SettingIcon />
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        className={styles.settingButton}
+                        title="Remove Element"
+                        onClick={(e) => {
+                          if (row.id !== undefined) {
+                            handleRemovePageElement(e, row.id);
+                          }
+                        }}
+                      >
+                        <RemoveIcon />
+                      </button>
                     )}
                     <div className={styles.openIcon}>
                       <OpenIcon />
@@ -244,7 +225,7 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
             );
           })}
 
-          {/* Add New Page Row */}
+          {/* Add New Page Element Row */}
           <div
             className={styles.addPageRow}
             style={{
@@ -254,7 +235,7 @@ export default function Home({ onSelectPage, onSelectEditPage }: HomeProps) {
             }}
             onMouseEnter={() => setIsAddHovered(true)}
             onMouseLeave={() => setIsAddHovered(false)}
-            onClick={handleAddPage}
+            onClick={handleAddPageElement}
           >
             +
           </div>

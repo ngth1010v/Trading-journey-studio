@@ -118,6 +118,30 @@ export default class PageElementData {
     return Array.from(pageElementsCacheMap.values());
   }
 
+  public getDefault(): PageElement {
+    const existingNames = new Set(
+      this.getAll().map((element) => element.entryName)
+    );
+
+    let number = 1;
+    let entryName = `Default ${number}`;
+
+    while (existingNames.has(entryName)) {
+      number++;
+      entryName = `Default ${number}`;
+    }
+
+    return {
+      id: undefined,
+      parentId: null,
+      entry: true,
+      entryName,
+      type: "container.FixedContainer",
+      position: { x: 0, y: 0 },
+      size: { w: 1, h: 1 },
+    };
+  }
+
   public set(pageElement: PageElement): void {
     // If id is provided -> save to local cache + send to server
     if (pageElement.id !== undefined && pageElement.id !== null) {
