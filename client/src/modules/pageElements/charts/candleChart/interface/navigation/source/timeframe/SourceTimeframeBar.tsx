@@ -86,7 +86,7 @@ export default function SourceTimeframeBar({ state }: { state: StateData }) {
         };
 
         themeData.addOnSelectedThemeDataChange(listenerId, handleThemeChange);
-        state.config.addOnConfigDataChange(listenerId, ["data"], handleConfigChange);
+        state.config.addOnConfigDataChange(listenerId, ["timeframe"], handleConfigChange);
         state.source.strategy.addOnStrateryDataChange(listenerId, handleStrategyChange);
 
         return () => {
