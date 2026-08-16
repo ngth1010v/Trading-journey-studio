@@ -31,7 +31,6 @@ function startup(): void {
     modules.color.init();
     modules.theme.init();
     modules.pageElement.init();
-    modules.page.init();
     modules.chartData.strategy.init();
     modules.chartData.trade.init();
     modules.chartData.candleChart.sync.link.init();
@@ -44,7 +43,6 @@ function useRouter(): void {
     app.use(modules.color.router);
     app.use(modules.theme.router);
     app.use(modules.pageElement.router);
-    app.use(modules.page.router);
     app.use(modules.chartData.strategy.router);
     app.use(modules.chartData.trade.router);
     app.use(modules.chartData.candleChart.sync.link.router);
@@ -52,7 +50,6 @@ function useRouter(): void {
 }
 
 function attachWs(server : Server) {
-    modules.page.attachWs(server);
     modules.chartData.candleChart.sync.link.attachWs(server);
 }
 
@@ -65,7 +62,6 @@ async function shutdown(): Promise<void> {
     modules.color.shutdown();
     modules.theme.shutdown();
     modules.pageElement.shutdown();
-    modules.page.shutdown();
     modules.chartData.strategy.shutdown();
     modules.chartData.trade.shutdown();
     modules.chartData.candleChart.sync.link.shutdown();
