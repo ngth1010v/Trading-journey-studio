@@ -9,6 +9,14 @@ export interface Config {
   strategyId?: number | null;
   sync?: {
     linkId?: number | null;
+    viewport?:{
+      enable?: boolean;
+      extendFront?: number;
+      extendBack?: number;
+    }
+    crosshair?:{
+      enable?:boolean
+    }
   };
   style?: {
     crosshair?: {
@@ -85,6 +93,16 @@ export default class ConfigData {
         toPrice: 1,
       } as Viewport,
       timeframe: "1H",
+      sync: {
+        viewport:{
+          enable: true,
+          extendFront: 0,
+          extendBack: 0,
+        },
+        crosshair:{
+          enable: true
+        }
+      },
       style: {
         crosshair: {
           color: {
