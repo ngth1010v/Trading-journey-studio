@@ -187,6 +187,7 @@ export default function PriceScaleBar({
     crosshairData: `price_bar-crosshair-data-${Math.random().toString(36).substring(2, 9)}`,
     altCrosshairData: `price_bar-alt-crosshair-data-${Math.random().toString(36).substring(2, 9)}`,
     crosshairConfig: `price_bar-crosshair-config-${Math.random().toString(36).substring(2, 9)}`,
+    altCrosshairConfig: `price_bar-alt-crosshair-config-${Math.random().toString(36).substring(2, 9)}`,
     openingData: `price_bar-opening-data-${Math.random().toString(36).substring(2, 9)}`,
     openingTransform: `price_bar-opening-transform-${Math.random().toString(36).substring(2, 9)}`,
     openingConfig: `price_bar-opening-config-${Math.random().toString(36).substring(2, 9)}`,
@@ -289,12 +290,19 @@ export default function PriceScaleBar({
     state.config.addOnConfigDataChange(listenerId.current.crosshairConfig, ["style"], () => {
       const config = state.config.get();
       const color = config?.style?.crosshair?.color;
-      const altColor = config?.style?.altCrosshair?.color;
 
       setCrosshairStyle({
         background: color?.background ? toRgba(color.background) : "rgba(255, 255, 255, 1)",
         font: color?.font ? toRgb(color.font) : "rgb(0, 0, 0)",
       });
+    });
+
+    return () => state.config.removeOnConfigDataChange(listenerId.current.crosshairConfig);
+  }, [state.config]);
+  useEffect(() => {
+    state.config.addOnConfigDataChange(listenerId.current.altCrosshairConfig, ["sync","crosshair","style"], () => {
+      const config = state.config.get();
+      const altColor = config?.sync?.crosshair?.style?.color;
 
       setAltCrosshairStyle({
         background: altColor?.background ? toRgba(altColor.background) : toRgba(DEFAULT_ALT_CROSSHAIR_BG),
@@ -302,7 +310,7 @@ export default function PriceScaleBar({
       });
     });
 
-    return () => state.config.removeOnConfigDataChange(listenerId.current.crosshairConfig);
+    return () => state.config.removeOnConfigDataChange(listenerId.current.altCrosshairConfig);
   }, [state.config]);
 
   //========================================================================================

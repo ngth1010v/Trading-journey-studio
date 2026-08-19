@@ -1,0 +1,28 @@
+.Button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 2px 5px;
+}
+
+.Footer {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.SaveButton {
+    padding: 3px 30px;
+    border-radius: 2px;
+    cursor: pointer;
+    user-select: none;
+    background-color: var(--bg-default);
+    color: var(--color-default);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.SaveButton:hover {
+    background-color: var(--bg-hover);
+    color: var(--color-hover);
+}

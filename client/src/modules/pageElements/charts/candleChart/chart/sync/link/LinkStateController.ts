@@ -278,10 +278,12 @@ export default class LinkStateController {
                     const { extendBack, extendFront } = this.getViewportExtends();
                     const div = (1 + extendBack + extendFront)
                     calculatedTransform = {
-                        scaleX: transform.scaleX / div,
+                        scaleX: transform.scaleX,
                         scaleY: transform.scaleY,
-                        offsetXRatio: transform.offsetX * div / canvasSize.w - (extendBack),
-                        offsetYRatio: transform.offsetY / canvasSize.h
+                        offsetXRatio: transform.offsetX * div / canvasSize.w,
+                        offsetYRatio: transform.offsetY / canvasSize.h,
+                        archorLeftXRatio    : (transform.offsetX) / canvasSize.w,
+                        archorRightXRatio   : (canvasSize.w * transform.scaleX + transform.offsetX) / canvasSize.w,
                     };                    
                 }
                 newTransformState = calculatedTransform;
@@ -382,12 +384,20 @@ export default class LinkStateController {
             if (viewportEnabled && linkState.transform) {
                 const { extendBack, extendFront } = this.getViewportExtends();
                 const div = 1 + extendBack + extendFront
-                this.state?.viewport.setTransform({
-                    scaleX: linkState.transform.scaleX * div,
+                // const newTransform = {
+                //     scaleY: linkState.transform.scaleY,
+                //     offsetY: linkState.transform.offsetYRatio * currentCanvasSize.h,                    
+                //     scaleX: (linkState.transform.archorRightXRatio * currentCanvasSize.w - ((linkState.transform.archorLeftXRatio + extendBack) / div * currentCanvasSize.w)) / currentCanvasSize.w,
+                //     offsetX: (linkState.transform.archorLeftXRatio + extendBack) / div * currentCanvasSize.w,
+                // }
+                const newTransform = {
+                    scaleX: linkState.transform.scaleX,
                     scaleY: linkState.transform.scaleY,
-                    offsetX: (linkState.transform.offsetXRatio + (extendBack)) / div * currentCanvasSize.w,
-                    offsetY: linkState.transform.offsetYRatio * currentCanvasSize.h,
-                });
+                    offsetX: (((linkState.transform.offsetXRatio) / (linkState.transform.scaleX == 1 ? div : 1 + extendBack)) * currentCanvasSize.w),
+                    offsetY: linkState.transform.offsetYRatio * currentCanvasSize.h,                    
+                }
+                this.state?.viewport.setTransform(newTransform);
+                // console.log(newTransform)
             }
             this.lastSyncDownTimestamp.transform = linkState.modifyTimestamp.transform;
         }
@@ -429,3 +439,7 @@ export default class LinkStateController {
         }        
     };
 }
+
+
+
+// right = canvasW * scale = (altRight * canvasW - offset) / canvasW

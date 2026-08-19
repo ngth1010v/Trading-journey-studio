@@ -102,4 +102,10 @@ export const INPUT_MAP = {
         component: RatioInput,
         props: {options: ["daily", "monthly", "yearly"]}
     },
+
+    lineType: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["dash", "solid"]}
+    },
 }

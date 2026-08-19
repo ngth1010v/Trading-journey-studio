@@ -13,9 +13,24 @@ export interface Config {
       enable?: boolean;
       extendFront?: number;
       extendBack?: number;
+      style?:{
+        background?: RGBA;        
+      }
     }
     crosshair?:{
       enable?:boolean
+      style?:{
+        color?: {
+          background?: RGBA;
+          font?: RGB;
+        };
+        thickness?: number;
+        type?: "dash" | "solid";
+        dash?: {
+          space: number; //px
+          width: number; //px
+        };        
+      }
     }
   };
   style?: {
@@ -98,9 +113,24 @@ export default class ConfigData {
           enable: true,
           extendFront: 0,
           extendBack: 0,
+          style:{
+            background: [40, 250, 170, 100] as RGBA,    
+          }
         },
         crosshair:{
-          enable: true
+          enable: true,
+          style:{
+            color: {
+              background: [255,255,100,255] as RGBA,
+              font: [0,0,0] as RGB,
+            }, 
+            thickness: 1,
+            type: "dash",
+            dash: {
+              space: 5, //px
+              width: 5, //px
+            } 
+          }
         }
       },
       style: {

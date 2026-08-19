@@ -196,6 +196,7 @@ export default function TimeScaleBar({
     crosshair   : `${BASE_ID} crosshair-${Math.random().toString(36).substring(2, 9)}`,
     altCrosshair: `${BASE_ID} alt-crosshair-${Math.random().toString(36).substring(2, 9)}`,
     configStyle : `${BASE_ID} config-style-${Math.random().toString(36).substring(2, 9)}`,
+    altCrosshairStyle : `${BASE_ID} alt-crosshair-style-${Math.random().toString(36).substring(2, 9)}`,
   });
 
   // Helper callback to recalculate AltCrosshair timestamp & position
@@ -283,7 +284,6 @@ export default function TimeScaleBar({
     state.config.addOnConfigDataChange(listenerId.current.configStyle, ["style"], () => {
       const config = state.config.get();
       const crosshairColor = config?.style?.crosshair?.color;
-      const altCrosshairColor = config?.style?.altCrosshair?.color;
 
       const bg = crosshairColor?.background ?? DEFAULT_CROSSHAIR_BG;
       const font = crosshairColor?.font ?? DEFAULT_CROSSHAIR_FONT;
@@ -292,6 +292,15 @@ export default function TimeScaleBar({
         background: toRgba(bg),
         font: toRgb(font),
       });
+    });
+
+    return () => state.config.removeOnConfigDataChange(listenerId.current.configStyle);
+  }, [state.config]);
+
+  useEffect(() => {
+    state.config.addOnConfigDataChange(listenerId.current.altCrosshairStyle, ["sync","crosshair","style"], () => {
+      const config = state.config.get();
+      const altCrosshairColor = config?.sync?.crosshair?.style?.color;
 
       const altBg = altCrosshairColor?.background ?? DEFAULT_ALT_CROSSHAIR_BG;
       const altFont = altCrosshairColor?.font ?? DEFAULT_ALT_CROSSHAIR_FONT;
@@ -302,7 +311,7 @@ export default function TimeScaleBar({
       });
     });
 
-    return () => state.config.removeOnConfigDataChange(listenerId.current.configStyle);
+    return () => state.config.removeOnConfigDataChange(listenerId.current.altCrosshairStyle);
   }, [state.config]);
 
   // Clean up wheel flush timer on unmount

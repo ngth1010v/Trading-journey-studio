@@ -164,7 +164,7 @@ export default class CrosshairRenderer {
     if (!this.state) return;
 
     const config = this.state.config.get();
-    const style = config?.style?.altCrosshair;
+    const style = config?.sync?.crosshair?.style;
 
     if (style) {
       if (style.color?.background) this.altColor = style.color.background;
