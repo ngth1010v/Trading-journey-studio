@@ -394,11 +394,20 @@ export default class LinkStateController {
                 const divX = 1 + extendLeft + extendRight;
                 const divY = 1 + extendTop + extendBottom;
 
+                const scaleX = linkState.transform.scaleX
+                const scaleY = linkState.transform.scaleY
+
+                let offsetX = (linkState.transform.offsetXRatio / divX) * currentCanvasSize.w
+                let offsetY = (linkState.transform.offsetYRatio / divY) * currentCanvasSize.h
+
+                offsetX += ((1 - scaleX) * extendLeft) / divX * currentCanvasSize.w
+                offsetY += ((1 - scaleY) * extendTop) / divY * currentCanvasSize.h
+
                 const newTransform = {
-                    scaleX: linkState.transform.scaleX,
-                    scaleY: linkState.transform.scaleY,
-                    offsetX: ((linkState.transform.offsetXRatio / (linkState.transform.scaleX === 1 ? divX : 1 + extendLeft)) * currentCanvasSize.w),
-                    offsetY: ((linkState.transform.offsetYRatio / (linkState.transform.scaleY === 1 ? divY : 1 + extendTop)) * currentCanvasSize.h),                   
+                    scaleX,
+                    scaleY, 
+                    offsetX,
+                    offsetY
                 };
                 this.state?.viewport.setTransform(newTransform);
             }
