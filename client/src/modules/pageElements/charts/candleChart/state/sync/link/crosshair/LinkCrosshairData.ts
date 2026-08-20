@@ -23,7 +23,7 @@ export default class LinkCrosshairData {
     this.pixel = null;
     this.world = null;
     this.notifyDataChange();
-    this.enable = false
+    this.enable = true
   }
 
   /**

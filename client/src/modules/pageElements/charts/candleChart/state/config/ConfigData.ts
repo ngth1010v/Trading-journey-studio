@@ -2,6 +2,8 @@ import PageElementConfigData from "../../../../../data/pageElement/config/PageEl
 import type { Viewport } from "../viewport/ViewportData";
 import type { RGBA, RGB } from "../../../../../shared/type";
 
+const REFLUSH_DURATION = 1000;
+
 export interface Config {
   viewport?: Viewport;
   symbol?: string;
@@ -9,16 +11,16 @@ export interface Config {
   strategyId?: number | null;
   sync?: {
     linkId?: number | null;
-    viewport?:{
+    viewport?: {
       enable?: boolean;
-      extend?:{
-        top     : number
-        bottom  : number
-        left    : number
-        right   : number
-      }
-      style?:{
-        background?: RGBA;   
+      extend?: {
+        top: number;
+        bottom: number;
+        left: number;
+        right: number;
+      };
+      style?: {
+        background?: RGBA;
         border?: {
           color?: RGBA;
           thickness?: number;
@@ -26,13 +28,13 @@ export interface Config {
           dash?: {
             space: number; //px
             width: number; //px
-          };             
-        }     
-      }
-    }
-    crosshair?:{
-      enable?:boolean
-      style?:{
+          };
+        };
+      };
+    };
+    crosshair?: {
+      enable?: boolean;
+      style?: {
         color?: {
           background?: RGBA;
           font?: RGB;
@@ -42,9 +44,9 @@ export interface Config {
         dash?: {
           space: number; //px
           width: number; //px
-        };        
-      }
-    }
+        };
+      };
+    };
   };
   style?: {
     crosshair?: {
@@ -107,10 +109,13 @@ export interface Config {
 
 export default class ConfigData {
   private pageElementConfigData: PageElementConfigData<Config> = new PageElementConfigData<Config>();
+  private isChanged: boolean = false;
+  private reflushIntervalId: ReturnType<typeof setInterval> | null = null;
 
   /**
    * Initializes the configuration for the specified page element ID.
-   * Merges default configuration values and triggers initial remote sync via PageElementConfigData.
+   * Merges default configuration values, triggers initial remote sync via PageElementConfigData,
+   * and starts the reflush loop.
    */
   public init(pageElementId: number): void {
     const defaultConfig: Config = {
@@ -122,42 +127,42 @@ export default class ConfigData {
       } as Viewport,
       timeframe: "1H",
       sync: {
-        viewport:{
+        viewport: {
           enable: true,
-          extend:{
-            top     : 0,
-            bottom  : 0,
-            left    : 0,
-            right   : 0,
+          extend: {
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
           },
-          style:{
-            background: [255,255,0, 20] as RGBA,    
+          style: {
+            background: [255, 255, 0, 20] as RGBA,
             border: {
-              color: [255,255,0, 255] as RGBA,
+              color: [255, 255, 0, 255] as RGBA,
               thickness: 1,
               type: "dash",
               dash: {
                 space: 5, //px
                 width: 10, //px
-              },             
-            }  
-          }
+              },
+            },
+          },
         },
-        crosshair:{
+        crosshair: {
           enable: true,
-          style:{
+          style: {
             color: {
-              background: [255,255,100,255] as RGBA,
-              font: [0,0,0] as RGB,
-            }, 
+              background: [255, 255, 100, 255] as RGBA,
+              font: [0, 0, 0] as RGB,
+            },
             thickness: 1,
             type: "dash",
             dash: {
               space: 5, //px
               width: 5, //px
-            } 
-          }
-        }
+            },
+          },
+        },
       },
       style: {
         crosshair: {
@@ -227,12 +232,25 @@ export default class ConfigData {
     }
 
     this.pageElementConfigData.init(pageElementId, defaultConfig);
+
+    if (this.reflushIntervalId === null) {
+      this.reflushIntervalId = setInterval(() => {
+        if (this.isChanged) {
+          this.flush();
+        }
+      }, REFLUSH_DURATION);
+    }
   }
 
   /**
-   * Destroys the underlying instance and flushes cache state if necessary.
+   * Destroys the underlying instance, stops the reflush loop, and flushes cache state if necessary.
    */
   public destroy(): void {
+    if (this.reflushIntervalId !== null) {
+      clearInterval(this.reflushIntervalId);
+      this.reflushIntervalId = null;
+    }
+
     this.pageElementConfigData.destroy();
   }
 
@@ -244,7 +262,7 @@ export default class ConfigData {
   }
 
   /**
-   * Updates partial config and triggers changes locally and asynchronously on the server.
+   * Updates partial config, marks state as changed, and triggers changes locally/server-side.
    */
   public set(partialConfig: Partial<Config>): void {
     if (
@@ -255,13 +273,15 @@ export default class ConfigData {
       partialConfig.viewport.toPrice = 1;
     }
 
+    this.isChanged = true;
     this.pageElementConfigData.set(partialConfig);
   }
 
   /**
-   * Flushes current cached config changes to the server manually.
+   * Flushes current cached config changes to the server manually and resets change flag.
    */
   public async flush(): Promise<void> {
+    this.isChanged = false;
     await this.pageElementConfigData.flush();
   }
 

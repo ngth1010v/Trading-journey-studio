@@ -15,10 +15,12 @@ export default class LinkEventController {
         chart.event.global.addOnEvent("mouseEnter", ID_BASE + "Trigger sync up", ()=>{
             state.sync.link.setMode("up")
             state.sync.link.crosshair.setEnable(false)
+            state.sync.link.crosshair.set(null,null)
         })
         chart.event.global.addOnEvent("mouseLeave", ID_BASE + "Trigger sync down", ()=>{
             state.sync.link.setMode("down")
             state.sync.link.crosshair.setEnable(true)
+            state.sync.link.crosshair.set(null,null)
         })
     }
         

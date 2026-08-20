@@ -35,6 +35,7 @@ configRouter.post("/api/pageElements/:id/config", (req: Request, res: Response) 
     }
     return res.status(result.status).json({ message: result.message });
   } catch (error: any) {
+    
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
