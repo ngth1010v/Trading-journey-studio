@@ -131,9 +131,9 @@ export default class ConfigData {
             right   : 0,
           },
           style:{
-            background: [40, 250, 170, 100] as RGBA,    
+            background: [255,255,0, 20] as RGBA,    
             border: {
-              color: [40, 250, 170, 255] as RGBA,
+              color: [255,255,0, 255] as RGBA,
               thickness: 1,
               type: "dash",
               dash: {

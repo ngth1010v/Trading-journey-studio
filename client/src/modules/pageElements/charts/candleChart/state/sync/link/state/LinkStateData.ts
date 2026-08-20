@@ -22,8 +22,6 @@ export interface LinkState {
     scaleY: number;
     offsetXRatio: number;
     offsetYRatio: number;
-    archorLeftXRatio: number;
-    archorRightXRatio: number;
   } | null;
   crosshair: {
     price: number;

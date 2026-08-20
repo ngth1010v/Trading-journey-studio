@@ -284,14 +284,18 @@ export default class LinkStateController {
                     const divX = 1 + extendLeft + extendRight;
                     const divY = 1 + extendTop + extendBottom;
 
+                    const scaleX = transform.scaleX
+                    const scaleY = transform.scaleY
+                    const offsetX = transform.offsetX
+                    const offsetY = transform.offsetY
+
                     calculatedTransform = {
                         scaleX: transform.scaleX,
                         scaleY: transform.scaleY,
-                        offsetXRatio: (transform.offsetX * divX) / canvasSize.w,
-                        offsetYRatio: (transform.offsetY * divY) / canvasSize.h,
-                        archorLeftXRatio: transform.offsetX / canvasSize.w,
-                        archorRightXRatio: (canvasSize.w * transform.scaleX + transform.offsetX) / canvasSize.w,
+                        offsetXRatio: offsetX * divX / canvasSize.w - (1 - scaleX) * extendLeft,
+                        offsetYRatio: offsetY * divY / canvasSize.h - (1 - scaleY) * extendTop,
                     };                    
+                
                 }
                 newTransformState = calculatedTransform;
                 newTimestamp.transform = now;
@@ -397,11 +401,8 @@ export default class LinkStateController {
                 const scaleX = linkState.transform.scaleX
                 const scaleY = linkState.transform.scaleY
 
-                let offsetX = (linkState.transform.offsetXRatio / divX) * currentCanvasSize.w
-                let offsetY = (linkState.transform.offsetYRatio / divY) * currentCanvasSize.h
-
-                offsetX += ((1 - scaleX) * extendLeft) / divX * currentCanvasSize.w
-                offsetY += ((1 - scaleY) * extendTop) / divY * currentCanvasSize.h
+                const offsetX = ((linkState.transform.offsetXRatio + (1 - scaleX) * extendLeft) / divX) * currentCanvasSize.w
+                const offsetY = ((linkState.transform.offsetYRatio + (1 - scaleY) * extendTop) / divY) * currentCanvasSize.h
 
                 const newTransform = {
                     scaleX,
