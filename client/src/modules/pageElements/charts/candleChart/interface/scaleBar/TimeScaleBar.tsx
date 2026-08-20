@@ -201,8 +201,9 @@ export default function TimeScaleBar({
 
   // Helper callback to recalculate AltCrosshair timestamp & position
   const updateAltCrosshair = useCallback(() => {
-    const altPos = state.crosshair.getAlt();
-    if (altPos && chart?.viewport?.converter) {
+    const altPos = state.sync.link.crosshair.getPixel();
+    const enable = state.sync.link.crosshair.getEnable();
+    if (altPos && chart?.viewport?.converter && enable) {
       const timestamp = chart.viewport.converter.pixelToTimestamp(altPos.x);
       if (timestamp !== null && !isNaN(timestamp)) {
         setAltCrosshairX(altPos.x - CHART_GAP);
@@ -268,16 +269,16 @@ export default function TimeScaleBar({
 
   // ALT CROSSHAIR DATA LISTENER
   useEffect(() => {
-    state.crosshair.addOnAltCrosshairDataChange(
+    state.sync.link.crosshair.addOnCrosshairDataChange(
       listenerId.current.altCrosshair,
       updateAltCrosshair
     );
 
     return () =>
-      state.crosshair.removeOnAltCrosshairDataChange(
+      state.sync.link.crosshair.removeOnCrosshairDataChange(
         listenerId.current.altCrosshair
       );
-  }, [state.crosshair, updateAltCrosshair]);
+  }, [updateAltCrosshair]);
 
   // CONFIG STYLE LISTENER (CROSSHAIR & ALT CROSSHAIR COLOR)
   useEffect(() => {

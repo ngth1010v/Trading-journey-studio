@@ -195,8 +195,9 @@ export default function PriceScaleBar({
 
   // Helper callback to recalculate AltCrosshair price & position
   const updateAltCrosshair = useCallback(() => {
-    const altPos = state.crosshair.getAlt();
-    if (altPos && chart?.viewport?.converter) {
+    const altPos = state.sync.link.crosshair.getPixel();
+    const enable = state.sync.link.crosshair.getEnable();
+    if (altPos && chart?.viewport?.converter && enable) {
       const price = chart.viewport.converter.pixelToPrice(altPos.y);
       if (price !== null && !isNaN(price)) {
         setAltCrosshairPos({ y: altPos.y, price });
@@ -274,13 +275,13 @@ export default function PriceScaleBar({
 
   // ALT CROSSHAIR DATA LISTENER
   useEffect(() => {
-    state.crosshair.addOnAltCrosshairDataChange(
+    state.sync.link.crosshair.addOnCrosshairDataChange(
       listenerId.current.altCrosshairData,
       updateAltCrosshair
     );
 
     return () =>
-      state.crosshair.removeOnAltCrosshairDataChange(
+      state.sync.link.crosshair.removeOnCrosshairDataChange(
         listenerId.current.altCrosshairData
       );
   }, [state.crosshair, updateAltCrosshair]);
@@ -299,6 +300,7 @@ export default function PriceScaleBar({
 
     return () => state.config.removeOnConfigDataChange(listenerId.current.crosshairConfig);
   }, [state.config]);
+
   useEffect(() => {
     state.config.addOnConfigDataChange(listenerId.current.altCrosshairConfig, ["sync","crosshair","style"], () => {
       const config = state.config.get();

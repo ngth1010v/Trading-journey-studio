@@ -38,9 +38,11 @@ export default class LinkCrosshairData {
 
     this.notifyDataChange();
   }
-
+  
   public setEnable(enable: boolean) {
     this.enable = enable
+    
+    this.notifyDataChange();
   }
 
   // =========================================================================
