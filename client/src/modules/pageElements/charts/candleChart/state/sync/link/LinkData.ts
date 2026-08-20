@@ -1,6 +1,7 @@
 import { fetchLinks, saveLink, deleteLink } from "./linkApi.js";
 import LinkStateData from "./state/LinkStateData";
 import type { RGB, RGBA } from "../../../../../../shared/type.js";
+import LinkCrosshairData from "./crosshair/LinkCrosshairData.js";
 
 // IMPORTANT NOTE: `LinkMode` is only for local client state, there is not any link between Link data and LinkMode
 
@@ -101,6 +102,7 @@ export function destroyLinkData(): void {
 export default class LinkData {
   public id: string | null = null;
   public state = new LinkStateData();
+  public crosshair = new LinkCrosshairData();
 
   private onLinkDataChangeListeners = new Map<string, () => void>();
   private onLinkModeDataChangeListeners = new Map<string, () => void>();
@@ -119,6 +121,7 @@ export default class LinkData {
     });
 
     this.state.init();
+    this.crosshair.init()
   }
 
   public destroy(): void {
@@ -129,6 +132,7 @@ export default class LinkData {
 
     this.linkMode = "down"
     this.state.destroy();
+    this.crosshair.destroy();
   }
 
   public get(id: number): Link | null {

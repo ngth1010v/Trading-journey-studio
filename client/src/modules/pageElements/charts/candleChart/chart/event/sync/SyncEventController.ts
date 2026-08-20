@@ -4,7 +4,7 @@ import type ChartController from "../../ChartController";
 import LinkEventController from "./LinkEventController";
 
 
-const ID_BASE = "[candleChart][chart][event][viewport][ViewportSyncEventController.ts]"
+// const ID_BASE = "[candleChart][chart][event][viewport][ViewportSyncEventController.ts]"
 
 export default class SyncEventController {
     private state: StateData | null = null;

@@ -3,6 +3,7 @@ import CrosshairRenderer from "./crosshair/CrosshairRenderer";
 import type StateData from "../../state/StateData";
 import type ChartController from "../ChartController";
 import SeasonRenderer from "./season/SeasonRenderer";
+import SyncRenderer from "./sync/SyncRenderer";
 
 const BASE_ID = "[CandleChart][chart][render][Renderer.ts]";
 
@@ -13,6 +14,7 @@ export default class Renderer {
   public readonly candle = new CandleRenderer();
   public readonly crosshair = new CrosshairRenderer();
   public readonly season = new SeasonRenderer();
+  public readonly sync = new SyncRenderer();
 
   // Quản lý các listener IDs rút gọn
   private listenerIds = {
@@ -33,8 +35,9 @@ export default class Renderer {
     // Crosshair
     crosshairData: "",
     crosshairStyle: "",
-    altCrosshairData: "",
-    altCrosshairStyle: "",
+
+    syncLinkCrosshairData: "",
+    syncLinkCrosshairStyle: "",
   };
 
   /**
@@ -51,6 +54,8 @@ export default class Renderer {
     this.season.init(state, chart);
     this.candle.init(state, chart);
     this.crosshair.init(state, chart);
+    this.sync.init(state, chart);
+    
 
     this.render();
 
@@ -69,8 +74,9 @@ export default class Renderer {
 
     this.listenerIds.crosshairData = this.generateListenerId("crosshair_data");
     this.listenerIds.crosshairStyle = this.generateListenerId("crosshair_style");
-    this.listenerIds.altCrosshairData = this.generateListenerId("alt_crosshair_data");
-    this.listenerIds.altCrosshairStyle = this.generateListenerId("alt_crosshair_style");
+
+    this.listenerIds.syncLinkCrosshairData = this.generateListenerId("sync_link_crosshair_data");
+    this.listenerIds.syncLinkCrosshairStyle = this.generateListenerId("sync_link_crosshair_style");
 
     //===============================================================
     // Season
@@ -179,20 +185,24 @@ export default class Renderer {
       }
     );
 
-    state.crosshair.addOnAltCrosshairDataChange(this.listenerIds.altCrosshairData, () => {
-      this.crosshair.updateAltData();
+    //===============================================================
+    // Sync - link
+    //===============================================================
+    state.sync.link.crosshair.addOnCrosshairDataChange(this.listenerIds.syncLinkCrosshairData, () => {
+      this.sync.link.crosshair.updateData();
       this.render();
     });
 
     state.config.addOnConfigDataChange(
-      this.listenerIds.altCrosshairStyle,
-      ["style", "altCrosshair"],
+      this.listenerIds.syncLinkCrosshairStyle,
+      ["sync", "crosshair"],
       () => {
-        this.crosshair.updateAltStyle();
-        this.crosshair.updateAltData();
+        this.sync.link.crosshair.updateStyle();
+        this.sync.link.crosshair.updateData();
         this.render();
       }
     );
+
   }
 
   public setCanvas(canvas: HTMLCanvasElement): void {
@@ -213,6 +223,7 @@ export default class Renderer {
     this.season.setGl(gl);
     this.candle.setGl(gl);
     this.crosshair.setGl(gl);
+    this.sync.setGl(gl);
   }
 
   public destroy(): void {
@@ -264,17 +275,23 @@ export default class Renderer {
       if (this.listenerIds.crosshairStyle) {
         this.state.config.removeOnConfigDataChange(this.listenerIds.crosshairStyle);
       }
-      if (this.listenerIds.altCrosshairData) {
-        this.state.crosshair.removeOnAltCrosshairDataChange(this.listenerIds.altCrosshairData);
+      
+      
+      //===============================================================
+      // Sync - link
+      //===============================================================
+      if (this.listenerIds.syncLinkCrosshairData) {
+        this.state.sync.link.crosshair.removeOnCrosshairDataChange(this.listenerIds.syncLinkCrosshairData);
       }
-      if (this.listenerIds.altCrosshairStyle) {
-        this.state.config.removeOnConfigDataChange(this.listenerIds.altCrosshairStyle);
+      if (this.listenerIds.syncLinkCrosshairStyle) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.syncLinkCrosshairStyle);
       }
     }
 
     this.season.destroy();
     this.candle.destroy();
     this.crosshair.destroy();
+    this.sync.destroy();
 
     this.gl = null;
     this.state = null;
@@ -293,5 +310,6 @@ export default class Renderer {
     this.season.render();
     this.candle.render();
     this.crosshair.render();
+    this.sync.link.crosshair.render();
   }
 }

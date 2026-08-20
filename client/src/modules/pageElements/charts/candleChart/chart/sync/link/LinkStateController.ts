@@ -413,25 +413,32 @@ export default class LinkStateController {
                         const crosshairPixelX = this.chart?.viewport.converter.timestampToPixel(crosshairTimestamp);
                         const crosshairPixelY = this.chart?.viewport.converter.priceToPixel(crosshairPrice);
                         if (crosshairPixelX != null && crosshairPixelY != null) {
-                            this.state?.crosshair.setAlt({ x: crosshairPixelX, y: crosshairPixelY });
+                            this.state.sync.link.crosshair.set(
+                                {x: crosshairPixelX, y: crosshairPixelY},
+                                {timestamp: crosshairTimestamp, price: crosshairPrice}                            
+                            )
                         } else {
-                            this.state?.crosshair.setAlt(null);
+                            this.state.sync.link.crosshair.set(null,null)
                         }
                     } else {
-                        this.state?.crosshair.setAlt(null);
+                        this.state.sync.link.crosshair.set(null,null)
                     }
                 } else {
                     const crosshairPriceOffsetRatio = linkState.crosshair?.alt.priceOffsetRatio;
                     if (crosshairPriceOffsetRatio != null && crosshairTimestamp) {
                         const crosshairPricePixel = currentCanvasSize.h * crosshairPriceOffsetRatio;
                         const crosshairTimePixel = this.chart?.viewport.converter.timestampToPixel(crosshairTimestamp);
-                        if (crosshairPricePixel != null && crosshairTimePixel != null) {
-                            this.state?.crosshair.setAlt({ x: crosshairTimePixel, y: crosshairPricePixel });
+                        const crosshairPrice = this.chart?.viewport.converter.pixelToPrice(crosshairPricePixel)
+                        if (crosshairPricePixel != null && crosshairTimePixel != null && crosshairPrice != null) {
+                            this.state.sync.link.crosshair.set(
+                                {x: crosshairTimePixel, y: crosshairPricePixel},
+                                {timestamp: crosshairTimestamp, price: crosshairPrice}
+                            )
                         } else {
-                            this.state?.crosshair.setAlt(null);
+                            this.state.sync.link.crosshair.set(null,null)
                         }
                     } else {
-                        this.state?.crosshair.setAlt(null);
+                        this.state.sync.link.crosshair.set(null,null)
                     }
                 }
             }
