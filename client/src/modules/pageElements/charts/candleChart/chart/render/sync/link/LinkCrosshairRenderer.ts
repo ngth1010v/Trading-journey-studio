@@ -69,8 +69,8 @@ export default class LinkCrosshairRenderer {
   private uCrosshairPosLoc: WebGLUniformLocation | null = null;
 
   // Main Crosshair
-  private currentX: number = -1000;
-  private currentY: number = -1000;
+  private currentX: number | null = null;
+  private currentY: number | null = null;
   private color: RGBA = [255, 255, 255, 255];
   private thickness: number = 1;
   private isDash: boolean = true;
@@ -111,11 +111,11 @@ export default class LinkCrosshairRenderer {
     if (pixel) {
       const dpr = window.devicePixelRatio || 1;
 
-      this.currentX = pixel.x * dpr;
-      this.currentY = pixel.y * dpr;
+      this.currentX = (pixel.x !== null && pixel.x !== undefined && !Number.isNaN(pixel.x)) ? pixel.x * dpr : null;
+      this.currentY = (pixel.y !== null && pixel.y !== undefined && !Number.isNaN(pixel.y)) ? pixel.y * dpr : null;
     } else {
-      this.currentX = -1000;
-      this.currentY = -1000;
+      this.currentX = null;
+      this.currentY = null;
     }
   }
 
@@ -123,7 +123,7 @@ export default class LinkCrosshairRenderer {
     if (!this.state) return;
 
     const config = this.state.config.get();
-    const style = config?.sync?.crosshair?.style
+    const style = config?.sync?.crosshair?.style;
 
     if (style) {
       if (style.color?.background) this.color = style.color.background;
@@ -147,25 +147,25 @@ export default class LinkCrosshairRenderer {
     const h = canvas.height;
     if (w <= 0 || h <= 0) return;
 
-    this.uploadGeometry(w, h);
+    // Render if at least one dimension is valid
+    if (this.currentX !== null || this.currentY !== null) {
+      this.uploadGeometry(w, h);
 
-    const gl = this.gl;
+      const gl = this.gl;
 
-    gl.viewport(0, 0, w, h);
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.SCISSOR_TEST);
-    gl.disable(gl.STENCIL_TEST);
-    gl.disable(gl.CULL_FACE);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.viewport(0, 0, w, h);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.disable(gl.STENCIL_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    gl.useProgram(this.program);
-    gl.bindVertexArray(this.vao);
+      gl.useProgram(this.program);
+      gl.bindVertexArray(this.vao);
 
-    gl.uniform2f(this.uResolutionLoc, w, h);
+      gl.uniform2f(this.uResolutionLoc, w, h);
 
-    // Render Main Crosshair
-    if (this.currentX > -1000 && this.currentY > -1000) {
       gl.uniform4f(
         this.uColorLoc,
         this.color[0] / 255,
@@ -175,12 +175,20 @@ export default class LinkCrosshairRenderer {
       );
       gl.uniform1i(this.uTypeLoc, this.isDash ? 1 : 0);
       gl.uniform2f(this.uDashLoc, this.dashWidth, this.dashSpace);
-      gl.uniform2f(this.uCrosshairPosLoc, this.currentX, this.currentY);
+      gl.uniform2f(this.uCrosshairPosLoc, this.currentX ?? 0, this.currentY ?? 0);
 
-      gl.drawArrays(gl.TRIANGLES, 0, 12);
+      // Draw Horizontal line if Y is valid
+      if (this.currentY !== null) {
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+
+      // Draw Vertical line if X is valid
+      if (this.currentX !== null) {
+        gl.drawArrays(gl.TRIANGLES, 6, 6);
+      }
+
+      gl.bindVertexArray(null);
     }
-
-    gl.bindVertexArray(null);
   }
 
   private uploadGeometry(w: number, h: number): void {
@@ -191,12 +199,12 @@ export default class LinkCrosshairRenderer {
     // Main Crosshair Quad Calculations
     const thicknessPx = Math.max(1, Math.round(this.thickness * dpr));
     const halfThick = thicknessPx * 0.5;
-    const x = this.currentX;
-    const y = this.currentY;
+    const x = this.currentX ?? 0;
+    const y = this.currentY ?? 0;
 
     const vertices = new Float32Array([
       // ===== Main Crosshair Vertices (0..11) =====
-      // Horizontal Line Quad
+      // Horizontal Line Quad (Indices 0..5)
       0, y - halfThick,
       w, y - halfThick,
       0, y + halfThick,
@@ -204,7 +212,7 @@ export default class LinkCrosshairRenderer {
       w, y - halfThick,
       w, y + halfThick,
 
-      // Vertical Line Quad
+      // Vertical Line Quad (Indices 6..11)
       x - halfThick, 0,
       x + halfThick, 0,
       x - halfThick, h,
