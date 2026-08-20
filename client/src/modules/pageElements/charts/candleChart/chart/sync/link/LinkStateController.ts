@@ -87,11 +87,13 @@ export default class LinkStateController {
         return this.state?.config.get()?.sync?.crosshair?.enable ?? true;
     }
 
-    private getViewportExtends(): { extendBack: number; extendFront: number } {
-        const syncViewport = this.state?.config.get()?.sync?.viewport;
-        const extendBack = Math.max(0, syncViewport?.extendBack ?? 0);
-        const extendFront = Math.max(0, syncViewport?.extendFront ?? 0);
-        return { extendBack, extendFront };
+    private getViewportExtends(): { extendLeft: number; extendRight: number; extendTop: number; extendBottom: number } {
+        const extend = this.state?.config.get()?.sync?.viewport?.extend;
+        const extendLeft = Math.max(0, extend?.left ?? 0);
+        const extendRight = Math.max(0, extend?.right ?? 0);
+        const extendTop = Math.max(0, extend?.top ?? 0);
+        const extendBottom = Math.max(0, extend?.bottom ?? 0);
+        return { extendLeft, extendRight, extendTop, extendBottom };
     }
 
     private onSymbolDataChange = (): void => {
@@ -247,15 +249,18 @@ export default class LinkStateController {
                     const priceDeltaRatio = Math.abs(lowestPricePixel - highestPricePixel) / canvasSize.h;
                     const priceOffsetRatio = highestPricePixel / canvasSize.h;
 
-                    const { extendBack, extendFront } = this.getViewportExtends();
-                    const delta = Math.abs(viewport.fromTs - viewport.toTs);
-                    const div = extendBack + extendFront + 1
+                    const { extendLeft, extendRight, extendTop, extendBottom } = this.getViewportExtends();
+                    const deltaTs = Math.abs(viewport.fromTs - viewport.toTs);
+                    const divX = extendLeft + extendRight + 1;
+
+                    const deltaPrice = viewport.toPrice - viewport.fromPrice;
+                    const divY = extendTop + extendBottom + 1;
 
                     calculatedViewport = {
-                        fromTs: viewport.fromTs + delta / div * extendBack,
-                        toTs: viewport.toTs - delta /div * extendFront,
-                        fromPrice: viewport.fromPrice,
-                        toPrice: viewport.toPrice,
+                        fromTs: viewport.fromTs + (deltaTs / divX) * extendLeft,
+                        toTs: viewport.toTs - (deltaTs / divX) * extendRight,
+                        fromPrice: viewport.fromPrice + (deltaPrice / divY) * extendBottom,
+                        toPrice: viewport.toPrice - (deltaPrice / divY) * extendTop,
                         alt: {  
                             priceDeltaRatio: priceDeltaRatio,
                             priceOffsetRatio: priceOffsetRatio,      
@@ -274,16 +279,18 @@ export default class LinkStateController {
             if (viewportEnabled) {
                 let calculatedTransform = null;
                 const transform = this.state?.viewport.getTransform();
-                if (transform){
-                    const { extendBack, extendFront } = this.getViewportExtends();
-                    const div = (1 + extendBack + extendFront)
+                if (transform) {
+                    const { extendLeft, extendRight, extendTop, extendBottom } = this.getViewportExtends();
+                    const divX = 1 + extendLeft + extendRight;
+                    const divY = 1 + extendTop + extendBottom;
+
                     calculatedTransform = {
                         scaleX: transform.scaleX,
                         scaleY: transform.scaleY,
-                        offsetXRatio: transform.offsetX * div / canvasSize.w,
-                        offsetYRatio: transform.offsetY / canvasSize.h,
-                        archorLeftXRatio    : (transform.offsetX) / canvasSize.w,
-                        archorRightXRatio   : (canvasSize.w * transform.scaleX + transform.offsetX) / canvasSize.w,
+                        offsetXRatio: (transform.offsetX * divX) / canvasSize.w,
+                        offsetYRatio: (transform.offsetY * divY) / canvasSize.h,
+                        archorLeftXRatio: transform.offsetX / canvasSize.w,
+                        archorRightXRatio: (canvasSize.w * transform.scaleX + transform.offsetX) / canvasSize.w,
                     };                    
                 }
                 newTransformState = calculatedTransform;
@@ -332,14 +339,15 @@ export default class LinkStateController {
         // Viewport
         if (viewportChanged) {
             if (viewportEnabled && linkState.viewport) {
-                const { extendBack, extendFront } = this.getViewportExtends();
-                const delta = Math.abs(linkState.viewport.fromTs - linkState.viewport.toTs);
+                const { extendLeft, extendRight, extendTop, extendBottom } = this.getViewportExtends();
+                const deltaTs = Math.abs(linkState.viewport.fromTs - linkState.viewport.toTs);
+                const deltaPrice = linkState.viewport.toPrice - linkState.viewport.fromPrice;
 
                 const newViewport = {
-                    fromTs: linkState.viewport.fromTs - delta * extendBack,
-                    toTs: linkState.viewport.toTs + delta * extendFront,
-                    fromPrice: linkState.viewport.fromPrice,
-                    toPrice: linkState.viewport.toPrice
+                    fromTs: linkState.viewport.fromTs - deltaTs * extendLeft,
+                    toTs: linkState.viewport.toTs + deltaTs * extendRight,
+                    fromPrice: linkState.viewport.fromPrice - deltaPrice * extendBottom,
+                    toPrice: linkState.viewport.toPrice + deltaPrice * extendTop
                 };
 
                 if (currentSymbol != linkState.symbol) {
@@ -382,22 +390,17 @@ export default class LinkStateController {
         // Transform
         if (transformChanged) {
             if (viewportEnabled && linkState.transform) {
-                const { extendBack, extendFront } = this.getViewportExtends();
-                const div = 1 + extendBack + extendFront
-                // const newTransform = {
-                //     scaleY: linkState.transform.scaleY,
-                //     offsetY: linkState.transform.offsetYRatio * currentCanvasSize.h,                    
-                //     scaleX: (linkState.transform.archorRightXRatio * currentCanvasSize.w - ((linkState.transform.archorLeftXRatio + extendBack) / div * currentCanvasSize.w)) / currentCanvasSize.w,
-                //     offsetX: (linkState.transform.archorLeftXRatio + extendBack) / div * currentCanvasSize.w,
-                // }
+                const { extendLeft, extendRight, extendTop, extendBottom } = this.getViewportExtends();
+                const divX = 1 + extendLeft + extendRight;
+                const divY = 1 + extendTop + extendBottom;
+
                 const newTransform = {
                     scaleX: linkState.transform.scaleX,
                     scaleY: linkState.transform.scaleY,
-                    offsetX: (((linkState.transform.offsetXRatio) / (linkState.transform.scaleX == 1 ? div : 1 + extendBack)) * currentCanvasSize.w),
-                    offsetY: linkState.transform.offsetYRatio * currentCanvasSize.h,                    
-                }
+                    offsetX: ((linkState.transform.offsetXRatio / (linkState.transform.scaleX === 1 ? divX : 1 + extendLeft)) * currentCanvasSize.w),
+                    offsetY: ((linkState.transform.offsetYRatio / (linkState.transform.scaleY === 1 ? divY : 1 + extendTop)) * currentCanvasSize.h),                   
+                };
                 this.state?.viewport.setTransform(newTransform);
-                // console.log(newTransform)
             }
             this.lastSyncDownTimestamp.transform = linkState.modifyTimestamp.transform;
         }
@@ -446,7 +449,3 @@ export default class LinkStateController {
         }        
     };
 }
-
-
-
-// right = canvasW * scale = (altRight * canvasW - offset) / canvasW

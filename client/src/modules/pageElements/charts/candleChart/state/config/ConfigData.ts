@@ -11,10 +11,23 @@ export interface Config {
     linkId?: number | null;
     viewport?:{
       enable?: boolean;
-      extendFront?: number;
-      extendBack?: number;
+      extend?:{
+        top     : number
+        bottom  : number
+        left    : number
+        right   : number
+      }
       style?:{
-        background?: RGBA;        
+        background?: RGBA;   
+        border?: {
+          color?: RGBA;
+          thickness?: number;
+          type?: "dash" | "solid";
+          dash?: {
+            space: number; //px
+            width: number; //px
+          };             
+        }     
       }
     }
     crosshair?:{
@@ -111,10 +124,23 @@ export default class ConfigData {
       sync: {
         viewport:{
           enable: true,
-          extendFront: 0,
-          extendBack: 0,
+          extend:{
+            top     : 0,
+            bottom  : 0,
+            left    : 0,
+            right   : 0,
+          },
           style:{
             background: [40, 250, 170, 100] as RGBA,    
+            border: {
+              color: [40, 250, 170, 255] as RGBA,
+              thickness: 1,
+              type: "dash",
+              dash: {
+                space: 5, //px
+                width: 10, //px
+              },             
+            }  
           }
         },
         crosshair:{

@@ -12,11 +12,24 @@ import ViewportSyncIcon  from "../../../../../../../../assets/icons/vibrate-fill
 
 export const LINK_VIEWPORT_INPUT_LAYOUT = {
     enable: "boolean",
-    extendFront: "uNumber",
-    extendBack: "uNumber",
-    style: {
-        background: "rgba",
+    extend:{
+        top     : "uNumber",
+        bottom  : "uNumber",
+        left    : "uNumber",
+        right   : "uNumber",
     },
+    style:{
+        background: "rgba",   
+        border: {
+            color: "rgba",
+            thickness: "uNumber",
+            type: "lineType",
+            dash: {
+                space: "uNumber", //px
+                width: "uNumber", //px
+            }
+        }     
+    }
 };
 
 type ViewportConfig = NonNullable<NonNullable<Config["sync"]>["viewport"]>;

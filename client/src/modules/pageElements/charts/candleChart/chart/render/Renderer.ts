@@ -38,6 +38,8 @@ export default class Renderer {
 
     syncLinkCrosshairData: "",
     syncLinkCrosshairStyle: "",
+
+    syncLinkViewportData: "",
   };
 
   /**
@@ -77,6 +79,7 @@ export default class Renderer {
 
     this.listenerIds.syncLinkCrosshairData = this.generateListenerId("sync_link_crosshair_data");
     this.listenerIds.syncLinkCrosshairStyle = this.generateListenerId("sync_link_crosshair_style");
+    this.listenerIds.syncLinkViewportData = this.generateListenerId("sync_link_viewport_data");
 
     //===============================================================
     // Season
@@ -192,7 +195,6 @@ export default class Renderer {
       this.sync.link.crosshair.updateData();
       this.render();
     });
-
     state.config.addOnConfigDataChange(
       this.listenerIds.syncLinkCrosshairStyle,
       ["sync", "crosshair"],
@@ -202,6 +204,11 @@ export default class Renderer {
         this.render();
       }
     );
+
+    state.config.addOnConfigDataChange(this.listenerIds.syncLinkViewportData, ["sync","viewport"], () => {
+      this.sync.link.viewport.updateDataAndStyle();
+      this.render();
+    });
 
   }
 
@@ -286,6 +293,9 @@ export default class Renderer {
       if (this.listenerIds.syncLinkCrosshairStyle) {
         this.state.config.removeOnConfigDataChange(this.listenerIds.syncLinkCrosshairStyle);
       }
+      if (this.listenerIds.syncLinkViewportData) {
+        this.state.config.removeOnConfigDataChange(this.listenerIds.syncLinkViewportData)
+      }
     }
 
     this.season.destroy();
@@ -307,6 +317,7 @@ export default class Renderer {
     this.gl.clearColor(0.0, 0.0, 0.0, 0.0); // Transparent canvas background
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
+    this.sync.link.viewport.render();
     this.season.render();
     this.candle.render();
     this.crosshair.render();
