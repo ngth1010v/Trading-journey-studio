@@ -145,22 +145,34 @@ def get_next_period_open(open_timestamp_ms: float, timeframe: str) -> float | No
     return None
 
 
-def build_target_periods(from_ts: float, to_ts: float, timeframe: str) -> list[tuple[float, float]]:
-    """Build half-open periods [open, close) for a target timeframe in UTC."""
+def build_target_periods(
+    from_ts: float,
+    to_ts: float,
+    timeframe: str,
+) -> list[tuple[float, float]]:
+    """Build only completed half-open periods [open, close) in UTC."""
     periods: list[tuple[float, float]] = []
+
     aligned_open = align_timestamp_to_timeframe(from_ts, timeframe)
     if aligned_open is None:
         return periods
 
     current_open = aligned_open
+
     while current_open < to_ts:
         next_open = get_next_period_open(current_open, timeframe)
         if next_open is None:
             break
-        periods.append((current_open, min(next_open, to_ts)))
-        current_open = next_open
-    return periods
 
+        # Only include fully closed periods.
+        # Do NOT include the currently-open candle.
+        if next_open > to_ts:
+            break
+
+        periods.append((current_open, next_open))
+        current_open = next_open
+
+    return periods
 
 def start_of_week_utc(timestamp_ms: float) -> float | None:
     return align_timestamp_to_timeframe(timestamp_ms, "1W")
