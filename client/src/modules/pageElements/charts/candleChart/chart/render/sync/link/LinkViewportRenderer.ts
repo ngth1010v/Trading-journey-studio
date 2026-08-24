@@ -230,25 +230,27 @@ public render(): void {
       return;
     }
 
-    // Dynamic canvas size update per render call
-    const canvasSize = this.chart.event.getCanvasSize();
-    this.canvasWidth = canvasSize.w;
-    this.canvasHeight = canvasSize.h;
+    const gl = this.gl;
 
-    if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
+    // 1. Lấy kích thước thực tế của Canvas Drawing Buffer (Đã tính devicePixelRatio)
+    const renderWidth = gl.canvas.width;
+    const renderHeight = gl.canvas.height;
+
+    if (renderWidth <= 0 || renderHeight <= 0) {
       return;
     }
 
-    const gl = this.gl;
+    // 2. CẬP NHẬT VIEWPORT (ĐÂY LÀ PHẦN QUAN TRỌNG GIÚP HẾT LỆCH BOTTOM-LEFT)
+    gl.viewport(0, 0, renderWidth, renderHeight);
 
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
 
-    // Apply uniforms
+    // 3. Truyền kích thước thực tế của Drawing Buffer vào Shader để gl_FragCoord khớp 1:1
     gl.uniform2f(
       this.locations.uniforms.canvasSize,
-      this.canvasWidth,
-      this.canvasHeight
+      renderWidth,
+      renderHeight
     );
     gl.uniform4fv(this.locations.uniforms.extend, this.extendData);
     gl.uniform4fv(this.locations.uniforms.bgColor, this.bgColorData);
@@ -264,11 +266,56 @@ public render(): void {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Draw full-screen quad (Fragment shader calculates region clipping and borders)
+    // Draw full-screen quad
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     gl.bindVertexArray(null);
-  }
+}
+
+// public render(): void {
+//     if (!this.isEnabled || !this.gl || !this.program || !this.vao) {
+//       return;
+//     }
+
+//     // Dynamic canvas size update per render call
+//     const canvasSize = this.chart.event.getCanvasSize();
+//     this.canvasWidth = canvasSize.w;
+//     this.canvasHeight = canvasSize.h;
+
+//     if (this.canvasWidth <= 0 || this.canvasHeight <= 0) {
+//       return;
+//     }
+
+//     const gl = this.gl;
+
+//     gl.useProgram(this.program);
+//     gl.bindVertexArray(this.vao);
+
+//     // Apply uniforms
+//     gl.uniform2f(
+//       this.locations.uniforms.canvasSize,
+//       this.canvasWidth,
+//       this.canvasHeight
+//     );
+//     gl.uniform4fv(this.locations.uniforms.extend, this.extendData);
+//     gl.uniform4fv(this.locations.uniforms.bgColor, this.bgColorData);
+//     gl.uniform4fv(this.locations.uniforms.borderColor, this.borderColorData);
+//     gl.uniform1f(
+//       this.locations.uniforms.borderThickness,
+//       this.borderThickness
+//     );
+//     gl.uniform1i(this.locations.uniforms.borderType, this.borderType);
+//     gl.uniform2fv(this.locations.uniforms.dashConfig, this.dashConfigData);
+
+//     // Enable Alpha Blending
+//     gl.enable(gl.BLEND);
+//     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+//     // Draw full-screen quad (Fragment shader calculates region clipping and borders)
+//     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+//     gl.bindVertexArray(null);
+//   }
 
   private initGLResources(): void {
     if (!this.gl) return;
