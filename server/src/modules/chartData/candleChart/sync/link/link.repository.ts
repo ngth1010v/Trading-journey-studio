@@ -6,7 +6,7 @@ import { Link } from './link.model.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_DIR = path.join(__dirname, "../../../../../database/chartData/candleChart/sync");
+const DB_DIR = path.join(__dirname, "../../../../../../database/chartData/candleChart/sync");
 const DB_PATH = path.join(DB_DIR, "link.db");
 
 let db: Database.Database | null = null;
