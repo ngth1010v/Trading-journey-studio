@@ -4,6 +4,7 @@ import type StateData from "../../state/StateData";
 import type ChartController from "../ChartController";
 import SeasonRenderer from "./season/SeasonRenderer";
 import SyncRenderer from "./sync/SyncRenderer";
+import TradeRenderer from "./trade/TradeRenderer";
 
 const BASE_ID = "[CandleChart][chart][render][Renderer.ts]";
 
@@ -15,6 +16,7 @@ export default class Renderer {
   public readonly crosshair = new CrosshairRenderer();
   public readonly season = new SeasonRenderer();
   public readonly sync = new SyncRenderer();
+  public readonly trade = new TradeRenderer();
 
   // Quản lý các listener IDs rút gọn
   private listenerIds = {
@@ -36,10 +38,16 @@ export default class Renderer {
     crosshairData: "",
     crosshairStyle: "",
 
+    // Sync
     syncLinkCrosshairData: "",
     syncLinkCrosshairStyle: "",
-
     syncLinkViewportData: "",
+
+    // Trade
+    tradeData: "",
+    tradeSelectedData: "",
+    tradeStyle: "",
+    tradeTransform: "",
   };
 
   /**
@@ -57,7 +65,7 @@ export default class Renderer {
     this.candle.init(state, chart);
     this.crosshair.init(state, chart);
     this.sync.init(state, chart);
-    
+    this.trade.init(state, chart);
 
     this.render();
 
@@ -80,6 +88,11 @@ export default class Renderer {
     this.listenerIds.syncLinkCrosshairData = this.generateListenerId("sync_link_crosshair_data");
     this.listenerIds.syncLinkCrosshairStyle = this.generateListenerId("sync_link_crosshair_style");
     this.listenerIds.syncLinkViewportData = this.generateListenerId("sync_link_viewport_data");
+
+    this.listenerIds.tradeData = this.generateListenerId("trade_data");
+    this.listenerIds.tradeSelectedData = this.generateListenerId("trade_selected_data");
+    this.listenerIds.tradeStyle = this.generateListenerId("trade_style");
+    this.listenerIds.tradeTransform = this.generateListenerId("trade_transform");
 
     //===============================================================
     // Season
@@ -205,11 +218,32 @@ export default class Renderer {
       }
     );
 
-    state.config.addOnConfigDataChange(this.listenerIds.syncLinkViewportData, ["sync","viewport"], () => {
+    state.config.addOnConfigDataChange(this.listenerIds.syncLinkViewportData, ["sync", "viewport"], () => {
       this.sync.link.viewport.updateDataAndStyle();
       this.render();
     });
 
+    //===============================================================
+    // Trade
+    //===============================================================
+    state.source.trade.addOnTradeDataChange(this.listenerIds.tradeData, () => {
+      this.trade.updateData();
+      this.render();
+    });
+
+    state.source.trade.selected.addOnSelectedTradeDataChange(this.listenerIds.tradeSelectedData, () => {
+      this.trade.updateData();
+      this.render();
+    });
+
+    state.source.trade.style.addOnTradeStyleDataChange(this.listenerIds.tradeStyle, () => {
+      this.trade.updateStyle();
+      this.render();
+    });
+
+    state.viewport.addOnViewportTransformDataChange(this.listenerIds.tradeTransform, () => {
+      this.trade.updateTransform();
+    });
   }
 
   public setCanvas(canvas: HTMLCanvasElement): void {
@@ -231,6 +265,7 @@ export default class Renderer {
     this.candle.setGl(gl);
     this.crosshair.setGl(gl);
     this.sync.setGl(gl);
+    this.trade.setGl(gl);
   }
 
   public destroy(): void {
@@ -282,8 +317,7 @@ export default class Renderer {
       if (this.listenerIds.crosshairStyle) {
         this.state.config.removeOnConfigDataChange(this.listenerIds.crosshairStyle);
       }
-      
-      
+
       //===============================================================
       // Sync - link
       //===============================================================
@@ -294,7 +328,23 @@ export default class Renderer {
         this.state.config.removeOnConfigDataChange(this.listenerIds.syncLinkCrosshairStyle);
       }
       if (this.listenerIds.syncLinkViewportData) {
-        this.state.config.removeOnConfigDataChange(this.listenerIds.syncLinkViewportData)
+        this.state.config.removeOnConfigDataChange(this.listenerIds.syncLinkViewportData);
+      }
+
+      //===============================================================
+      // Trade
+      //===============================================================
+      if (this.listenerIds.tradeData) {
+        this.state.source.trade.removeOnTradeDataChange(this.listenerIds.tradeData);
+      }
+      if (this.listenerIds.tradeSelectedData) {
+        this.state.source.trade.selected.removeOnSelectedTradeDataChange(this.listenerIds.tradeSelectedData);
+      }
+      if (this.listenerIds.tradeStyle) {
+        this.state.source.trade.style.removeOnTradeStyleDataChange(this.listenerIds.tradeStyle);
+      }
+      if (this.listenerIds.tradeTransform) {
+        this.state.viewport.removeOnViewportTransformDataChange(this.listenerIds.tradeTransform);
       }
     }
 
@@ -302,6 +352,7 @@ export default class Renderer {
     this.candle.destroy();
     this.crosshair.destroy();
     this.sync.destroy();
+    this.trade.destroy();
 
     this.gl = null;
     this.state = null;
@@ -320,6 +371,8 @@ export default class Renderer {
     this.sync.link.viewport.render();
     this.season.render();
     this.candle.render();
+    this.trade.unselected.updateTransform();
+    this.trade.selected.updateTransform();
     this.crosshair.render();
     this.sync.link.crosshair.render();
   }

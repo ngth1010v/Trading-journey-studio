@@ -82,22 +82,24 @@ export const TradeRepository = {
   },
 
   // --- Trade Operations ---
-  getTrades(
-    strategyId: number,
-    symbol: string,
-    fromTs: number,
-    toTs: number
-  ): Trade[] {
-    const stmt = db.prepare(`
-      SELECT * FROM trades 
-      WHERE strategyId = ? 
-        AND symbol = ? 
-        AND data_closeTimestamp >= ? 
-        AND data_closeTimestamp <= ?
-    `);
-    const rows = stmt.all(strategyId, symbol, fromTs, toTs) as any[];
-    return rows.map(mapRowToTrade);
-  },
+
+    getTrades(
+      strategyId: number,
+      symbol: string,
+      fromTs: number,
+      toTs: number
+    ): Trade[] {
+      const stmt = db.prepare(`
+        SELECT * FROM trades 
+        WHERE strategyId = ? 
+          AND symbol = ? 
+          AND data_openTimestamp <= ? 
+          AND data_closeTimestamp >= ?
+      `);
+      // Note order of parameters: strategyId, symbol, toTs, fromTs
+      const rows = stmt.all(strategyId, symbol, toTs, fromTs) as any[];
+      return rows.map(mapRowToTrade);
+    },
 
   getTradeById(id: number): Trade | null {
     const row = db.prepare("SELECT * FROM trades WHERE id = ?").get(id) as any;

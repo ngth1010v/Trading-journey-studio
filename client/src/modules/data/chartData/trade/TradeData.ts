@@ -6,6 +6,7 @@ import {
 } from "./tradeApi";
 import TradeTagData from "./tag/TradeTagData";
 import TradeStyleData from "./style/TradeStyleData";
+import SelectedTradeData from "./SelectedTradeData";
 
 export interface Trade {
   id?: number;
@@ -40,9 +41,10 @@ export default class TradeData {
   private tradesMap: Map<number, Trade> = new Map();
   private listeners: Map<string, () => void> = new Map();
 
-  // Nested tag and style data instances
+  // Nested tag, style, and selected data instances
   private _tag = new TradeTagData();
   private _style = new TradeStyleData();
+  public selected = new SelectedTradeData(this);
 
   /**
    * Access the tag data controller
@@ -67,6 +69,7 @@ export default class TradeData {
     // Initialize child data modules
     this._tag.init();
     this._style.init();
+    this.selected.init();
 
     this.checkAndFetchData();
     this.intervalId = setInterval(() => {
@@ -78,6 +81,7 @@ export default class TradeData {
     // Destroy child data modules
     this._tag.destroy();
     this._style.destroy();
+    this.selected.destroy();
 
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
@@ -141,7 +145,11 @@ export default class TradeData {
 
   public getAll(): Trade[] {
     this.checkInitialized();
-    return Array.from(this.tradesMap.values());
+    const selectedTrade = this.selected.get();
+    const selectedId = selectedTrade?.id;
+    return Array.from(this.tradesMap.values()).filter(
+      (trade) => trade.id !== selectedId
+    );
   }
 
   public async set(trade: Trade): Promise<void> {
@@ -192,7 +200,7 @@ export default class TradeData {
     }
   }
 
-  private notifyListeners(): void {
+  public notifyListeners(): void {
     for (const callback of this.listeners.values()) {
       callback();
     }

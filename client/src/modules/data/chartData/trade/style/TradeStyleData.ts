@@ -12,11 +12,9 @@ export interface TradeStyle {
     background: RGBA;
     border: RGBA;
   };
-  text: {
-    order: "Profit&loss - RR" | "RR - Profit&Loss";
-    alwayShow: "RR" | "Profit&Loss" | "RR - Profit&Loss" | "None";
-    profitLossSize: number;
-    rrSize: number;
+  rrr: {
+    size: number;
+    alwayShow: boolean;
     alignX: "left" | "right";
     alignY: "top" | "bottom";
   };
@@ -33,11 +31,9 @@ export const DefaultTradeStyle: TradeStyle = {
     background: [255, 100, 100, 100] as RGBA,
     border: [255, 100, 100, 255] as RGBA,
   },
-  text: {
-    order: "RR - Profit&Loss",
-    alwayShow: "None",
-    profitLossSize: 12,
-    rrSize: 12,
+  rrr: {
+    alwayShow: true,
+    size: 12,
     alignX: "left",
     alignY: "top",
   },

@@ -95,6 +95,14 @@ export interface Config {
         border?: RGBA;
       };
     };
+    shappeEditor?: {
+      size?: number
+      color?: RGBA,
+      border?:{
+        thickness?: number
+        color?: RGBA
+      }
+    }
   };
   floatingBar?: {
     seasonBar?: {
@@ -211,6 +219,14 @@ export default class ConfigData {
             border: [255, 50, 50, 255] as RGBA,
           },
         },
+        shappeEditor: {
+          size: 20,
+          color: [10,10,20,255] as RGBA,
+          border:{
+            thickness: 1,
+            color: [255,255,255,255] as RGBA
+          }
+        }
       },
       floatingBar: {
         seasonBar: {
