@@ -181,10 +181,9 @@ export default class SelectedTradeRenderer {
 
   public updateTransform(): void {
     this.rebuildBuffers();
-    this.render();
   }
 
-  private render(): void {
+  public render(): void {
     if (!this.gl || !this.selectedTrade) return;
 
     const gl = this.gl;

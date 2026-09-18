@@ -82,7 +82,6 @@ export default class ClosedCandleRenderer {
     padding: 2.0,
   };
 
-  private readonly transformListenerId = `ClosedCandleRenderer_${Math.random().toString(36).substring(2, 9)}`;
 
   public setGl(gl: WebGL2RenderingContext): void {
     if (this.gl === gl) return;
@@ -101,20 +100,9 @@ export default class ClosedCandleRenderer {
   public init(state: StateData, chart: ChartController): void {
     this.state = state;
     this.chart = chart;
-
-    this.state.viewport.addOnViewportTransformDataChange(
-      this.transformListenerId,
-      () => {
-        this.updateTransform();
-      }
-    );
   }
 
   public destroy(): void {
-    if (this.state) {
-      this.state.viewport.removeOnViewportTransformDataChange(this.transformListenerId);
-    }
-
     this.cleanupGlResources();
     this.gl = null;
     this.state = null;
@@ -233,16 +221,7 @@ export default class ClosedCandleRenderer {
 
     const gl = this.gl;
 
-    const dpr = window.devicePixelRatio || 1;
-    const pixelWidth = Math.floor(canvas.w * dpr);
-    const pixelHeight = Math.floor(canvas.h * dpr);
-
-    if (gl.canvas.width !== pixelWidth || gl.canvas.height !== pixelHeight) {
-      gl.canvas.width = pixelWidth;
-      gl.canvas.height = pixelHeight;
-    }
-
-    gl.viewport(0, 0, pixelWidth, pixelHeight);
+    // Canvas size & gl.viewport are owned by Renderer.draw (game loop)
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 

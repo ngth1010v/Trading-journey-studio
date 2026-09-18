@@ -3,12 +3,14 @@ import ViewportController from "./viewport/ViewportController";
 import EventController from "./event/EventController";
 import Renderer from "./render/Renderer";
 import SyncController from "./sync/SyncController";
+import GameLoop from "./loop/GameLoop";
 
 export default class ChartController {
     public viewport: ViewportController = new ViewportController()
     public event: EventController = new EventController()
     public render: Renderer = new Renderer()
     public sync: SyncController = new SyncController()
+    public loop: GameLoop = new GameLoop(() => this.event.getCanvasSize())
 
     public init(state: StateData): void {
         this.viewport.init(state, this)
@@ -16,8 +18,9 @@ export default class ChartController {
         this.sync.init(state, this)
         this.render.init(state, this)
     }
-    
+
     public destroy(): void {
+        this.loop.destroy();
         this.viewport.destroy();
         this.event.destroy();
         this.sync.destroy()

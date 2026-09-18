@@ -1,10 +1,11 @@
 import type StateData from "../../../state/StateData";
 import type ChartController from "../../ChartController";
 import type { LinkState } from "../../../state/sync/link/state/LinkStateData";
+import type { System } from "../../loop/GameLoop";
 
 const BASE_ID = "[chart][viewport][ViewportSync]";
 
-export default class LinkStateController {
+export default class LinkStateController implements System {
     private state: StateData | null = null;
     private chart: ChartController | null = null;
 
@@ -26,8 +27,8 @@ export default class LinkStateController {
     private cachedHighestPrice: number | null = null;
     private cachedLowestPrice: number | null = null;
 
-    // RAF Batching
-    private rafId: number | null = null;
+    // Sync-up is batched and runs in the game loop post phase
+    private syncUpPending: boolean = false;
 
     public init(state: StateData, chart: ChartController): void {
         this.state = state;
@@ -52,13 +53,12 @@ export default class LinkStateController {
 
         // Sync down
         this.state.sync.link.state.addOnLinkStateDataChange( BASE_ID + "sync down", this.syncDown );
+
+        this.chart.loop.addSystem(this);
     }
 
     public destroy(): void {
-        if (this.rafId !== null) {
-            cancelAnimationFrame(this.rafId);
-            this.rafId = null;
-        }
+        this.syncUpPending = false;
 
         if (this.state) {
             this.state.viewport.removeOnViewportTransformDataChange(BASE_ID + "transform sync up");
@@ -72,6 +72,7 @@ export default class LinkStateController {
         }
 
         if (this.chart) {
+            this.chart.loop.removeSystem(this);
             this.chart.event.removeOnEvent(BASE_ID + "on mouse leave");
         }
 
@@ -121,12 +122,15 @@ export default class LinkStateController {
     };
 
     private scheduleSyncUp = (): void => {
-        if (this.rafId !== null) return;
-        this.rafId = requestAnimationFrame(() => {
-            this.rafId = null;
-            this.syncUp();
-        });
+        this.syncUpPending = true;
+        this.chart?.loop.requestFrame();
     };
+
+    public post(): void {
+        if (!this.syncUpPending) return;
+        this.syncUpPending = false;
+        this.syncUp();
+    }
 
     private onMouseLeave = (): void => {
         this.state?.crosshair.setAlt(null);

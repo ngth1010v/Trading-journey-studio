@@ -28,6 +28,7 @@ dist-ssr
 
 # Data
 server/database/
+server/src/database/
 
 
 # Dev

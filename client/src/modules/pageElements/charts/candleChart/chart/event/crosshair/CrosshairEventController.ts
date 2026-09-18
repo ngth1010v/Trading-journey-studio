@@ -1,16 +1,19 @@
 import type StateData from "../../../state/StateData";
 import type ChartController from "../../ChartController";
 import type { Candle } from "../../../state/source/candle/CandleData";
+import type { System } from "../../loop/GameLoop";
 
 const MAGNET_SNAP_DISTANCE_PX = 30;
 const MAGNET_SNAP_DISTANCE_SQ = MAGNET_SNAP_DISTANCE_PX * MAGNET_SNAP_DISTANCE_PX;
 
-export default class CrosshairEventController {
+export default class CrosshairEventController implements System {
   private state: StateData | null = null;
   private chart: ChartController | null = null;
 
   private isMouseInside: boolean = false;
   private rawMousePos: { x: number; y: number } | null = null;
+  // Set by mouse input, consumed once per frame in update()
+  private pendingUpdate: boolean = false;
 
   private readonly eventIdPrefix = `CrosshairEventController_${Math.random().toString(36).substring(2, 9)}`;
 
@@ -26,6 +29,8 @@ export default class CrosshairEventController {
     event.addOnEvent("mouseMove", `${this.eventIdPrefix}_mouseMove`, this.onMouseMove);
     event.addOnEvent("mouseEnter", `${this.eventIdPrefix}_mouseEnter`, this.onMouseEnter);
     event.addOnEvent("mouseLeave", `${this.eventIdPrefix}_mouseLeave`, this.onMouseLeave);
+
+    this.chart.loop.addSystem(this);
   }
 
   /**
@@ -33,6 +38,7 @@ export default class CrosshairEventController {
    */
   public destroy(): void {
     if (this.chart) {
+      this.chart.loop.removeSystem(this);
       try {
         this.chart.event.removeOnEvent(`${this.eventIdPrefix}_mouseMove`);
         this.chart.event.removeOnEvent(`${this.eventIdPrefix}_mouseEnter`);
@@ -50,6 +56,7 @@ export default class CrosshairEventController {
     this.chart = null;
     this.rawMousePos = null;
     this.isMouseInside = false;
+    this.pendingUpdate = false;
   }
 
   /**
@@ -72,12 +79,13 @@ export default class CrosshairEventController {
 
   private onMouseEnter = (): void => {
     this.isMouseInside = true;
-    this.updateCrosshairData();
+    this.scheduleUpdate();
   };
 
   private onMouseLeave = (): void => {
     this.isMouseInside = false;
     this.rawMousePos = null;
+    this.pendingUpdate = false;
 
     if (this.state) {
       this.state.crosshair.reset();
@@ -100,8 +108,23 @@ export default class CrosshairEventController {
       };
     }
 
-    this.updateCrosshairData();
+    this.scheduleUpdate();
   };
+
+  // =========================================================================
+  // GAME LOOP
+  // =========================================================================
+
+  private scheduleUpdate(): void {
+    this.pendingUpdate = true;
+    this.chart?.loop.requestFrame();
+  }
+
+  public update(): void {
+    if (!this.pendingUpdate) return;
+    this.pendingUpdate = false;
+    this.updateCrosshairData();
+  }
 
   // =========================================================================
   // MAGNET COMPUTATION & STATE SYNC

@@ -13,6 +13,7 @@ in vec4 a_bgColor;
 in vec4 a_borderColor;
 
 uniform vec2 u_canvasSize;
+uniform vec4 u_transform; // [scaleX, offsetX, scaleY, offsetY]
 
 out vec4 v_bgColor;
 out vec4 v_borderColor;
@@ -20,13 +21,20 @@ out vec2 v_localPx;
 out vec2 v_rectSize;
 
 void main() {
-    vec2 pos = mix(a_rectBounds.xy, a_rectBounds.zw, a_position);
+    vec2 minPx = a_rectBounds.xy;
+    vec2 maxPx = a_rectBounds.zw;
+
+    vec2 transformedMin = minPx * u_transform.xz + u_transform.yw;
+    vec2 transformedMax = maxPx * u_transform.xz + u_transform.yw;
+
+    vec2 pos = mix(transformedMin, transformedMax, a_position);
     vec2 clipSpace = (pos / u_canvasSize) * 2.0 - 1.0;
     gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
 
     v_bgColor = a_bgColor;
     v_borderColor = a_borderColor;
-    v_rectSize = abs(a_rectBounds.zw - a_rectBounds.xy);
+
+    v_rectSize = abs(transformedMax - transformedMin);
     v_localPx = a_position * v_rectSize;
 }
 `;
@@ -58,17 +66,21 @@ const TEXT_VS = `#version 300 es
 precision highp float;
 
 in vec2 a_position;
-in vec4 a_glyphBounds;
+in vec4 a_glyphBounds; // [x, y, w, h]
 in vec4 a_uvBounds;
 in vec3 a_textColor;
 
 uniform vec2 u_canvasSize;
+uniform vec4 u_transform; // [scaleX, offsetX, scaleY, offsetY]
 
 out vec2 v_uv;
 out vec3 v_textColor;
 
 void main() {
-    vec2 px = mix(a_glyphBounds.xy, a_glyphBounds.xy + a_glyphBounds.zw, a_position);
+    vec2 anchorPx = a_glyphBounds.xy * u_transform.xz + u_transform.yw;
+    vec2 glyphSize = a_glyphBounds.zw;
+
+    vec2 px = mix(anchorPx, anchorPx + glyphSize, a_position);
     vec2 clipSpace = (px / u_canvasSize) * 2.0 - 1.0;
     gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
 
@@ -113,11 +125,15 @@ export default class UnselectedTradeRenderer {
   private rectVao: WebGLVertexArrayObject | null = null;
   private rectQuadBuffer: WebGLBuffer | null = null;
   private rectInstanceBuffer: WebGLBuffer | null = null;
+  private uRectTransformLoc: WebGLUniformLocation | null = null;
+  private uRectCanvasLoc: WebGLUniformLocation | null = null;
 
   private textProgram: WebGLProgram | null = null;
   private textVao: WebGLVertexArrayObject | null = null;
   private textQuadBuffer: WebGLBuffer | null = null;
   private textInstanceBuffer: WebGLBuffer | null = null;
+  private uTextTransformLoc: WebGLUniformLocation | null = null;
+  private uTextCanvasLoc: WebGLUniformLocation | null = null;
 
   private fontTexture: WebGLTexture | null = null;
   private fontMap: Map<number, GlyphInfo> = new Map();
@@ -175,19 +191,56 @@ export default class UnselectedTradeRenderer {
     this.rebuildBuffers();
   }
 
+  /**
+   * Pushes the transform matrix & canvas dimension parameters directly to the GPU 
+   * without initiating a render pass (draw call).
+   */
   public updateTransform(): void {
-    this.rebuildBuffers();
-    this.render();
+    if (!this.gl) return;
+
+    const gl = this.gl;
+    const transform = this.state.viewport?.getTransform?.() ?? {
+      scaleX: 1,
+      offsetX: 0,
+      scaleY: 1,
+      offsetY: 0,
+    };
+    const canvasSize = this.chart.event.getCanvasSize();
+
+    // 1. Update Rect Program Uniforms on GPU
+    if (this.rectProgram) {
+      gl.useProgram(this.rectProgram);
+      if (this.uRectTransformLoc) {
+        gl.uniform4f(this.uRectTransformLoc, transform.scaleX, transform.offsetX, transform.scaleY, transform.offsetY);
+      }
+      if (this.uRectCanvasLoc && canvasSize.w > 0 && canvasSize.h > 0) {
+        gl.uniform2f(this.uRectCanvasLoc, canvasSize.w, canvasSize.h);
+      }
+    }
+
+    // 2. Update Text Program Uniforms on GPU
+    if (this.textProgram) {
+      gl.useProgram(this.textProgram);
+      if (this.uTextTransformLoc) {
+        gl.uniform4f(this.uTextTransformLoc, transform.scaleX, transform.offsetX, transform.scaleY, transform.offsetY);
+      }
+      if (this.uTextCanvasLoc && canvasSize.w > 0 && canvasSize.h > 0) {
+        gl.uniform2f(this.uTextCanvasLoc, canvasSize.w, canvasSize.h);
+      }
+    }
+
+    gl.useProgram(null);
   }
 
+  /**
+   * Executes the draw calls utilizing the cached state & buffers existing on the GPU.
+   */
   public render(): void {
     if (!this.gl || this.trades.length === 0) return;
 
     const gl = this.gl;
     const canvasSize = this.chart.event.getCanvasSize();
     if (canvasSize.w <= 0 || canvasSize.h <= 0) return;
-
-    console.log("test")
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.enable(gl.BLEND);
@@ -196,13 +249,6 @@ export default class UnselectedTradeRenderer {
     // 1. Draw Rectangles Batch
     if (this.rectCount > 0 && this.rectProgram && this.rectVao) {
       gl.useProgram(this.rectProgram);
-
-      const uCanvas = gl.getUniformLocation(this.rectProgram, "u_canvasSize");
-      gl.uniform2f(uCanvas, canvasSize.w, canvasSize.h);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.rectInstanceBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, this.rectInstanceData, gl.DYNAMIC_DRAW);
-
       gl.bindVertexArray(this.rectVao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.rectCount);
       gl.bindVertexArray(null);
@@ -212,15 +258,8 @@ export default class UnselectedTradeRenderer {
     if (this.textCount > 0 && this.textProgram && this.textVao && this.fontTexture) {
       gl.useProgram(this.textProgram);
 
-      const uCanvas = gl.getUniformLocation(this.textProgram, "u_canvasSize");
-      gl.uniform2f(uCanvas, canvasSize.w, canvasSize.h);
-
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.fontTexture);
-      gl.uniform1i(gl.getUniformLocation(this.textProgram, "u_fontAtlas"), 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.textInstanceBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, this.textInstanceData, gl.DYNAMIC_DRAW);
 
       gl.bindVertexArray(this.textVao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.textCount);
@@ -312,6 +351,24 @@ export default class UnselectedTradeRenderer {
     this.rectInstanceData = new Float32Array(rects);
     this.textCount = glyphs.length / 11;
     this.textInstanceData = new Float32Array(glyphs);
+
+    this.uploadBuffers();
+    this.updateTransform();
+  }
+
+  private uploadBuffers(): void {
+    if (!this.gl) return;
+    const gl = this.gl;
+
+    if (this.rectInstanceBuffer && this.rectInstanceData.length > 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.rectInstanceBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, this.rectInstanceData, gl.STATIC_DRAW);
+    }
+
+    if (this.textInstanceBuffer && this.textInstanceData.length > 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.textInstanceBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, this.textInstanceData, gl.STATIC_DRAW);
+    }
   }
 
   private initShaders(): void {
@@ -320,6 +377,9 @@ export default class UnselectedTradeRenderer {
 
     this.rectProgram = this.createProgram(RECT_VS, RECT_FS);
     if (this.rectProgram) {
+      this.uRectTransformLoc = gl.getUniformLocation(this.rectProgram, "u_transform");
+      this.uRectCanvasLoc = gl.getUniformLocation(this.rectProgram, "u_canvasSize");
+
       this.rectVao = gl.createVertexArray();
       gl.bindVertexArray(this.rectVao);
 
@@ -364,6 +424,9 @@ export default class UnselectedTradeRenderer {
 
     this.textProgram = this.createProgram(TEXT_VS, TEXT_FS);
     if (this.textProgram) {
+      this.uTextTransformLoc = gl.getUniformLocation(this.textProgram, "u_transform");
+      this.uTextCanvasLoc = gl.getUniformLocation(this.textProgram, "u_canvasSize");
+
       this.textVao = gl.createVertexArray();
       gl.bindVertexArray(this.textVao);
 
@@ -429,8 +492,15 @@ export default class UnselectedTradeRenderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+      // Set constant uniform values for font atlas once
+      if (this.textProgram) {
+        gl.useProgram(this.textProgram);
+        gl.uniform1i(gl.getUniformLocation(this.textProgram, "u_fontAtlas"), 0);
+        gl.useProgram(null);
+      }
+
       this.rebuildBuffers();
-      this.render();
+      this.chart?.loop.mark("trade");
     } catch (e) {
       console.error("Failed loading font atlas:", e);
     }
