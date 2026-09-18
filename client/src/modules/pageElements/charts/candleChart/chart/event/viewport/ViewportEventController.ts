@@ -1,14 +1,19 @@
 import type StateData from "../../../state/StateData"
 import type { Viewport, ViewportTransform } from "../../../state/viewport/ViewportData"
 import type ChartController from "../../ChartController";
+import type { System } from "../../loop/GameLoop";
 
-export default class ViewportEventController {
+export default class ViewportEventController implements System {
   private state: StateData | null = null;
   private chart: ChartController | null = null;
 
   private enabled = true;
   private isPanning = false;
   private lastMousePos = { x: 0, y: 0 };
+
+  // Input queued between frames, applied once per frame in update()
+  private pendingPan = { dx: 0, dy: 0 };
+  private pendingZoom: { factorX: number; factorY: number; mouseX: number; mouseY: number } | null = null;
 
   // Timer reference for debouncing the wheel flush
   private wheelFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -33,6 +38,7 @@ export default class ViewportEventController {
     this.chart.event.addOnEvent("wheel", this.WHEEL_EVENT_ID, this.handleWheel);
     this.chart.event.addOnEvent("keyDown", this.RESET_VIEWPORT_EVENT_ID, this.handleResetViewport);
 
+    this.chart.loop.addSystem(this);
   }
 
   /**
@@ -47,6 +53,7 @@ export default class ViewportEventController {
     }
 
     if (this.chart) {
+      this.chart.loop.removeSystem(this);
       try {
         this.chart.event.removeOnEvent(`${this.PAN_EVENT_ID}_down`);
         this.chart.event.removeOnEvent(`${this.PAN_EVENT_ID}_up`);
@@ -61,6 +68,7 @@ export default class ViewportEventController {
     this.chart = null;
     this.isPanning = false;
     this.enabled = true;
+    this.clearPending();
   }
 
   /**
@@ -71,6 +79,7 @@ export default class ViewportEventController {
     this.enabled = enable;
     if (!enable) {
       this.isPanning = false;
+      this.clearPending();
       if (this.wheelFlushTimer) {
         clearTimeout(this.wheelFlushTimer);
         this.wheelFlushTimer = null;
@@ -99,6 +108,7 @@ export default class ViewportEventController {
     if (!this.chart) return;
     if (!this.enabled) return;
     this.isPanning = false;
+    this.applyPending();
     this.state?.viewport.flushTransform();
   };
   
@@ -114,18 +124,13 @@ export default class ViewportEventController {
     const dy = currentPos.y - this.lastMousePos.y;
     this.lastMousePos = currentPos;
     
-    const state = this.getState();
     const { w, h } = this.chart.event.getCanvasSize();
     if (w <= 0 || h <= 0) return;
-    
-    const transform = state.viewport.getTransform();
 
-    // Directly apply pixel translation offsets
-    state.viewport.setTransform({
-      ...transform,
-      offsetX: transform.offsetX + dx,
-      offsetY: transform.offsetY + dy,
-    });
+    // Queue pixel translation; applied once per frame
+    this.pendingPan.dx += dx;
+    this.pendingPan.dy += dy;
+    this.chart.loop.requestFrame();
   };
   
   private handleWheel = (e: React.WheelEvent<HTMLCanvasElement>): void => {
@@ -135,52 +140,86 @@ export default class ViewportEventController {
     const view = this.getViewport();
     if (!view) return;
 
-    const state = this.getState();
-
     const { w, h } = this.chart.event.getCanvasSize();
     if (w <= 0 || h <= 0) return;
 
     const { x: mouseX, y: mouseY } = this.getMousePosition(e);
-    const currentTransform = state.viewport.getTransform();
 
     const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
 
     const isCtrl = e.ctrlKey || e.metaKey;
     const isAlt = e.altKey;
 
-    let newScaleX = currentTransform.scaleX;
-    let newScaleY = currentTransform.scaleY;
+    let factorX = 1;
+    let factorY = 1;
 
     if (isCtrl && !isAlt) {
       // ScaleX zoom only
-      newScaleX *= zoomFactor;
+      factorX = zoomFactor;
     } else if (isAlt && !isCtrl) {
       // ScaleY zoom only
-      newScaleY *= zoomFactor;
+      factorY = zoomFactor;
     } else {
       // Uniform Scale: Both X and Y zoom
-      newScaleX *= zoomFactor;
-      newScaleY *= zoomFactor;
+      factorX = zoomFactor;
+      factorY = zoomFactor;
     }
 
-    const worldX = (mouseX - currentTransform.offsetX) / currentTransform.scaleX;
-    const worldY = (mouseY - currentTransform.offsetY) / currentTransform.scaleY;
-
-    const newOffsetX = mouseX - worldX * newScaleX;
-    const newOffsetY = mouseY - worldY * newScaleY;
-
-    const newTransform: ViewportTransform = {
-      scaleX: newScaleX,
-      offsetX: newOffsetX,
-      scaleY: newScaleY,
-      offsetY: newOffsetY,
+    // Queue zoom; steps within one frame compose into one zoom around the latest mouse position
+    const pending = this.pendingZoom;
+    this.pendingZoom = {
+      factorX: (pending?.factorX ?? 1) * factorX,
+      factorY: (pending?.factorY ?? 1) * factorY,
+      mouseX,
+      mouseY,
     };
-
-    state.viewport.setTransform(newTransform);
+    this.chart.loop.requestFrame();
 
     // Schedule debounced flush
     this.debounceWheelFlush();
   };
+
+  //======================================================================================================
+  // GAME LOOP
+  //======================================================================================================
+
+  public update(): void {
+    this.applyPending();
+  }
+
+  /**
+   * Applies queued pan & zoom to the viewport transform in a single setTransform call.
+   */
+  private applyPending(): void {
+    const state = this.state;
+    const pan = this.pendingPan;
+    const zoom = this.pendingZoom;
+    if (!state || (pan.dx === 0 && pan.dy === 0 && !zoom)) return;
+
+    const t = state.viewport.getTransform();
+    let { scaleX, scaleY } = t;
+    let offsetX = t.offsetX + pan.dx;
+    let offsetY = t.offsetY + pan.dy;
+
+    if (zoom) {
+      const worldX = (zoom.mouseX - offsetX) / scaleX;
+      const worldY = (zoom.mouseY - offsetY) / scaleY;
+      scaleX *= zoom.factorX;
+      scaleY *= zoom.factorY;
+      offsetX = zoom.mouseX - worldX * scaleX;
+      offsetY = zoom.mouseY - worldY * scaleY;
+    }
+
+    this.clearPending();
+
+    const newTransform: ViewportTransform = { scaleX, offsetX, scaleY, offsetY };
+    state.viewport.setTransform(newTransform);
+  }
+
+  private clearPending(): void {
+    this.pendingPan = { dx: 0, dy: 0 };
+    this.pendingZoom = null;
+  }
 
   /**
    * Clears any active wheel timer and sets a new timer for 500ms.
@@ -191,6 +230,7 @@ export default class ViewportEventController {
     }
 
     this.wheelFlushTimer = setTimeout(() => {
+      this.applyPending();
       this.state?.viewport.flushTransform();
       this.wheelFlushTimer = null;
     }, this.WHEEL_DEBOUNCE_MS);
