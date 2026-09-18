@@ -74,9 +74,9 @@ export default class Renderer {
         ["transform"]],
 
       ["config_viewport", config(["viewport"]).add, config(["viewport"]).remove,
-        ["season.data", "candle.closed", "candle.opening"]],
+        ["season.data", "candle.closed", "candle.opening", "trade"]],
       ["config_strategy", config(["strategyId"]).add, config(["strategyId"]).remove,
-        ["season.data"]],
+        ["season.data", "trade"]],
       ["config_candle_style", config(["style", "candle"]).add, config(["style", "candle"]).remove,
         ["candle.style"]],
       ["config_crosshair_style", config(["style", "crosshair"]).add, config(["style", "crosshair"]).remove,
