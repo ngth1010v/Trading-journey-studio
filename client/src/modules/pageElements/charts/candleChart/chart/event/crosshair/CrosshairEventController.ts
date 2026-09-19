@@ -156,7 +156,7 @@ export default class CrosshairEventController implements System {
   /**
    * Snaps crosshair to nearest candle anchor point within distance limit.
    */
-  private getMagnetPixel(mouseX: number, mouseY: number): { x: number; y: number } | null {
+  public getMagnetPixel(mouseX: number, mouseY: number): { x: number; y: number } | null {
     if (!this.chart || !this.state) return null;
 
     const converter = this.chart.viewport.converter;

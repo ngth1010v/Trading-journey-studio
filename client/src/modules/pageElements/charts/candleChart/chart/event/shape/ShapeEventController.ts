@@ -87,16 +87,13 @@ export default class ShapeEventController implements System {
     return { x: e.clientX, y: e.clientY };
   }
 
-  // ponytail: state.crosshair is only recomputed in CrosshairEventController's per-frame update(),
-  // so reading it synchronously inside a mouseDown/mouseMove handler can be one RAF tick stale
-  // (harmless for a real continuous drag, but a single fast click can land on the wrong point).
-  // Computing straight from the event's screen position sidesteps that at the cost of the OHLC
-  // magnet snap; add magnet back here if CrosshairEventController's snap logic gets extracted
-  // into a shared helper.
+  // state.crosshair is only recomputed in CrosshairEventController's per-frame update(), so reading
+  // it synchronously here can be one RAF tick stale; recompute the magnet snap from the event instead.
   private getWorldAt(e: React.MouseEvent<HTMLCanvasElement>): ShapePoint | null {
     if (!this.chart) return null;
     const pos = this.getMousePos(e);
-    const world = this.chart.viewport.converter.screenToWorld(pos.x, pos.y);
+    const snapped = this.chart.event.crosshair.getMagnetPixel(pos.x, pos.y) ?? pos;
+    const world = this.chart.viewport.converter.screenToWorld(snapped.x, snapped.y);
     if (!world) return null;
     return { ts: world.ts, price: world.price };
   }
