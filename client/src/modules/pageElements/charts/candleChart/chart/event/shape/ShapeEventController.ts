@@ -307,7 +307,7 @@ export default class ShapeEventController implements System {
         style: newShapeStyle(type, config?.shape?.lastStyle),
         ...bounds,
       });
-      editor.setSelectedId(id);
+      editor.setSelectedId(id, true);
     } catch (err) {
       console.error("ShapeEventController: failed to save shape:", err);
     } finally {

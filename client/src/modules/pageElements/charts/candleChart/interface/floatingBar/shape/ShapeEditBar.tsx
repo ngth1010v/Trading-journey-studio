@@ -71,8 +71,11 @@ export default function ShapeEditBar({ state, dragButton }: Props) {
       const found = state.source.shape.getAll().filter(isTypedShape).find((s) => s.id === id);
       setShape(found ?? null);
 
-      // Auto-open the Text popover once, right after a new text shape is created.
-      if (found && found.type === "text" && found.id !== undefined && autoOpenedTextRef.current !== found.id) {
+      // Auto-open the Text popover once, only right after a new text shape is created (not on a later select).
+      if (
+        found && found.type === "text" && found.id !== undefined &&
+        state.shapeEditor.justCreatedId === found.id && autoOpenedTextRef.current !== found.id
+      ) {
         autoOpenedTextRef.current = found.id;
         setOpenPopover("text");
       }

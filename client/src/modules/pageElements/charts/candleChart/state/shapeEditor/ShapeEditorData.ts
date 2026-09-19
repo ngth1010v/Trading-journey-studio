@@ -25,6 +25,7 @@ export default class ShapeEditorData {
   private _tool: Tool = "cursor";
   private _draft: Draft | null = null;
   private _selectedId: number | null = null;
+  private _justCreatedId: number | null = null; // selected shape was just created (not picked by the user)
   private _hoveredId: number | null = null;
   private _hoveredHandle: number | null = null;
   private _dragging: Dragging | null = null;
@@ -44,6 +45,7 @@ export default class ShapeEditorData {
     this._tool = "cursor";
     this._draft = null;
     this._selectedId = null;
+    this._justCreatedId = null;
     this._hoveredId = null;
     this._hoveredHandle = null;
     this._dragging = null;
@@ -52,6 +54,10 @@ export default class ShapeEditorData {
   // =========================================================================
   // GETTERS
   // =========================================================================
+
+  public get justCreatedId(): number | null {
+    return this._justCreatedId;
+  }
 
   public get tool(): Tool {
     return this._tool;
@@ -92,8 +98,10 @@ export default class ShapeEditorData {
     this.notify();
   }
 
-  public setSelectedId(id: number | null): void {
+  /** `justCreated` marks a selection made by creating the shape (e.g. to auto-open the Text popover). */
+  public setSelectedId(id: number | null, justCreated = false): void {
     this._selectedId = id;
+    this._justCreatedId = justCreated ? id : null;
     this.notify();
   }
 
@@ -112,6 +120,7 @@ export default class ShapeEditorData {
   public clearSelection(): void {
     this._draft = null;
     this._selectedId = null;
+    this._justCreatedId = null;
     this._hoveredId = null;
     this._hoveredHandle = null;
     this._dragging = null;
