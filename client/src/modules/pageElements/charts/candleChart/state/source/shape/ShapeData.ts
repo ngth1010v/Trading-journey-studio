@@ -26,6 +26,7 @@ export default class ShapeData {
 
   private cache: Shape[] = [];
   private lastRefreshTimestamp: number = 0;
+  private version = 0; // bumped on every local set/remove
   private timer: ReturnType<typeof setInterval> | null = null;
   private listeners: Map<string, () => void> = new Map();
 
@@ -40,9 +41,10 @@ export default class ShapeData {
 
     // Initialize inner tag and template controllers
     this.tag.init();
+    this.template.init();
     if (this.strategyId !== null) {
       this.tag.setSource(this.strategyId);
-      this.template.init(this.strategyId);
+      this.template.setSource(this.strategyId);
     }
 
     this.timer = setInterval(() => this.refresh(), REFRESH_DURATION);
@@ -63,10 +65,15 @@ export default class ShapeData {
   }
 
   public setSource(symbol: string | null, strategyId: number | null): void {
-    if (symbol){
+    // Both params are optional-per-call: callers pass `null` for "leave unchanged" (StateData's
+    // configSymbol/configStrategyId listeners each only touch one param). Only `undefined` skips;
+    // `null` still falls through to "leave unchanged" here since it's indistinguishable from that
+    // at this call shape (unlike the old `if (strategyId)` truthy check, this no longer drops a
+    // legitimate falsy id like 0).
+    if (symbol !== null && symbol !== undefined) {
       this.symbol = symbol;
     }
-    if (strategyId){
+    if (strategyId !== null && strategyId !== undefined) {
       this.strategyId = strategyId;
       this.tag.setSource(strategyId);
       this.template.setSource(strategyId);
@@ -96,7 +103,37 @@ export default class ShapeData {
     if (this.strategyId === null) {
       throw new Error("Strategy ID is not set.");
     }
-    const res = await saveShape(this.strategyId, shape);
+    // Existing shape: update the cache before the network round-trip, otherwise the renderer
+    // draws the stale cached copy (e.g. right after a drag ends) until the save returns.
+    const prevIdx = shape.id !== undefined ? this.cache.findIndex((s) => s.id === shape.id) : -1;
+    const prev = prevIdx >= 0 ? this.cache[prevIdx] : null;
+    if (prev) {
+      this.cache[prevIdx] = shape;
+      this.version++;
+      this.notifyChange();
+    }
+
+    let res: { id: number };
+    try {
+      res = await saveShape(this.strategyId, shape);
+    } catch (err) {
+      if (prev) {
+        const idx = this.cache.findIndex((s) => s.id === shape.id);
+        if (idx >= 0) this.cache[idx] = prev;
+        this.notifyChange();
+      }
+      throw err;
+    }
+    this.version++;
+    const saved: Shape = { ...shape, id: res.id };
+    const idx = this.cache.findIndex((s) => s.id === saved.id);
+    if (idx >= 0) {
+      this.cache[idx] = saved;
+    } else {
+      this.cache.push(saved);
+    }
+    this.lastRefreshTimestamp = 0;
+    this.notifyChange();
     return res.id;
   }
 
@@ -105,6 +142,10 @@ export default class ShapeData {
       throw new Error("Strategy ID is not set.");
     }
     await deleteShape(this.strategyId, id);
+    this.version++;
+    this.cache = this.cache.filter((s) => s.id !== id);
+    this.lastRefreshTimestamp = 0;
+    this.notifyChange();
   }
 
   public addOnShapeDataChange(id: string, cb: () => void): void {
@@ -128,6 +169,8 @@ export default class ShapeData {
       return;
     }
 
+    // A poll that started before a local set/remove would overwrite the cache with stale data.
+    const startVersion = this.version;
     try {
       const serverLastChangeTimestamp = await fetchLastChangeTimestamp(this.strategyId);
       if (serverLastChangeTimestamp > this.lastRefreshTimestamp) {
@@ -137,6 +180,7 @@ export default class ShapeData {
           this.fromTs,
           this.toTs
         );
+        if (this.version !== startVersion) return; // local change happened mid-fetch; next poll refetches
         this.cache = shapes;
         this.lastRefreshTimestamp = serverLastChangeTimestamp;
         this.notifyChange();

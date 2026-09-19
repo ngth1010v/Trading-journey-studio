@@ -8,6 +8,7 @@ import type { RGB, RGBA } from '../../../../../shared/type';
 import SourceBar from './source/SourceBar';
 import StrategyBar from './strategy/StrategyBar';
 import SyncBar from './sync/SyncBar';
+import ShapeBar from './shape/ShapeBar';
 
 import HouseIcon      from '../../../../../../assets/icons/house-simple.svg?react';
 import SourceIcon     from '../../../../../../assets/icons/git-branch.svg?react';
@@ -183,10 +184,10 @@ export default function Navigation({ state }: { state: StateData }) {
           </div>
         )}
 
-        {/* 3. SHAPE BAR PLACEHOLDER */}
+        {/* 3. SHAPE BAR */}
         {openChildren[3] && (
           <div className={styles.childWrapper}>
-            <div className={styles.placeholderBox}>ShapeBar (Coming Soon)</div>
+            <ShapeBar state={state} />
           </div>
         )}
 

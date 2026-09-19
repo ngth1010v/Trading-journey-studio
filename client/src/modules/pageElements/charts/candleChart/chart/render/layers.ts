@@ -58,6 +58,16 @@ export function createLayers(r: Renderer): Layer[] {
       render: () => r.trade.unselected.render(),
     },
     {
+      name: "shape",
+      order: 45,
+      prepare: (f) => {
+        if (has(f, "shape.style")) r.shape.updateStyle();
+        if (has(f, "shape", "shape.editor", "size")) r.shape.updateData();
+        if (has(f, "transform", "size")) r.shape.updateTransform();
+      },
+      render: () => r.shape.render(),
+    },
+    {
       name: "crosshair",
       order: 50,
       prepare: (f) => {

@@ -143,13 +143,11 @@ export default class CrosshairEventController implements System {
     const finalPixel = magnetPoint || { x, y };
 
     const converter = this.chart.viewport.converter;
-    const timestamp = converter.pixelToTimestamp(finalPixel.x);
-    const price = converter.pixelToPrice(finalPixel.y);
+    const worldPoint = converter.screenToWorld(finalPixel.x, finalPixel.y);
 
-    const world =
-      timestamp != null && price != null
-        ? { timestamp: Math.round(timestamp), price }
-        : null;
+    const world = worldPoint
+      ? { timestamp: Math.round(worldPoint.ts), price: worldPoint.price }
+      : null;
 
     // Push calculated state into state.crosshair
     this.state.crosshair.set(finalPixel, world, true);
@@ -162,8 +160,9 @@ export default class CrosshairEventController implements System {
     if (!this.chart || !this.state) return null;
 
     const converter = this.chart.viewport.converter;
-    const mouseTs = converter.pixelToTimestamp(mouseX);
-    if (mouseTs == null) return null;
+    const mouseWorld = converter.screenToWorld(mouseX, mouseY);
+    if (mouseWorld == null) return null;
+    const mouseTs = mouseWorld.ts;
 
     const closedBin = this.state.source.candle.getAllClosed();
     const openingCandle = this.state.source.candle.getOpening();
@@ -190,13 +189,16 @@ export default class CrosshairEventController implements System {
      */
     const considerCandleWithNextTime = (candle: Candle, nextTime: number) => {
       const centerTs = (candle.t + nextTime) / 2;
-      const px = converter.timestampToPixel(centerTs);
-      if (px == null) return;
 
-      considerPoint(px, converter.priceToPixel(candle.o));
-      considerPoint(px, converter.priceToPixel(candle.h));
-      considerPoint(px, converter.priceToPixel(candle.l));
-      considerPoint(px, converter.priceToPixel(candle.c));
+      const oPoint = converter.worldToScreen(centerTs, candle.o);
+      const hPoint = converter.worldToScreen(centerTs, candle.h);
+      const lPoint = converter.worldToScreen(centerTs, candle.l);
+      const cPoint = converter.worldToScreen(centerTs, candle.c);
+
+      if (oPoint) considerPoint(oPoint.x, oPoint.y);
+      if (hPoint) considerPoint(hPoint.x, hPoint.y);
+      if (lPoint) considerPoint(lPoint.x, lPoint.y);
+      if (cPoint) considerPoint(cPoint.x, cPoint.y);
     };
 
     // 1. Binary Search inside Closed Candle Data

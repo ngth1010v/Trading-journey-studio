@@ -119,6 +119,50 @@ export default class ViewportConverter {
     return h - ((price - view.fromPrice) / deltaPrice) * h;
   }
 
+  //======================================================================================================
+  // WORLD <-> SCREEN (transform-aware)
+  //======================================================================================================
+
+  /**
+   * Base pixel (pre-transform) for a world point. Renderers draw shape geometry in this space
+   * and let the GPU apply the transform uniform, so panning/zooming needs no CPU rebuild.
+   */
+  public worldToBase(ts: number, price: number): { x: number; y: number } | null {
+    const x = this.timestampToPixel(ts);
+    const y = this.priceToPixel(price);
+    if (x == null || y == null) return null;
+    return { x, y };
+  }
+
+  /**
+   * Screen pixel for a world point, with the current pan/zoom transform applied.
+   */
+  public worldToScreen(ts: number, price: number): { x: number; y: number } | null {
+    const base = this.worldToBase(ts, price);
+    if (!base) return null;
+    const transform = this.getState().viewport.getTransform();
+    return {
+      x: base.x * transform.scaleX + transform.offsetX,
+      y: base.y * transform.scaleY + transform.offsetY,
+    };
+  }
+
+  /**
+   * World point (ts, price) for a screen pixel, with the current pan/zoom transform applied.
+   */
+  public screenToWorld(x: number, y: number): { ts: number; price: number } | null {
+    const transform = this.getState().viewport.getTransform();
+    if (transform.scaleX === 0 || transform.scaleY === 0) return null;
+
+    const baseX = (x - transform.offsetX) / transform.scaleX;
+    const baseY = (y - transform.offsetY) / transform.scaleY;
+
+    const ts = this.pixelToTimestamp(baseX);
+    const price = this.pixelToPrice(baseY);
+    if (ts == null || price == null) return null;
+    return { ts, price };
+  }
+
     //======================================================================================================
     // VIEW & WEIGHTS
     //======================================================================================================

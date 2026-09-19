@@ -1,61 +1,53 @@
 import { createProgram, createUnitQuad } from "../common/glProgram";
-import type { TextGlyphInstance } from "./shapeGeometry";
+import type { RectFillInstance } from "./shapeGeometry";
 
-// Screen-space glyph quads (already positioned + rotated on the CPU), so no transform uniform is needed.
-const TEXT_VS = `#version 300 es
+const RECT_VS = `#version 300 es
 precision highp float;
 
 in vec2 a_position; // unit quad [0,0]..[1,1]
 
-in vec2 a_origin;
-in vec2 a_right;
-in vec2 a_down;
-in vec4 a_uv;
+in vec4 a_bounds; // minX, minY, maxX, maxY (base px)
 in vec4 a_color;
 
 uniform vec2 u_canvasSize;
+uniform vec4 u_transform; // [scaleX, offsetX, scaleY, offsetY]
 
-out vec2 v_uv;
 out vec4 v_color;
 
 void main() {
-    vec2 pos = a_origin + a_position.x * a_right + a_position.y * a_down;
+    vec2 minPx = a_bounds.xy * u_transform.xz + u_transform.yw;
+    vec2 maxPx = a_bounds.zw * u_transform.xz + u_transform.yw;
+
+    vec2 pos = mix(minPx, maxPx, a_position);
     vec2 clip = (pos / u_canvasSize) * 2.0 - 1.0;
     gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
 
-    v_uv = mix(a_uv.xy, a_uv.zw, a_position);
     v_color = a_color;
 }
 `;
 
-const TEXT_FS = `#version 300 es
+const RECT_FS = `#version 300 es
 precision highp float;
 
-in vec2 v_uv;
 in vec4 v_color;
-
-uniform sampler2D u_fontAtlas;
-
 out vec4 fragColor;
 
 void main() {
-    float alpha = texture(u_fontAtlas, v_uv).a; // Roboto_0.png: glyphs in alpha, RGB is white
-    if (alpha < 0.1) discard;
-    fragColor = vec4(v_color.rgb, v_color.a * alpha);
+    fragColor = v_color;
 }
 `;
 
-const FLOATS_PER_INSTANCE = 14;
+const FLOATS_PER_INSTANCE = 8;
 
-export default class ShapeTextRenderer {
+export default class ShapeRectRenderer {
   private gl: WebGL2RenderingContext | null = null;
   private program: WebGLProgram | null = null;
   private vao: WebGLVertexArrayObject | null = null;
   private quadBuffer: WebGLBuffer | null = null;
   private instanceBuffer: WebGLBuffer | null = null;
 
+  private uTransformLoc: WebGLUniformLocation | null = null;
   private uCanvasLoc: WebGLUniformLocation | null = null;
-  private fontTexture: WebGLTexture | null = null;
 
   private instanceData: Float32Array = new Float32Array(0);
   private count = 0;
@@ -76,45 +68,33 @@ export default class ShapeTextRenderer {
     this.gl = null;
   }
 
-  public setFontTexture(texture: WebGLTexture): void {
-    this.fontTexture = texture;
-    if (this.gl && this.program) {
-      this.gl.useProgram(this.program);
-      this.gl.uniform1i(this.gl.getUniformLocation(this.program, "u_fontAtlas"), 0);
-      this.gl.useProgram(null);
-    }
-  }
-
-  public setData(glyphs: TextGlyphInstance[]): void {
-    const data = new Float32Array(glyphs.length * FLOATS_PER_INSTANCE);
+  public setData(rects: RectFillInstance[]): void {
+    const data = new Float32Array(rects.length * FLOATS_PER_INSTANCE);
     let o = 0;
-    for (const g of glyphs) {
-      const c = g.color;
-      data[o++] = g.origin.x; data[o++] = g.origin.y;
-      data[o++] = g.right.x; data[o++] = g.right.y;
-      data[o++] = g.down.x; data[o++] = g.down.y;
-      data[o++] = g.uv.u1; data[o++] = g.uv.v1; data[o++] = g.uv.u2; data[o++] = g.uv.v2;
+    for (const r of rects) {
+      const c = r.color;
+      data[o++] = r.min.x; data[o++] = r.min.y;
+      data[o++] = r.max.x; data[o++] = r.max.y;
       data[o++] = c[0] / 255; data[o++] = c[1] / 255; data[o++] = c[2] / 255; data[o++] = c[3] / 255;
     }
     this.instanceData = data;
-    this.count = glyphs.length;
+    this.count = rects.length;
     this.upload();
   }
 
-  public updateCanvasSize(canvasSize: { w: number; h: number }): void {
+  public updateTransform(transform: { scaleX: number; offsetX: number; scaleY: number; offsetY: number }, canvasSize: { w: number; h: number }): void {
     if (!this.gl || !this.program) return;
     const gl = this.gl;
     gl.useProgram(this.program);
+    if (this.uTransformLoc) gl.uniform4f(this.uTransformLoc, transform.scaleX, transform.offsetX, transform.scaleY, transform.offsetY);
     if (this.uCanvasLoc && canvasSize.w > 0 && canvasSize.h > 0) gl.uniform2f(this.uCanvasLoc, canvasSize.w, canvasSize.h);
     gl.useProgram(null);
   }
 
   public render(): void {
-    if (!this.gl || !this.program || !this.vao || !this.fontTexture || this.count === 0) return;
+    if (!this.gl || !this.program || !this.vao || this.count === 0) return;
     const gl = this.gl;
     gl.useProgram(this.program);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.fontTexture);
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.count);
     gl.bindVertexArray(null);
@@ -131,7 +111,8 @@ export default class ShapeTextRenderer {
     if (!this.gl) return;
     const gl = this.gl;
 
-    this.program = createProgram(gl, TEXT_VS, TEXT_FS);
+    this.program = createProgram(gl, RECT_VS, RECT_FS);
+    this.uTransformLoc = gl.getUniformLocation(this.program, "u_transform");
     this.uCanvasLoc = gl.getUniformLocation(this.program, "u_canvasSize");
 
     this.vao = gl.createVertexArray();
@@ -147,23 +128,17 @@ export default class ShapeTextRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
 
     const stride = FLOATS_PER_INSTANCE * 4;
-    const attrs: [string, number, number][] = [
-      ["a_origin", 2, 0],
-      ["a_right", 2, 8],
-      ["a_down", 2, 16],
-      ["a_uv", 4, 24],
-      ["a_color", 4, 40],
-    ];
-    for (const [name, size, offset] of attrs) {
-      const loc = gl.getAttribLocation(this.program, name);
-      if (loc === -1) continue;
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset);
-      gl.vertexAttribDivisor(loc, 1);
-    }
+    const aBounds = gl.getAttribLocation(this.program, "a_bounds");
+    const aColor = gl.getAttribLocation(this.program, "a_color");
+
+    gl.enableVertexAttribArray(aBounds);
+    gl.vertexAttribPointer(aBounds, 4, gl.FLOAT, false, stride, 0);
+    gl.vertexAttribDivisor(aBounds, 1);
+
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, stride, 16);
+    gl.vertexAttribDivisor(aColor, 1);
 
     gl.bindVertexArray(null);
-
-    if (this.fontTexture) this.setFontTexture(this.fontTexture);
   }
 }

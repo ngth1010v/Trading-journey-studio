@@ -1,0 +1,31 @@
+.toolButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 2px 5px;
+  cursor: pointer;
+  outline: none;
+  border-radius: 2px;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.toolButton:hover:not(:disabled) {
+  opacity: 0.85;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.toolButton:active:not(:disabled) {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.toolButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.toolButtonActive {
+  background-color: rgba(255, 255, 255, 0.15);
+}

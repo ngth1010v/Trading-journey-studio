@@ -108,4 +108,22 @@ export const INPUT_MAP = {
         component: RatioInput,
         props: {options: ["dash", "solid"]}
     },
+
+    shapeLineType: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["solid", "dash", "dot"]}
+    },
+
+    lineAlignX: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["start", "center", "end"]}
+    },
+
+    lineAlignY: {
+        format: "string",
+        component: RatioInput,
+        props: {options: ["above", "on", "below"]}
+    },
 }

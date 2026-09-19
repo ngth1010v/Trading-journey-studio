@@ -15,8 +15,8 @@ export default class ShapeTemplateData {
   private timer: ReturnType<typeof setInterval> | null = null;
   private listeners: Map<string, () => void> = new Map();
 
-  public init(strategyId: number): void {
-    this.setSource(strategyId);
+  public init(strategyId?: number): void {
+    if (strategyId !== undefined) this.setSource(strategyId);
     if (this.timer !== null) {
       clearInterval(this.timer);
     }

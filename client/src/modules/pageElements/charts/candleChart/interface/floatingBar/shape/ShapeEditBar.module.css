@@ -1,0 +1,114 @@
+.typeLabel {
+  font-size: 10px;
+  font-family: monospace;
+  text-transform: capitalize;
+  padding: 0 6px;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  outline: none;
+  border-radius: 2px;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.button:hover {
+  opacity: 0.85;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px;
+}
+
+.applyButton {
+  background: var(--bg-default);
+  color: var(--color-default);
+  padding: 4px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.applyButton:hover {
+  background: var(--bg-hover);
+  color: var(--color-hover);
+}
+
+.tagRow, .templateRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tagRow:hover, .templateRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.templateName {
+  flex: 1;
+}
+
+.templateDelete {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.templateDelete:hover {
+  opacity: 1;
+}
+
+.newTagRow {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.textField {
+  flex: 1;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border-radius: 2px;
+  padding: 2px 4px;
+}
+
+.smallButton {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: inherit;
+  border-radius: 2px;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+
+
+
+
+
+
+.listPopover {
+  border-radius: 4px;
+}
+
+.listPopover {
+  min-width: 160px;
+  max-height: 240px;
+  padding: 4px 0;
+}

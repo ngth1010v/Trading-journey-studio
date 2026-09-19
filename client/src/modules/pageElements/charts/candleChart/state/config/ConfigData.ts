@@ -1,6 +1,7 @@
 import PageElementConfigData from "../../../../../data/pageElement/config/PageElementConfigData.js";
 import type { Viewport } from "../viewport/ViewportData";
 import type { RGBA, RGB } from "../../../../../shared/type";
+import type { ShapeStyleJson, ShapeType } from "../source/shape/shapeType";
 
 const REFLUSH_DURATION = 1000;
 
@@ -95,7 +96,7 @@ export interface Config {
         border?: RGBA;
       };
     };
-    shappeEditor?: {
+    shapeEditor?: {
       size?: number
       color?: RGBA,
       border?:{
@@ -104,8 +105,20 @@ export interface Config {
       }
     }
   };
+  shape?: {
+    visible?: boolean;
+    /** Last style the user applied per shape type; new shapes of that type start with it. */
+    lastStyle?: Partial<Record<ShapeType, ShapeStyleJson>>;
+  };
   floatingBar?: {
     seasonBar?: {
+      enable?: boolean;
+      position?: {
+        x?: number;
+        y?: number;
+      };
+    };
+    shapeEditBar?: {
       enable?: boolean;
       position?: {
         x?: number;
@@ -219,14 +232,17 @@ export default class ConfigData {
             border: [255, 50, 50, 255] as RGBA,
           },
         },
-        shappeEditor: {
-          size: 20,
-          color: [10,10,20,255] as RGBA,
+        shapeEditor: {
+          size: 10,
+          color: [41, 98, 255, 255] as RGBA,
           border:{
             thickness: 1,
             color: [255,255,255,255] as RGBA
           }
         }
+      },
+      shape: {
+        visible: true,
       },
       floatingBar: {
         seasonBar: {
@@ -234,6 +250,13 @@ export default class ConfigData {
           position: {
             x: 30,
             y: 30,
+          },
+        },
+        shapeEditBar: {
+          enable: false,
+          position: {
+            x: 50,
+            y: 90,
           },
         },
       },

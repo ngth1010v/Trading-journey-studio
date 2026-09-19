@@ -2,6 +2,7 @@ import type { SyntheticEvent, MouseEvent, KeyboardEvent } from "react";
 import ViewportEventController from "./viewport/ViewportEventController";
 import CrosshairEventController from "./crosshair/CrosshairEventController";
 import SyncEventController from "./sync/SyncEventController";
+import ShapeEventController from "./shape/ShapeEventController";
 import type StateData from "../../state/StateData";
 import type ChartController from "../ChartController";
 import GlobalEventController from "./GlobalEventController";
@@ -37,14 +38,19 @@ export default class EventController {
   public viewport   : ViewportEventController = new ViewportEventController()
   public crosshair  : CrosshairEventController = new CrosshairEventController()
   public sync       : SyncEventController = new SyncEventController()
+  public shape      : ShapeEventController = new ShapeEventController()
 
   public init(state: StateData, chart: ChartController): void {
+    // shape registers its mouseDown listener before viewport's, so it can disable panning
+    // (ViewportEventController.setEnable) before the pan handler reads `enabled` on the same event.
+    this.shape.init(state, chart)
     this.viewport.init(state, chart)
     this.crosshair.init(state, chart)
     this.sync.init(state, chart)
   }
 
   public destroy() {
+    this.shape.destroy()
     this.viewport.destroy()
     this.crosshair.destroy()
     this.sync.destroy()
@@ -90,6 +96,15 @@ export default class EventController {
    */
   public getCanvasSize(): { w: number; h: number } {
     return { ...this.canvasSize };
+  }
+
+  /**
+   * Sets the CSS cursor on the canvas (tool/hover feedback).
+   */
+  public setCursor(cursor: string): void {
+    if (this.canvas) {
+      this.canvas.style.cursor = cursor;
+    }
   }
 
   /**

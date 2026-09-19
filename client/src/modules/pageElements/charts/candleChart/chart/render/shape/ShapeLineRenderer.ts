@@ -1,293 +1,203 @@
-import { Container, Geometry, Mesh, Shader } from "pixi.js";
-import ChartController from "../../ChartController";
-import StateData from "../../../state/StateData";
+import { createProgram, createUnitQuad } from "../common/glProgram";
+import type { LineInstance } from "./shapeGeometry";
 
-export type RGBA = [number, number, number, number];
+const LINE_VS = `#version 300 es
+precision highp float;
 
-export interface Line {
-  thickness  ?: number;
-  color      ?: RGBA;
-  timestamp1 ?: number;
-  timestamp2 ?: number;
-  price1     ?: number;
-  price2     ?: number;
+in vec2 a_position; // unit quad [0,0]..[1,1]: x = along (0=p0,1=p1), y*2-1 = across sign
+
+in vec2 a_p0;
+in vec2 a_p1;
+in vec2 a_extend;   // (extendBack, extendForward) 0/1
+in vec4 a_color;
+in float a_thickness;
+in float a_lineType;
+
+uniform vec2 u_canvasSize;
+uniform vec4 u_transform; // [scaleX, offsetX, scaleY, offsetY]
+
+out vec4 v_color;
+out float v_lineType;
+out float v_along;
+out float v_across;
+out float v_thickness;
+
+const float EXTEND_PX = 1e5;
+
+void main() {
+    vec2 realS0 = a_p0 * u_transform.xz + u_transform.yw;
+    vec2 s1 = a_p1 * u_transform.xz + u_transform.yw;
+    vec2 s0 = realS0;
+
+    vec2 dir = s1 - s0;
+    float len = length(dir);
+    vec2 nDir = len > 0.0001 ? dir / len : vec2(1.0, 0.0);
+
+    if (a_extend.x > 0.5) s0 -= nDir * EXTEND_PX;
+    if (a_extend.y > 0.5) s1 += nDir * EXTEND_PX;
+
+    vec2 normal = vec2(-nDir.y, nDir.x);
+    float halfW = a_thickness * 0.5 + 1.0; // +1px for AA
+
+    vec2 along = mix(s0, s1, a_position.x);
+    float acrossSign = a_position.y * 2.0 - 1.0;
+    vec2 pos = along + normal * acrossSign * halfW;
+
+    vec2 clip = (pos / u_canvasSize) * 2.0 - 1.0;
+    gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+
+    v_color = a_color;
+    v_lineType = a_lineType;
+    v_along = length(along - realS0);
+    v_across = acrossSign * halfW;
+    v_thickness = a_thickness;
 }
+`;
 
-//======================================================================================================
-// CONSTANT & HELPERS
-//======================================================================================================
-const VERTICES_PER_LINE = 6;
-const LINE_VERTEX_CORNERS: Float32Array = new Float32Array([
-  0, -1,
-  1, -1,
-  1,  1,
-  0, -1,
-  1,  1,
-  0,  1
-]);
+const LINE_FS = `#version 300 es
+precision highp float;
 
-function rgbaToVec4(rgba?: RGBA): [number, number, number, number] {
-  if (!rgba) return [1, 1, 1, 1]; // Default to white if missing
-  return [
-    Math.max(0, Math.min(255, rgba[0])) / 255,
-    Math.max(0, Math.min(255, rgba[1])) / 255,
-    Math.max(0, Math.min(255, rgba[2])) / 255,
-    Math.max(0, Math.min(1, rgba[3] ?? 1))
-  ];
+in vec4 v_color;
+in float v_lineType;
+in float v_along;
+in float v_across;
+in float v_thickness;
+
+out vec4 fragColor;
+
+void main() {
+    float halfW = v_thickness * 0.5;
+    float edge = abs(v_across) - halfW;
+    float alpha = 1.0 - clamp(smoothstep(0.0, 1.0, edge), 0.0, 1.0);
+    if (alpha <= 0.0) discard;
+
+    if (v_lineType > 0.5 && v_lineType < 1.5) {
+        // dash: 6px on, 4px gap
+        float cyc = mod(v_along, 10.0);
+        if (cyc > 6.0) discard;
+    } else if (v_lineType > 1.5) {
+        // dot: round dot every 2*thickness px
+        float period = max(2.0 * v_thickness, 4.0);
+        float dotR = max(v_thickness * 0.5, 1.0);
+        float cyc = mod(v_along, period);
+        float d = length(vec2(cyc - dotR, v_across));
+        if (d > dotR) discard;
+    }
+
+    fragColor = vec4(v_color.rgb, v_color.a * alpha);
 }
+`;
 
-//======================================================================================================
-// CLASS EXPORT
-//======================================================================================================
+const FLOATS_PER_INSTANCE = 12;
+
 export default class ShapeLineRenderer {
-  // Replace `any` with `ChartController` if available in scope
-  private state: StateData | any = null; 
-  private chart: ChartController | any = null; 
+  private gl: WebGL2RenderingContext | null = null;
+  private program: WebGLProgram | null = null;
+  private vao: WebGLVertexArrayObject | null = null;
+  private quadBuffer: WebGLBuffer | null = null;
+  private instanceBuffer: WebGLBuffer | null = null;
 
-  private container: Container;
-  private mesh: Mesh | null = null;
-  private geometry: Geometry | null = null;
-  private shader: Shader;
+  private uTransformLoc: WebGLUniformLocation | null = null;
+  private uCanvasLoc: WebGLUniformLocation | null = null;
 
-  private rebuildGeometry = false;
-  private capacity = 0;
-  
-  // Data buffers
-  private corners = new Float32Array(0);
-  private thicknesses = new Float32Array(0);
-  private colors = new Float32Array(0);
-  private lineStarts = new Float32Array(0);
-  private lineEnds = new Float32Array(0);
+  private instanceData: Float32Array = new Float32Array(0);
+  private count = 0;
 
-  constructor() {
-    this.container = new Container();
-    this.shader = this.buildShader();
-  }
-
-  public init(state: StateData, chart: ChartController): void {
-    this.chart = chart;
-    this.state = state
+  public setGl(gl: WebGL2RenderingContext): void {
+    if (this.gl === gl) return;
+    this.destroy();
+    this.gl = gl;
+    this.initGl();
   }
 
   public destroy(): void {
-    if (this.mesh) {
-      this.mesh.destroy();
-      this.mesh = null;
-    }
-    if (this.geometry) {
-      this.geometry.destroy();
-      this.geometry = null;
-    }
-    this.container.destroy({ children: true });
-    this.chart = null;
+    if (!this.gl) return;
+    if (this.vao) this.gl.deleteVertexArray(this.vao);
+    if (this.quadBuffer) this.gl.deleteBuffer(this.quadBuffer);
+    if (this.instanceBuffer) this.gl.deleteBuffer(this.instanceBuffer);
+    if (this.program) this.gl.deleteProgram(this.program);
+    this.gl = null;
   }
 
-  public addToContainer(parentContainer: any): void {
-    if (this.container && parentContainer) {
-      parentContainer.addChild(this.container);
+  public setData(lines: LineInstance[]): void {
+    const data = new Float32Array(lines.length * FLOATS_PER_INSTANCE);
+    let o = 0;
+    for (const l of lines) {
+      const c = l.color;
+      data[o++] = l.p0.x; data[o++] = l.p0.y;
+      data[o++] = l.p1.x; data[o++] = l.p1.y;
+      data[o++] = l.extendBack ? 1 : 0; data[o++] = l.extendForward ? 1 : 0;
+      data[o++] = c[0] / 255; data[o++] = c[1] / 255; data[o++] = c[2] / 255; data[o++] = c[3] / 255;
+      data[o++] = l.thickness;
+      data[o++] = l.lineType;
     }
+    this.instanceData = data;
+    this.count = lines.length;
+    this.upload();
   }
 
-  public updateData(lines: Line[]): void {
-    if (!this.chart || !lines) return;
-
-    const count = lines.length;
-    if (count === 0) {
-      if (this.mesh) this.mesh.visible = false;
-      return;
-    }
-
-    // Attempting to resolve state via chart reference
-    const view = this.state.config.get()?.viewport;
-    const canvas = this.chart.event?.getCanvasSize();
-
-    if (!view || !canvas || canvas.w <= 0 || canvas.h <= 0) return;
-
-    // 1. Array Pooling / Expansion
-    if (count > this.capacity) {
-      this.capacity = count + 1000;
-      this.corners = new Float32Array(this.capacity * 12);
-      this.thicknesses = new Float32Array(this.capacity * 6);
-      this.colors = new Float32Array(this.capacity * 24);
-      this.lineStarts = new Float32Array(this.capacity * 12);
-      this.lineEnds = new Float32Array(this.capacity * 12);
-      this.rebuildGeometry = true;
-    }
-
-    const deltaTs = view.toTs - view.fromTs;
-    const deltaPrice = view.toPrice - view.fromPrice;
-
-    if (deltaTs === 0 || deltaPrice === 0) return;
-
-    // 2. CPU Base Pixel Conversion
-    for (let i = 0; i < count; i++) {
-      const line = lines[i];
-
-      const t1 = line.timestamp1 ?? 0;
-      const p1 = line.price1 ?? 0;
-      const t2 = line.timestamp2 ?? 0;
-      const p2 = line.price2 ?? 0;
-
-      // Base pixels calculation
-      const startX = ((t1 - view.fromTs) / deltaTs) * canvas.w;
-      const startY = canvas.h - ((p1 - view.fromPrice) / deltaPrice) * canvas.h;
-      const endX = ((t2 - view.fromTs) / deltaTs) * canvas.w;
-      const endY = canvas.h - ((p2 - view.fromPrice) / deltaPrice) * canvas.h;
-
-      const thickness = line.thickness ?? 1.0;
-      const color = rgbaToVec4(line.color);
-
-      const vOffset = i * VERTICES_PER_LINE;
-      const cOffset = i * 12; // 6 vertices * 2 floats
-      const colOffset = i * 24; // 6 vertices * 4 floats
-
-      for (let v = 0; v < VERTICES_PER_LINE; v++) {
-        this.corners[cOffset + v * 2] = LINE_VERTEX_CORNERS[v * 2];
-        this.corners[cOffset + v * 2 + 1] = LINE_VERTEX_CORNERS[v * 2 + 1];
-
-        this.thicknesses[vOffset + v] = thickness;
-
-        this.colors[colOffset + v * 4] = color[0];
-        this.colors[colOffset + v * 4 + 1] = color[1];
-        this.colors[colOffset + v * 4 + 2] = color[2];
-        this.colors[colOffset + v * 4 + 3] = color[3];
-
-        this.lineStarts[cOffset + v * 2] = startX;
-        this.lineStarts[cOffset + v * 2 + 1] = startY;
-
-        this.lineEnds[cOffset + v * 2] = endX;
-        this.lineEnds[cOffset + v * 2 + 1] = endY;
-      }
-    }
-
-    // 3. Update GPU Buffers
-    if (this.rebuildGeometry || !this.geometry) {
-      if (this.geometry) this.geometry.destroy();
-      this.geometry = new Geometry();
-      
-      this.geometry.addAttribute("aCorner", { buffer: this.corners.subarray(0, count * 12), size: 2 });
-      this.geometry.addAttribute("aThickness", { buffer: this.thicknesses.subarray(0, count * 6), size: 1 });
-      this.geometry.addAttribute("aColor", { buffer: this.colors.subarray(0, count * 24), size: 4 });
-      this.geometry.addAttribute("aLineStart", { buffer: this.lineStarts.subarray(0, count * 12), size: 2 });
-      this.geometry.addAttribute("aLineEnd", { buffer: this.lineEnds.subarray(0, count * 12), size: 2 });
-
-      if (this.mesh) {
-        this.container.removeChild(this.mesh);
-        this.mesh.destroy();
-      }
-
-      this.mesh = new Mesh({ geometry: this.geometry, shader: this.shader } as any);
-      this.container.addChild(this.mesh);
-      this.rebuildGeometry = false;
-    } else {
-      const buffers = this.geometry.buffers;
-      if (buffers) {
-        buffers.forEach((b: any) => b.update?.());
-      }
-      if (this.mesh) this.mesh.visible = true;
-    }
-
-    this.render();
-  }
-
-  public updateTransform(): void {
-    if (!this.chart) return;
-
-    const view = this.state.config.get()?.viewport;
-    const transform = this.state.viewport.getTransform();
-    const canvas = this.chart.event?.getCanvasSize();
-
-    if (!view || !canvas || canvas.w <= 0 || canvas.h <= 0) return;
-
-    const deltaTs = view.toTs - view.fromTs;
-    const deltaPrice = view.toPrice - view.fromPrice;
-
-    if (deltaTs === 0 || deltaPrice === 0) return;
-
-    const Mx = 1 / transform.scaleX;
-    const Ax = ((view.fromTs * (1 - transform.scaleX) - transform.offsetX) / (deltaTs * transform.scaleX)) * canvas.w;
-
-    const My = 1 / transform.scaleY;
-    const Ay = canvas.h * (1 - My) - ((view.fromPrice * (1 - transform.scaleY) - transform.offsetY) / (deltaPrice * transform.scaleY)) * canvas.h;
-
-    const shaderAny = this.shader as any;
-    const uniforms = shaderAny.resources?.uLineUniforms?.uniforms;
-    
-    if (uniforms) {
-      uniforms.uPixelWeights = [Mx, Ax, My, Ay];
-    }
-
-    this.render();
+  public updateTransform(transform: { scaleX: number; offsetX: number; scaleY: number; offsetY: number }, canvasSize: { w: number; h: number }): void {
+    if (!this.gl || !this.program) return;
+    const gl = this.gl;
+    gl.useProgram(this.program);
+    if (this.uTransformLoc) gl.uniform4f(this.uTransformLoc, transform.scaleX, transform.offsetX, transform.scaleY, transform.offsetY);
+    if (this.uCanvasLoc && canvasSize.w > 0 && canvasSize.h > 0) gl.uniform2f(this.uCanvasLoc, canvasSize.w, canvasSize.h);
+    gl.useProgram(null);
   }
 
   public render(): void {
-    // Relying on PixiJS auto-render ticker cycle
-    // Add specific canvas/chart request rendering invalidation hooks here if necessary
+    if (!this.gl || !this.program || !this.vao || this.count === 0) return;
+    const gl = this.gl;
+    gl.useProgram(this.program);
+    gl.bindVertexArray(this.vao);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.count);
+    gl.bindVertexArray(null);
   }
 
-  //======================================================================================================
-  // PRIVATE SHADER SETUP
-  //======================================================================================================
-  private buildShader(): Shader {
-    const uLineUniforms = {
-      uProjectionMatrix: { value: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), type: "mat3x3<f32>" },
-      uPixelWeights: { value: new Float32Array([1, 0, 1, 0]), type: "vec4<f32>" }, // Mx, Ax, My, Ay
-    };
+  private upload(): void {
+    if (!this.gl || !this.instanceBuffer) return;
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.instanceData, gl.DYNAMIC_DRAW);
+  }
 
-    const vertexSrc = `
-precision mediump float;
+  private initGl(): void {
+    if (!this.gl) return;
+    const gl = this.gl;
 
-attribute vec2 aCorner;
-attribute float aThickness;
-attribute vec4 aColor;
-attribute vec2 aLineStart;
-attribute vec2 aLineEnd;
+    this.program = createProgram(gl, LINE_VS, LINE_FS);
+    this.uTransformLoc = gl.getUniformLocation(this.program, "u_transform");
+    this.uCanvasLoc = gl.getUniformLocation(this.program, "u_canvasSize");
 
-uniform mat3 uProjectionMatrix;
-uniform vec4 uPixelWeights;
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
 
-varying vec4 vColor;
+    this.quadBuffer = createUnitQuad(gl);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+    const aPos = gl.getAttribLocation(this.program, "a_position");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
-void main(void) {
-  vColor = aColor;
+    this.instanceBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
 
-  float Mx = uPixelWeights.x;
-  float Ax = uPixelWeights.y;
-  float My = uPixelWeights.z;
-  float Ay = uPixelWeights.w;
+    const stride = FLOATS_PER_INSTANCE * 4;
+    const attrs: [string, number, number][] = [
+      ["a_p0", 2, 0],
+      ["a_p1", 2, 8],
+      ["a_extend", 2, 16],
+      ["a_color", 4, 24],
+      ["a_thickness", 1, 40],
+      ["a_lineType", 1, 44],
+    ];
+    for (const [name, size, offset] of attrs) {
+      const loc = gl.getAttribLocation(this.program, name);
+      if (loc === -1) continue;
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset);
+      gl.vertexAttribDivisor(loc, 1);
+    }
 
-  vec2 p1 = vec2(aLineStart.x * Mx + Ax, aLineStart.y * My + Ay);
-  vec2 p2 = vec2(aLineEnd.x * Mx + Ax, aLineEnd.y * My + Ay);
-
-  vec2 dir = p2 - p1;
-  vec2 norm = vec2(-dir.y, dir.x);
-  if (length(norm) > 0.0) norm = normalize(norm);
-
-  vec2 pointOnLine = mix(p1, p2, aCorner.x);
-  vec2 screenPos = pointOnLine + norm * (aCorner.y * aThickness * 0.5);
-
-  vec3 projected = uProjectionMatrix * vec3(screenPos, 1.0);
-  gl_Position = vec4(projected.xy, 0.0, 1.0);
-}
-`;
-
-    const fragmentSrc = `
-precision mediump float;
-varying vec4 vColor;
-
-void main(void) {
-  gl_FragColor = vec4(vColor.rgb * vColor.a, vColor.a);
-}
-`;
-
-    return Shader.from({
-      gl: {
-        vertex: vertexSrc,
-        fragment: fragmentSrc,
-      },
-      resources: {
-        uLineUniforms,
-      },
-    });
+    gl.bindVertexArray(null);
   }
 }

@@ -2,6 +2,8 @@ import type StateData from "../../../state/StateData";
 import type ChartController from "../../ChartController";
 import type { Trade } from "../../../../../../data/chartData/trade/TradeData";
 import type { TradeStyle } from "../../../../../../data/chartData/trade/style/TradeStyleData";
+import { createProgram } from "../common/glProgram";
+import { getFontAtlas, type GlyphInfo } from "../common/FontAtlas";
 
 const RECT_VS = `#version 300 es
 precision highp float;
@@ -100,21 +102,11 @@ uniform sampler2D u_fontAtlas;
 out vec4 fragColor;
 
 void main() {
-    float alpha = texture(u_fontAtlas, v_uv).r;
+    float alpha = texture(u_fontAtlas, v_uv).a; // Roboto_0.png: glyphs in alpha, RGB is white
     if (alpha < 0.1) discard;
     fragColor = vec4(v_textColor, alpha);
 }
 `;
-
-interface GlyphInfo {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  xoffset: number;
-  yoffset: number;
-  xadvance: number;
-}
 
 export default class UnselectedTradeRenderer {
   private state!: StateData;
@@ -174,7 +166,7 @@ export default class UnselectedTradeRenderer {
     if (this.textInstanceBuffer) this.gl.deleteBuffer(this.textInstanceBuffer);
     if (this.textProgram) this.gl.deleteProgram(this.textProgram);
 
-    if (this.fontTexture) this.gl.deleteTexture(this.fontTexture);
+    // fontTexture is owned by the shared FontAtlas cache (one per GL context), not this renderer.
 
     this.gl = null;
   }
@@ -475,22 +467,11 @@ export default class UnselectedTradeRenderer {
     const gl = this.gl;
 
     try {
-      const res = await fetch("/fonts/Roboto/Roboto.fnt");
-      const text = await res.text();
-      this.parseFnt(text);
-
-      const img = new Image();
-      img.src = "/fonts/Roboto/Roboto_0.png";
-      await img.decode();
-
-      this.atlasWidth = img.width;
-      this.atlasHeight = img.height;
-
-      this.fontTexture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, this.fontTexture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      const atlas = await getFontAtlas(gl);
+      this.fontTexture = atlas.texture;
+      this.fontMap = atlas.glyphs;
+      this.atlasWidth = atlas.width;
+      this.atlasHeight = atlas.height;
 
       // Set constant uniform values for font atlas once
       if (this.textProgram) {
@@ -506,48 +487,8 @@ export default class UnselectedTradeRenderer {
     }
   }
 
-  private parseFnt(fntText: string): void {
-    const lines = fntText.split("\n");
-    for (const line of lines) {
-      if (!line.startsWith("char ")) continue;
-      const matches = [...line.matchAll(/(\w+)=(-?\d+)/g)];
-      const data: Record<string, number> = {};
-      for (const m of matches) {
-        data[m[1]] = parseInt(m[2], 10);
-      }
-      if (data.id !== undefined) {
-        this.fontMap.set(data.id, {
-          x: data.x,
-          y: data.y,
-          width: data.width,
-          height: data.height,
-          xoffset: data.xoffset,
-          yoffset: data.yoffset,
-          xadvance: data.xadvance,
-        });
-      }
-    }
-  }
-
   private createProgram(vsSource: string, fsSource: string): WebGLProgram | null {
     if (!this.gl) return null;
-    const gl = this.gl;
-
-    const vs = gl.createShader(gl.VERTEX_SHADER)!;
-    gl.shaderSource(vs, vsSource);
-    gl.compileShader(vs);
-
-    const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
-    gl.shaderSource(fs, fsSource);
-    gl.compileShader(fs);
-
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-
-    gl.deleteShader(vs);
-    gl.deleteShader(fs);
-    return prog;
+    return createProgram(this.gl, vsSource, fsSource);
   }
 }

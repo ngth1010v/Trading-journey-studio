@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import style from "./FloatingBar.module.css";
 import SeasonBar from "./season/SeasonBar";
+import ShapeEditBar from "./shape/ShapeEditBar";
 import DragIcon from "../../../../../../assets/icons/dots-six-vertical.svg?react";
 import ThemeData, { type Theme } from "../../../../../data/theme/ThemeData";
 import type StateData from "../../state/StateData";
@@ -14,12 +15,15 @@ interface FloatingBarWrapperProps {
   floatingBarName: FloatingBarName;
   state: StateData;
   chart: ChartController;
+  /** When provided, overrides the config-driven `enable` flag (e.g. show only while a shape is selected). */
+  visible?: boolean;
 }
 
 function FloatingBarWrapper({
   children,
   floatingBarName,
   state,
+  visible,
 }: FloatingBarWrapperProps) {
   const ID_WRAPPER = `[candleChart][interface][floatingBar][FloatingBarWrapper_${floatingBarName}]`;
 
@@ -186,7 +190,7 @@ function FloatingBarWrapper({
     });
   };
 
-  if (!enabled) return null;
+  if (!(visible ?? enabled)) return null;
 
   const dragIconFill = theme?.button?.normal1?.font
     ? `rgb(${theme.button.normal1.font.join(",")})`
@@ -222,9 +226,19 @@ export default function FloatingBar({
   state,
   chart,
 }: {
-  state: any;
-  chart: any;
+  state: StateData;
+  chart: ChartController;
 }) {
+  const [shapeSelectedId, setShapeSelectedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const id = "[candleChart][interface][floatingBar][FloatingBar] shapeEditor";
+    const update = () => setShapeSelectedId(state.shapeEditor.selectedId);
+    update();
+    state.shapeEditor.addOnChange(id, update);
+    return () => state.shapeEditor.removeOnChange(id);
+  }, [state]);
+
   return (
     <div className={style.FloatingBar}>
       {/* SEASON BAR */}
@@ -234,15 +248,12 @@ export default function FloatingBar({
         )}
       </FloatingBarWrapper>
 
-      {/* SHAPE BAR */}
-      {/* <FloatingBarWrapper floatingBarName="shapeBar" state={state} chart={chart}>
+      {/* SHAPE EDIT BAR */}
+      <FloatingBarWrapper floatingBarName="shapeEditBar" state={state} chart={chart} visible={shapeSelectedId !== null}>
         {(dragButton) => (
-          <div>
-            {dragButton}
-            <span>PLACEHOLDER</span>
-          </div>
+          <ShapeEditBar state={state} chart={chart} dragButton={dragButton} />
         )}
-      </FloatingBarWrapper> */}
+      </FloatingBarWrapper>
 
       {/* TRADE BAR */}
       {/* <FloatingBarWrapper floatingBarName="tradeBar" state={state} chart={chart}>

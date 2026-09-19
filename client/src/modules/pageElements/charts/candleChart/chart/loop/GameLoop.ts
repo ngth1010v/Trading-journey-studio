@@ -24,7 +24,10 @@ export type DirtyKey =
   | "link.crosshair.style"
   | "link.viewport"
   | "trade"
-  | "trade.style";
+  | "trade.style"
+  | "shape"
+  | "shape.style"
+  | "shape.editor";
 
 export interface Frame {
   time: number;

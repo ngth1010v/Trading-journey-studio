@@ -5,6 +5,7 @@ import type ChartController from "../ChartController";
 import SeasonRenderer from "./season/SeasonRenderer";
 import SyncRenderer from "./sync/SyncRenderer";
 import TradeRenderer from "./trade/TradeRenderer";
+import ShapeRenderer from "./shape/ShapeRenderer";
 import type { DirtyKey, Frame } from "../loop/GameLoop";
 import { createLayers, type Layer } from "./layers";
 
@@ -17,6 +18,7 @@ const ALL_KEYS: DirtyKey[] = [
   "crosshair", "crosshair.style",
   "link.crosshair", "link.crosshair.style", "link.viewport",
   "trade", "trade.style",
+  "shape", "shape.style", "shape.editor",
 ];
 
 type Subscription = [
@@ -35,6 +37,7 @@ export default class Renderer {
   public readonly season = new SeasonRenderer();
   public readonly sync = new SyncRenderer();
   public readonly trade = new TradeRenderer();
+  public readonly shape = new ShapeRenderer();
 
   private readonly layers: Layer[] = createLayers(this);
   private unsubscribers: (() => void)[] = [];
@@ -55,6 +58,7 @@ export default class Renderer {
     this.crosshair.init(state, chart);
     this.sync.init(state, chart);
     this.trade.init(state, chart);
+    this.shape.init(state, chart);
 
     const loop = chart.loop;
     loop.draw = this.draw;
@@ -74,9 +78,9 @@ export default class Renderer {
         ["transform"]],
 
       ["config_viewport", config(["viewport"]).add, config(["viewport"]).remove,
-        ["season.data", "candle.closed", "candle.opening", "trade"]],
+        ["season.data", "candle.closed", "candle.opening", "trade", "shape"]],
       ["config_strategy", config(["strategyId"]).add, config(["strategyId"]).remove,
-        ["season.data", "trade"]],
+        ["season.data", "trade", "shape"]],
       ["config_candle_style", config(["style", "candle"]).add, config(["style", "candle"]).remove,
         ["candle.style"]],
       ["config_crosshair_style", config(["style", "crosshair"]).add, config(["style", "crosshair"]).remove,
@@ -85,6 +89,10 @@ export default class Renderer {
         ["link.crosshair.style"]],
       ["config_sync_link_viewport", config(["sync", "viewport"]).add, config(["sync", "viewport"]).remove,
         ["link.viewport"]],
+      ["config_shape", config(["shape"]).add, config(["shape"]).remove,
+        ["shape"]],
+      ["config_shape_editor_style", config(["style", "shapeEditor"]).add, config(["style", "shapeEditor"]).remove,
+        ["shape.style"]],
 
       ["strategy_data",
         (id, cb) => state.source.strategy.addOnStrateryDataChange(id, cb),
@@ -126,6 +134,15 @@ export default class Renderer {
         (id) => state.source.trade.style.removeOnTradeStyleDataChange(id),
         ["trade.style"]],
 
+      ["shape_data",
+        (id, cb) => state.source.shape.addOnShapeDataChange(id, cb),
+        (id) => state.source.shape.removeOnShapeDataChange(id),
+        ["shape"]],
+      ["shape_editor",
+        (id, cb) => state.shapeEditor.addOnChange(id, cb),
+        (id) => state.shapeEditor.removeOnChange(id),
+        ["shape.editor"]],
+
       ["canvas_resize",
         (id, cb) => chart.event.addOnEvent("resize", id, cb),
         (id) => chart.event.removeOnEvent(id),
@@ -161,6 +178,7 @@ export default class Renderer {
     this.crosshair.setGl(gl);
     this.sync.setGl(gl);
     this.trade.setGl(gl);
+    this.shape.setGl(gl);
 
     this.chart?.loop.mark(...ALL_KEYS);
   }
@@ -180,6 +198,7 @@ export default class Renderer {
     this.crosshair.destroy();
     this.sync.destroy();
     this.trade.destroy();
+    this.shape.destroy();
 
     this.gl = null;
     this.chart = null;

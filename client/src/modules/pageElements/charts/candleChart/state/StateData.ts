@@ -4,6 +4,7 @@ import ConfigData from "./config/ConfigData";
 import ChartController from "../chart/ChartController";
 import CrosshairData from "./crosshair/CrosshairData";
 import SyncData from "./sync/SyncData";
+import ShapeEditorData from "./shapeEditor/ShapeEditorData";
 
 const LOAD_OFFSET_RATIO = 1;
 const BASE_ID = "[CandleChart][state][StateData.ts]";
@@ -14,6 +15,7 @@ export default class StateData {
   public config: ConfigData = new ConfigData();
   public crosshair: CrosshairData = new CrosshairData();
   public sync: SyncData = new SyncData();
+  public shapeEditor: ShapeEditorData = new ShapeEditorData();
 
   private needResetViewport = false;
   private loadedCandleAfterSymbolChange = {
@@ -49,6 +51,7 @@ export default class StateData {
     this.viewport.init(this, chart);
     this.source.init();
     this.sync.init();
+    this.shapeEditor.init();
 
     // Khởi tạo các listener IDs
     this.listenerIds.configViewport = this.generateListenerId("viewport");
@@ -80,6 +83,7 @@ export default class StateData {
       if (strategyId !== undefined) {
         this.source.trade.setSource(null, strategyId);
         this.source.shape.setSource(null, strategyId);
+        this.shapeEditor.clearSelection();
       }
     });
 
@@ -89,6 +93,7 @@ export default class StateData {
         this.source.candle.setSource(symbol, null);
         this.source.trade.setSource(symbol, null);
         this.source.shape.setSource(symbol, null);
+        this.shapeEditor.clearSelection();
         this.needResetViewport = true;
         this.loadedCandleAfterSymbolChange = {
           opening: false,
@@ -168,5 +173,6 @@ export default class StateData {
     this.config.destroy();
     this.crosshair.destroy();
     this.sync.destroy();
+    this.shapeEditor.destroy();
   }
 }
